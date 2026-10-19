@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite & React projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, detects orphaned code, and eliminates UI islands into persistent Markdown documents (`docs/frontend-atlas/`).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v1.3.2](https://img.shields.io/badge/Release-v1.3.2-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
+[![Version: v1.4.0](https://img.shields.io/badge/Release-v1.4.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
 [![Frameworks: Next.js | Vite | React](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Vite%20%7C%20React-black.svg)](https://react.dev/)
 [![Styling: Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com/)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
@@ -87,31 +87,33 @@ npx tsx .agent/skills/frontend-audit/scripts/audit.ts --fix-buttons
 
 ## 📸 Screenshot-to-Code: How to Target Any Element From an Image
 
-When a user provides a UI screenshot and asks: *"Please fix this button"*:
+When a user provides a UI screenshot and asks: *"Please fix this button"* or *"Where is this element?"*:
 
-1. **Context Clues**: The AI identifies the **Page or Route context** from the screenshot (e.g. Reseller Wallet, Storefront Hero, Admin Orders).
-2. **Instant Atlas Lookup**: Instead of scanning 200+ files or running slow search commands, the AI reads `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` directly in 0ms to inspect every component mounted by that route.
-3. **Exact Line Pinpointing**: The component inventory (`docs/frontend-atlas/02_COMPONENT_INVENTORY.md`) gives the exact file, line number, and accessibility attributes:
-   ```text
-   Line 45: components/reseller/p2p-topup-modal.tsx -> <button className="btn-primary">
-   ```
+1. **Option A (By Visible Text - Instant 0ms)**: If the screenshot contains readable text (e.g. `"XNIGHT SHOWROOM"`, `"🌸 SAKURA-VEND"`, `"Purchases"`):
+   - The AI reads `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` directly in 0ms.
+   - Instantly finds the exact line: `Line 332: components/public/Dock.tsx -> <span>🔑</span><span>Purchases</span>`.
+2. **Option B (By Route / Screen Structure)**:
+   - The AI identifies the **Page or Route context** from the screenshot (e.g. `/` Storefront, `/admin/orders`, `/portal/reseller`).
+   - The AI reads `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` in 0ms to inspect the 2-level deep component tree (`vending-floor-showcase ➔ [Dock, vending-machines]`).
+3. **Exact Line Pinpointing**: The component inventory (`docs/frontend-atlas/02_COMPONENT_INVENTORY.md`) gives the exact file, line number, and accessibility attributes.
 4. **Collaborative Polish**: Specialized skills like `emil-design-eng` (physics) or `ui-ux-pro-max` (styling) immediately apply edits directly to that file with zero delay.
 
 ---
 
 ## 🧭 What the Engine Produces (`docs/frontend-atlas/`)
 
-Running the audit automatically creates or refreshes 6 clean Markdown files in `docs/frontend-atlas/`:
+Running the audit automatically creates or refreshes 7 clean Markdown files in `docs/frontend-atlas/`:
 
 ```
 your-project/
 └── docs/
     └── frontend-atlas/
-        ├── 01_ROUTES_AND_PANELS_MAP.md     # 🗺️ Every route mapped to page files & components
+        ├── 01_ROUTES_AND_PANELS_MAP.md     # 🗺️ 2-level deep component tree (Parent ➔ [Subcomponents])
         ├── 02_COMPONENT_INVENTORY.md       # 🔘 Buttons (with a11y fast-check), Modals & Surfaces
         ├── 03_DESIGN_TOKENS_AND_COLORS.md  # 🎨 Official tokens vs rogue hex drift & grays
         ├── 04_UI_ISLANDS_AND_DRIFT.md      # 🏝️ UI drift & priority unification checklist
         ├── 05_DEAD_ORPHANED_COMPONENTS.md  # 👻 Unused component punch-list & safe removal guide
+        ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md # 🏷️ Screenshot-to-Code index of all UI text & labels
         └── README.md                       # 📊 High-level statistics and navigation dashboard
 ```
 

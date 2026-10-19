@@ -2,16 +2,18 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.3.2)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.4.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
- * 2. Instant Query Search (--find <query>, --route <route>) for massive codebases
- * 3. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
- * 4. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
- * 5. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
- * 6. Live File Watcher (--watch) for automatic continuous atlas syncing
- * 7. Persistent Markdown Atlas Generation in docs/frontend-atlas/
+ * 2. Instant Query Search (--find <query>, --route <route>) for massive codebases (now with text labels!)
+ * 3. 2-Level Deep Component Tree (Parent ➔ [Subcomponents]) in 01_ROUTES_AND_PANELS_MAP.md
+ * 4. Screenshot-to-Code Visible UI Text & Labels Map (06_VISIBLE_TEXT_AND_LABELS_MAP.md)
+ * 5. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
+ * 6. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
+ * 7. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
+ * 8. Live File Watcher (--watch) for automatic continuous atlas syncing
+ * 9. Persistent Markdown Atlas Generation in docs/frontend-atlas/
  */
 
 const ROOT_DIR = process.cwd();
@@ -39,6 +41,13 @@ interface ProjectStructure {
   customTokens: Set<string>;
 }
 
+interface VisibleLabel {
+  line: number;
+  text: string;
+  type: "Button" | "Heading" | "Badge / Eyebrow" | "Modal Title" | "Aria Label";
+  snippet: string;
+}
+
 interface ComponentAudit {
   filePath: string;
   relativePath: string;
@@ -52,8 +61,14 @@ interface ComponentAudit {
   hardcodedHexes: { line: number; hex: string; snippet: string }[];
   rogueTailwindColors: { line: number; token: string; snippet: string }[];
   typographyUsages: { line: number; fontToken: string; snippet: string }[];
+  visibleLabels: VisibleLabel[];
   hasDirectStyleTag: boolean;
   isExportedComponent: boolean;
+}
+
+interface RouteComponentNode {
+  name: string;
+  children: string[];
 }
 
 interface RouteMapItem {
@@ -62,6 +77,7 @@ interface RouteMapItem {
   pageFile: string;
   layoutFile?: string;
   importedComponents: string[];
+  componentTree: RouteComponentNode[];
 }
 
 // 1. Framework Auto-Discovery
@@ -250,8 +266,30 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const hardcodedHexes: { line: number; hex: string; snippet: string }[] = [];
   const rogueTailwindColors: { line: number; token: string; snippet: string }[] = [];
   const typographyUsages: { line: number; fontToken: string; snippet: string }[] = [];
+  const visibleLabels: VisibleLabel[] = [];
+  const seenLabels = new Set<string>();
   let hasDirectStyleTag = false;
   let isExportedComponent = false;
+
+  function addLabel(line: number, text: string, type: VisibleLabel["type"], snippet: string) {
+    const cleanText = text
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\{[^}]+\}/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleanText || cleanText.length < 2 || cleanText.length > 70) return;
+    if (/^[()=><{}]+$/.test(cleanText)) return;
+    const key = `${type}:${cleanText.toLowerCase()}:${line}`;
+    if (!seenLabels.has(key)) {
+      seenLabels.add(key);
+      visibleLabels.push({
+        line,
+        text: cleanText,
+        type,
+        snippet: snippet.slice(0, 70),
+      });
+    }
+  }
 
   const compMatch = content.match(/(?:export\s+default\s+function|export\s+function|function|const)\s+([A-Z][a-zA-Z0-9_]*)/g);
   if (compMatch) {
@@ -298,6 +336,11 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
         missingAria,
         missingType,
       });
+
+      const btnInner = block.match(/<button[^>]*>([\s\S]*?)<\/button>/i);
+      if (btnInner && btnInner[1]) {
+        addLabel(lineNum, btnInner[1], "Button", snippetContent);
+      }
     }
 
     if (/<Button\b/.test(line)) {
@@ -308,6 +351,39 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
         snippet: trimmed.slice(0, 80),
         variant: variantMatch ? variantMatch[1] : "default",
       });
+
+      const btnInner = block.match(/<Button[^>]*>([\s\S]*?)<\/Button>/i);
+      if (btnInner && btnInner[1]) {
+        addLabel(lineNum, btnInner[1], "Button", trimmed);
+      }
+    }
+
+    // Accessible Names & Titles
+    const ariaMatch = line.match(/(?:aria-label|title)=["']([^"']{2,60})["']/);
+    if (ariaMatch && ariaMatch[1]) {
+      addLabel(lineNum, ariaMatch[1], "Aria Label", trimmed);
+    }
+
+    // Headings (h1 - h4)
+    const headingMatch = line.match(/<(h[1-4])[^>]*>([\s\S]*?)<\/\1>/i);
+    if (headingMatch && headingMatch[2]) {
+      addLabel(lineNum, headingMatch[2], "Heading", trimmed);
+    }
+
+    // Dialog / Modal / Drawer Titles
+    const modalTitleMatch = line.match(/<(?:DialogTitle|ModalTitle|DrawerTitle)[^>]*>([\s\S]*?)<\/(?:DialogTitle|ModalTitle|DrawerTitle)>/i);
+    if (modalTitleMatch && modalTitleMatch[1]) {
+      addLabel(lineNum, modalTitleMatch[1], "Modal Title", trimmed);
+    }
+
+    // Badges & Prominent Spans (eyebrows / brand marks)
+    const badgeMatch = line.match(/<(?:Badge)[^>]*>([\s\S]*?)<\/Badge>/i);
+    if (badgeMatch && badgeMatch[1]) {
+      addLabel(lineNum, badgeMatch[1], "Badge / Eyebrow", trimmed);
+    }
+    const spanBadgeMatch = line.match(/<span[^>]*class(?:Name)?=["'][^"']*(?:tracking-widest|uppercase|font-mono|rounded-full)[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+    if (spanBadgeMatch && spanBadgeMatch[1]) {
+      addLabel(lineNum, spanBadgeMatch[1], "Badge / Eyebrow", trimmed);
     }
 
     let cardMatch;
@@ -369,6 +445,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     hardcodedHexes,
     rogueTailwindColors,
     typographyUsages,
+    visibleLabels,
     hasDirectStyleTag,
     isExportedComponent,
   };
@@ -435,12 +512,45 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
       layoutFile = path.relative(ROOT_DIR, layoutPath).replace(/\\/g, "/");
     }
 
+    const componentTree: RouteComponentNode[] = [];
+    page.imports.forEach(imp => {
+      const cleanName = imp.replace(/@\/(components|src\/components)\//, "").replace(/^\.\//, "").replace(/^\.\.\//, "");
+      const baseName = path.basename(cleanName).replace(/\.[^/.]+$/, "");
+
+      const matchingAudit = audits.find(a => {
+        const normRel = a.relativePath.replace(/\\/g, "/");
+        return (
+          normRel.endsWith(`components/${cleanName}.tsx`) ||
+          normRel.endsWith(`components/${cleanName}.ts`) ||
+          normRel.endsWith(`components/${cleanName}.jsx`) ||
+          normRel.endsWith(`components/${cleanName}.js`) ||
+          normRel.endsWith(`components/${cleanName}/index.tsx`) ||
+          normRel.endsWith(`/${cleanName}.tsx`) ||
+          path.basename(a.relativePath).replace(/\.[^/.]+$/, "") === baseName
+        );
+      });
+
+      let children: string[] = [];
+      if (matchingAudit && matchingAudit.imports.length > 0) {
+        children = matchingAudit.imports
+          .map(c => path.basename(c).replace(/\.[^/.]+$/, ""))
+          .filter(c => !["ui", "button", "theme-toggle", "clsx", "lucide-react", "tailwind-merge", "utils"].includes(c.toLowerCase()) && c !== baseName);
+        children = Array.from(new Set(children)).slice(0, 4);
+      }
+
+      componentTree.push({
+        name: cleanName,
+        children,
+      });
+    });
+
     routes.push({
       route,
       zone: page.zone,
       pageFile: page.relativePath,
       layoutFile,
       importedComponents: page.imports,
+      componentTree,
     });
   }
 
@@ -459,6 +569,10 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
         zone: "Root Application",
         pageFile: rootComponent.relativePath,
         importedComponents: rootComponent.imports,
+        componentTree: rootComponent.imports.map(c => ({
+          name: c.replace(/@\/(components|src\/components)\//, "").replace(/^\.\//, ""),
+          children: [],
+        })),
       });
     }
   }
@@ -550,6 +664,32 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     });
     console.log();
   }
+
+  // Search Visible UI Text & Labels
+  const matchingLabels: { file: string; line: number; text: string; type: string }[] = [];
+  audits.forEach(a => {
+    a.visibleLabels.forEach(vl => {
+      if (vl.text.toLowerCase().includes(q)) {
+        matchingLabels.push({
+          file: a.relativePath,
+          line: vl.line,
+          text: vl.text,
+          type: vl.type,
+        });
+      }
+    });
+  });
+
+  if (matchingLabels.length > 0) {
+    console.log(`🏷️ Matching Visible UI Text & Labels (${matchingLabels.length}):`);
+    matchingLabels.slice(0, 10).forEach(l => {
+      console.log(`   - [${l.type}] "${l.text}" ➡️ ${l.file}:${l.line}`);
+    });
+    if (matchingLabels.length > 10) {
+      console.log(`     (+${matchingLabels.length - 10} more matches in 06_VISIBLE_TEXT_AND_LABELS_MAP.md)`);
+    }
+    console.log();
+  }
 }
 
 // 9. Main Runner
@@ -598,7 +738,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.3.2)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.4.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (deadComponents.length > 0) {
@@ -614,6 +754,7 @@ export function runUniversalFrontendAudit() {
   writeDesignTokensAudit(audits, structure);
   writeUIIslandsAudit(audits, deadComponents);
   writeDeadComponentsLedger(deadComponents);
+  writeVisibleLabelsMap(audits);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents);
 
   console.log(`✨ Universal Frontend Atlas written to: ${path.relative(ROOT_DIR, OUTPUT_DIR)}`);
@@ -656,8 +797,13 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
     zoneRoutes.forEach(r => {
       const layoutStr = r.layoutFile ? makeFileLink(r.layoutFile) : `_Inherited / N/A_`;
       const pageLink = makeFileLink(r.pageFile);
-      const importsStr = r.importedComponents.length > 0
-        ? r.importedComponents.map(c => `\`${c.replace(/@\/(components|src\/components)\//, "")}\``).join(" • ")
+      const importsStr = r.componentTree && r.componentTree.length > 0
+        ? r.componentTree.map(node => {
+            if (node.children.length > 0) {
+              return `\`${node.name}\` ➔ [${node.children.map(c => `\`${c}\``).join(", ")}]`;
+            }
+            return `\`${node.name}\``;
+          }).join(" • ")
         : `_None (Direct UI)_`;
 
       md += `| \`${r.route}\` | ${pageLink} | ${layoutStr} | ${importsStr} |\n`;
@@ -883,11 +1029,50 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](./05_DEAD_ORPHANED_COMPONENTS.md)**\n`;
   md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
 
+  md += `6. **[06_VISIBLE_TEXT_AND_LABELS_MAP.md](./06_VISIBLE_TEXT_AND_LABELS_MAP.md)**\n`;
+  md += `   - Master index of buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.\n\n`;
+
   md += `## 📦 How to Install / Update this Skill\n\n`;
   md += `To install or update to the latest version in any project:\n\n`;
   md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex\`\n`;
   md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash\`\n`;
   md += `- **GitHub Repository**: [Eurie92/frontend-audit-skill](https://github.com/Eurie92/frontend-audit-skill)\n\n`;
+
+  fs.writeFileSync(filePath, md);
+}
+
+function writeVisibleLabelsMap(audits: ComponentAudit[]) {
+  const filePath = path.join(OUTPUT_DIR, "06_VISIBLE_TEXT_AND_LABELS_MAP.md");
+  let md = `# 🏷️ Visible Text & UI Labels Map\n\n`;
+  md += `> Comprehensive index of visible buttons, headings, badges, and accessible labels across all panels.\n`;
+  md += `> 💡 **Screenshot-to-Code**: When matching a UI element from a screenshot, find the visible text label here to locate the exact component file and line in 0ms.\n\n`;
+
+  const allLabels: { zone: string; file: string; line: number; text: string; type: string; snippet: string }[] = [];
+  audits.forEach(a => {
+    a.visibleLabels.forEach(vl => {
+      allLabels.push({
+        zone: a.zone,
+        file: a.relativePath,
+        line: vl.line,
+        text: vl.text,
+        type: vl.type,
+        snippet: vl.snippet,
+      });
+    });
+  });
+
+  allLabels.sort((a, b) => a.text.localeCompare(b.text));
+
+  md += `## 📋 Total Indexed UI Labels: **${allLabels.length}**\n\n`;
+  md += `| Zone | Text Label | Type | File & Line | Code Snippet |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+
+  allLabels.forEach(l => {
+    const fileLink = makeFileLink(l.file, l.line, `${l.file}:${l.line}`);
+    const cleanSnippet = escapeMarkdownSnippet(l.snippet, 45);
+    const cleanLabel = escapeMarkdownSnippet(l.text, 40);
+    md += `| ${l.zone} | \`${cleanLabel}\` | ${l.type} | ${fileLink} | \`${cleanSnippet}\` |\n`;
+  });
 
   fs.writeFileSync(filePath, md);
 }
