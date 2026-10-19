@@ -29,20 +29,19 @@ allowed-tools:
 
 ---
 
-## 🚀 How to Execute the Audit
+## 🚀 How to Locate Components (Sub-Second 0ms Lookup)
 
-When `/frontend-audit` is called:
-1. Run the audit script immediately:
-   ```bash
-   # If npm script is present:
-   npm run audit:frontend
-   
-   # Or directly from the skill:
-   npx tsx .agent/skills/frontend-audit/scripts/audit.ts
-   
-   # Query specific buttons/routes without loading entire atlas:
-   npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find "Button"
-   ```
+When locating a UI component, button, or route (especially from screenshots):
+1. **DO NOT run a script.** The atlas is already compiled in `docs/frontend-atlas/`.
+2. Open `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` directly via file viewing (`view_file`).
+3. Find the Route corresponding to the screen (e.g. `/` for landing, `/admin/*`, `/portal/*`).
+4. In the `Key Imported Components` column, locate the exact component (e.g. `public-navbar`, `storefront-hero`).
+5. Open the target component file directly. Done in 0ms without running any commands!
+
+## 🔄 When to Run the Audit Script
+Run the audit script (`npm run audit:frontend` or `/frontend-audit`) **ONLY**:
+1. When the user explicitly types `/frontend-audit`.
+2. After finishing modifications to frontend code, to keep the atlas in sync.
 2. Report the summary statistics:
    - Framework architecture detected (e.g. Next.js App Router, Vite React SPA)
    - Total frontend files and active routes
