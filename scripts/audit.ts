@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.3.0)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.3.1)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
@@ -598,7 +598,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.3.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.3.1)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (deadComponents.length > 0) {
