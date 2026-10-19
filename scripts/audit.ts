@@ -2,20 +2,27 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine
+ * Universal Frontend Atlas & Design System Audit Engine (v1.2.0)
  * 
- * Works out-of-the-box on ANY Next.js / Vite / React / Tailwind project:
- * 1. Auto-discovers project routing (App Router, Pages Router, Vite SPA, src/)
- * 2. Scans TypeScript & JavaScript components (.tsx, .jsx, .ts, .js)
- * 3. Dynamically groups routes and components into logical business panels
- * 4. Dynamically extracts Tailwind tokens from tailwind.config.*
- * 5. Audits UI components: Buttons (<Button> vs raw <button>), Cards, Modals, Forms
- * 6. Pinpoints rogue hardcoded hex colors and divergent color utilities
- * 7. Generates persistent, highly navigable Markdown Atlas files in docs/frontend-atlas/
+ * Features:
+ * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
+ * 2. Instant Query Search (--find <query>, --route <route>) for massive codebases
+ * 3. Dead / Orphaned Component Finder (Finds un-imported components)
+ * 4. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
+ * 5. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
+ * 6. Persistent Markdown Atlas Generation in docs/frontend-atlas/
  */
 
 const ROOT_DIR = process.cwd();
 const OUTPUT_DIR = path.join(ROOT_DIR, "docs", "frontend-atlas");
+
+// Parse CLI Flags
+const ARGS = process.argv.slice(2);
+const FIND_QUERY = ARGS.includes("--find") ? ARGS[ARGS.indexOf("--find") + 1] : undefined;
+const ROUTE_QUERY = ARGS.includes("--route") ? ARGS[ARGS.indexOf("--route") + 1] : undefined;
+const SHOULD_FIX_BUTTONS = ARGS.includes("--fix-buttons");
+const SHOW_DEAD_ONLY = ARGS.includes("--dead");
+const SHOW_A11Y_ONLY = ARGS.includes("--a11y");
 
 interface ProjectStructure {
   framework: "Next.js (App Router)" | "Next.js (Pages Router)" | "Vite / React SPA" | "Generic React";
@@ -36,7 +43,7 @@ interface ComponentAudit {
   zone: string;
   componentNames: string[];
   imports: string[];
-  rawButtons: { line: number; snippet: string; className?: string }[];
+  rawButtons: { line: number; snippet: string; className?: string; missingAria?: boolean; missingType?: boolean }[];
   uiButtons: { line: number; snippet: string; variant?: string }[];
   cardsAndSurfaces: { line: number; snippet: string; classes: string }[];
   modalsAndDialogs: { line: number; snippet: string }[];
@@ -44,6 +51,7 @@ interface ComponentAudit {
   rogueTailwindColors: { line: number; token: string; snippet: string }[];
   typographyUsages: { line: number; fontToken: string; snippet: string }[];
   hasDirectStyleTag: boolean;
+  isExportedComponent: boolean;
 }
 
 interface RouteMapItem {
@@ -54,7 +62,7 @@ interface RouteMapItem {
   importedComponents: string[];
 }
 
-// 1. Project Structure Auto-Discovery
+// 1. Framework Auto-Discovery
 function detectProjectStructure(): ProjectStructure {
   const structure: ProjectStructure = {
     framework: "Generic React",
@@ -63,12 +71,10 @@ function detectProjectStructure(): ProjectStructure {
     customTokens: new Set<string>(),
   };
 
-  // Detect src directory
   if (fs.existsSync(path.join(ROOT_DIR, "src"))) {
     structure.srcDir = path.join(ROOT_DIR, "src");
   }
 
-  // Detect App Router
   if (fs.existsSync(path.join(ROOT_DIR, "app"))) {
     structure.hasAppRouter = true;
     structure.appDir = path.join(ROOT_DIR, "app");
@@ -79,7 +85,6 @@ function detectProjectStructure(): ProjectStructure {
     structure.framework = "Next.js (App Router)";
   }
 
-  // Detect Pages Router
   if (fs.existsSync(path.join(ROOT_DIR, "pages"))) {
     structure.hasPagesRouter = true;
     structure.pagesDir = path.join(ROOT_DIR, "pages");
@@ -90,21 +95,18 @@ function detectProjectStructure(): ProjectStructure {
     if (!structure.hasAppRouter) structure.framework = "Next.js (Pages Router)";
   }
 
-  // Detect Vite
   if (!structure.hasAppRouter && !structure.hasPagesRouter) {
     if (fs.existsSync(path.join(ROOT_DIR, "vite.config.js")) || fs.existsSync(path.join(ROOT_DIR, "vite.config.ts"))) {
       structure.framework = "Vite / React SPA";
     }
   }
 
-  // Detect Components
   if (fs.existsSync(path.join(ROOT_DIR, "components"))) {
     structure.componentsDir = path.join(ROOT_DIR, "components");
   } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "components"))) {
     structure.componentsDir = path.join(structure.srcDir, "components");
   }
 
-  // Detect UI Primitives
   if (structure.componentsDir) {
     const uiPath = path.join(structure.componentsDir, "ui");
     if (fs.existsSync(uiPath)) {
@@ -114,14 +116,7 @@ function detectProjectStructure(): ProjectStructure {
     structure.uiPrimitivesDir = path.join(structure.srcDir, "ui");
   }
 
-  // Detect Tailwind Config & Extract Custom Color Tokens
-  const configFiles = [
-    "tailwind.config.ts",
-    "tailwind.config.js",
-    "tailwind.config.mjs",
-    "tailwind.config.cjs",
-  ];
-
+  const configFiles = ["tailwind.config.ts", "tailwind.config.js", "tailwind.config.mjs", "tailwind.config.cjs"];
   for (const cf of configFiles) {
     const fullPath = path.join(ROOT_DIR, cf);
     if (fs.existsSync(fullPath)) {
@@ -144,16 +139,14 @@ function detectProjectStructure(): ProjectStructure {
   return structure;
 }
 
-// 2. Dynamic Zone / Business Panel Detector
+// 2. Dynamic Zone Categorization
 function determineZone(relPath: string, structure: ProjectStructure): string {
   const norm = relPath.replace(/\\/g, "/");
 
-  // Check UI primitives
   if (norm.includes("components/ui") || norm.includes("/ui/")) {
     return "Shared UI Primitives";
   }
 
-  // Next.js App Router dynamic zones
   if (norm.startsWith("app/") || norm.startsWith("src/app/")) {
     const subPath = norm.replace(/^(src\/)?app\//, "");
     const segments = subPath.split("/");
@@ -176,7 +169,6 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
     return `${first.charAt(0).toUpperCase() + first.slice(1)} Section`;
   }
 
-  // Components dynamic zones
   if (norm.startsWith("components/") || norm.startsWith("src/components/")) {
     const subPath = norm.replace(/^(src\/)?components\//, "");
     const segments = subPath.split("/");
@@ -192,12 +184,9 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
     return `${first.charAt(0).toUpperCase() + first.slice(1)} Components`;
   }
 
-  // Vite / General SPA structure
   if (norm.startsWith("src/")) {
     const sub = norm.replace(/^src\//, "");
-    if (!sub.includes("/")) {
-      return "Root Application (SPA)";
-    }
+    if (!sub.includes("/")) return "Root Application (SPA)";
     const seg = sub.split("/")[0];
     return `${seg.charAt(0).toUpperCase() + seg.slice(1)} Module`;
   }
@@ -205,7 +194,7 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
   return "Core Platform";
 }
 
-// 3. File Scanner Helper (.tsx, .jsx, .ts, .js)
+// 3. Scan Files (.tsx, .jsx, .ts, .js)
 function getFiles(dir: string, fileList: string[] = []): string[] {
   if (!fs.existsSync(dir)) return fileList;
   const items = fs.readdirSync(dir);
@@ -233,7 +222,6 @@ function getFiles(dir: string, fileList: string[] = []): string[] {
   return fileList;
 }
 
-// Approved Common Neutrals & Theme Hexes
 const APPROVED_HEXES = new Set([
   "#ffffff", "#000000", "#f3ede3", "#07080b", "#0b0c10", "#10b981", "#38bdf8", "#f59e0b", "#cbd5e1"
 ]);
@@ -244,7 +232,7 @@ const CARD_SURFACE_REGEX = /className=["'`]([^"'`]*(?:bg-(?:void|slab|surface|ca
 const MODAL_REGEX = /<(?:Dialog|Modal|Drawer|DrawerContent|DialogContent)\b|<div[^>]*role=["']dialog["']/g;
 const TYPOGRAPHY_REGEX = /\b(font-mono|font-sans|font-geist|font-jetbrains|text-(?:xs|sm|base|lg|xl|2xl|3xl|4xl|5xl))\b/g;
 
-// 4. File-Level Audit
+// 4. File-Level Audit with a11y & Export checks
 function auditFile(filePath: string, structure: ProjectStructure): ComponentAudit {
   const content = fs.readFileSync(filePath, "utf-8");
   const lines = content.split("\n");
@@ -253,7 +241,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
 
   const componentNames: string[] = [];
   const imports: string[] = [];
-  const rawButtons: { line: number; snippet: string; className?: string }[] = [];
+  const rawButtons: { line: number; snippet: string; className?: string; missingAria?: boolean; missingType?: boolean }[] = [];
   const uiButtons: { line: number; snippet: string; variant?: string }[] = [];
   const cardsAndSurfaces: { line: number; snippet: string; classes: string }[] = [];
   const modalsAndDialogs: { line: number; snippet: string }[] = [];
@@ -261,17 +249,18 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const rogueTailwindColors: { line: number; token: string; snippet: string }[] = [];
   const typographyUsages: { line: number; fontToken: string; snippet: string }[] = [];
   let hasDirectStyleTag = false;
+  let isExportedComponent = false;
 
-  // Extract component names
   const compMatch = content.match(/(?:export\s+default\s+function|export\s+function|function|const)\s+([A-Z][a-zA-Z0-9_]*)/g);
   if (compMatch) {
+    isExportedComponent = true;
     compMatch.forEach(m => {
       const name = m.split(/\s+/).pop();
       if (name && !componentNames.includes(name)) componentNames.push(name);
     });
   }
 
-  // Extract component imports
+  // Extract imports (local and alias)
   const importMatches = content.match(/from\s+["'](@\/components\/[^"']+|\.\/[^"']+|\.\.\/[^"']+)["']/g);
   if (importMatches) {
     importMatches.forEach(m => {
@@ -280,21 +269,31 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     });
   }
 
-  // Line-by-line inspection
   lines.forEach((line, idx) => {
     const lineNum = idx + 1;
     const trimmed = line.trim();
 
     if (trimmed.includes("style={{")) hasDirectStyleTag = true;
 
-    // Multiline-aware Button Tag Catchers:
+    // Multiline-aware Button Tag Catchers + a11y Fast-Check
     if (/<button\b/i.test(line)) {
       const block = lines.slice(idx, idx + 4).join(" ");
       const classMatch = block.match(/className=["'`]([^"'`]+)["'`]/);
+      
+      // Accessibility checks
+      const hasType = /\btype=["'](button|submit|reset)["']/.test(block);
+      const hasAria = /\b(aria-label|aria-labelledby|title)=["']/.test(block);
+      // If button has no visible text inside tag or next line (e.g. icon button)
+      const hasDirectText = />\s*[^<{\s]+/.test(block);
+      const missingAria = !hasAria && !hasDirectText;
+      const missingType = !hasType;
+
       rawButtons.push({
         line: lineNum,
         snippet: trimmed.slice(0, 80),
         className: classMatch ? classMatch[1].slice(0, 60) : undefined,
+        missingAria,
+        missingType,
       });
     }
 
@@ -308,7 +307,6 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       });
     }
 
-    // Cards / Surfaces
     let cardMatch;
     CARD_SURFACE_REGEX.lastIndex = 0;
     while ((cardMatch = CARD_SURFACE_REGEX.exec(line)) !== null) {
@@ -319,14 +317,12 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       });
     }
 
-    // Modals
     if (MODAL_REGEX.test(line) || trimmed.includes("Modal") || trimmed.includes("Drawer")) {
       if (/<(?:Dialog|Modal|Drawer|DialogContent)/.test(line) || /role=["']dialog["']/.test(line)) {
         modalsAndDialogs.push({ line: lineNum, snippet: trimmed.slice(0, 80) });
       }
     }
 
-    // Hex colors
     let hexMatch;
     HEX_REGEX.lastIndex = 0;
     while ((hexMatch = HEX_REGEX.exec(line)) !== null) {
@@ -336,7 +332,6 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       }
     }
 
-    // Rogue Tailwind colors
     let rogueMatch;
     ROGUE_COLOR_REGEX.lastIndex = 0;
     while ((rogueMatch = ROGUE_COLOR_REGEX.exec(line)) !== null) {
@@ -347,7 +342,6 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       });
     }
 
-    // Typography
     let typeMatch;
     TYPOGRAPHY_REGEX.lastIndex = 0;
     while ((typeMatch = TYPOGRAPHY_REGEX.exec(line)) !== null) {
@@ -373,10 +367,47 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     rogueTailwindColors,
     typographyUsages,
     hasDirectStyleTag,
+    isExportedComponent,
   };
 }
 
-// 5. Dynamic Route Builder
+// 5. Dead / Orphaned Component Finder
+function findDeadComponents(audits: ComponentAudit[]): ComponentAudit[] {
+  const componentFiles = audits.filter(a =>
+    (a.relativePath.includes("components/") || a.relativePath.includes("src/components/")) &&
+    !a.relativePath.includes("components/ui") &&
+    !a.relativePath.includes("/ui/") &&
+    !a.relativePath.endsWith("index.ts") &&
+    !a.relativePath.endsWith("index.tsx")
+  );
+
+  const allImportStrings = new Set<string>();
+  audits.forEach(a => {
+    a.imports.forEach(imp => allImportStrings.add(imp));
+  });
+
+  const dead: ComponentAudit[] = [];
+
+  componentFiles.forEach(cf => {
+    const baseNameNoExt = path.basename(cf.relativePath).replace(/\.[^/.]+$/, "");
+    let isImported = false;
+
+    for (const imp of allImportStrings) {
+      if (imp.includes(baseNameNoExt)) {
+        isImported = true;
+        break;
+      }
+    }
+
+    if (!isImported) {
+      dead.push(cf);
+    }
+  });
+
+  return dead;
+}
+
+// 6. Dynamic Route Builder
 function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
   const routes: RouteMapItem[] = [];
   const pageFiles = audits.filter(a =>
@@ -410,7 +441,6 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
     });
   }
 
-  // If no App/Pages router found (e.g. Vite SPA), detect root App component
   if (routes.length === 0) {
     const rootComponent = audits.find(a =>
       a.relativePath.endsWith("App.jsx") ||
@@ -433,23 +463,95 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
   return routes.sort((a, b) => a.route.localeCompare(b.route));
 }
 
-// 6. Markdown Generation
-export function runUniversalFrontendAudit() {
-  console.log("🌐 Initializing Universal Frontend Atlas Engine...");
+// 7. Automated Codemod (--fix-buttons)
+function executeButtonCodemod(audits: ComponentAudit[]) {
+  console.log("🛠️ Running Automated Button Codemod (--fix-buttons)...");
+  let modifiedFilesCount = 0;
+  let transformedButtonsCount = 0;
 
-  const structure = detectProjectStructure();
-  console.log(`📦 Framework Auto-Discovery:`);
-  console.log(`   - Architecture: ${structure.framework}`);
-  console.log(`   - App Router: ${structure.hasAppRouter ? "✅ Detected (" + structure.appDir + ")" : "❌ Not found"}`);
-  console.log(`   - Pages Router: ${structure.hasPagesRouter ? "✅ Detected (" + structure.pagesDir + ")" : "❌ Not found"}`);
-  console.log(`   - Src Root: ${structure.srcDir ? "✅ Detected (" + structure.srcDir + ")" : "❌ Not found"}`);
-  console.log(`   - Components: ${structure.componentsDir ? "✅ Detected (" + structure.componentsDir + ")" : "❌ Not found"}`);
-  console.log(`   - UI Primitives: ${structure.uiPrimitivesDir ? "✅ Detected (" + structure.uiPrimitivesDir + ")" : "❌ Not found"}`);
-  console.log(`   - Tailwind Config: ${structure.tailwindConfigPath ? "✅ Detected" : "❌ Not found"}`);
+  audits.forEach(a => {
+    if (a.rawButtons.length === 0 || a.zone === "Shared UI Primitives") return;
 
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    let content = fs.readFileSync(a.filePath, "utf-8");
+    let fileChanged = false;
+
+    // Check if Button is already imported
+    const hasButtonImport = /import\s+.*\{?.*Button.*\}?\s+from\s+["']@\/components\/ui\/button["']/.test(content);
+
+    // Replace <button with <Button and </button> with </Button>
+    const newContent = content
+      .replace(/<button\b/g, () => {
+        transformedButtonsCount++;
+        fileChanged = true;
+        return "<Button";
+      })
+      .replace(/<\/button>/g, "</Button>");
+
+    if (fileChanged) {
+      let finalContent = newContent;
+      if (!hasButtonImport) {
+        finalContent = `import { Button } from "@/components/ui/button";\n` + newContent;
+      }
+      fs.writeFileSync(a.filePath, finalContent, "utf-8");
+      modifiedFilesCount++;
+      console.log(`  ✅ Migrated buttons in: ${a.relativePath}`);
+    }
+  });
+
+  console.log(`🎉 Codemod complete: Converted ${transformedButtonsCount} buttons across ${modifiedFilesCount} files.`);
+}
+
+// 8. Interactive Query Filter (--find / --route)
+function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string) {
+  console.log(`🔎 Searching Frontend Atlas for query: "${query}"\n`);
+  const q = query.toLowerCase();
+
+  // Search Routes
+  const matchingRoutes = routes.filter(r => r.route.toLowerCase().includes(q) || r.pageFile.toLowerCase().includes(q));
+  if (matchingRoutes.length > 0) {
+    console.log(`📍 Matching Routes (${matchingRoutes.length}):`);
+    matchingRoutes.forEach(r => {
+      console.log(`   - Route: ${r.route} ➡️ File: ${r.pageFile}`);
+    });
+    console.log();
   }
+
+  // Search Components & Buttons
+  const matchingComponents = audits.filter(a =>
+    a.relativePath.toLowerCase().includes(q) ||
+    a.componentNames.some(c => c.toLowerCase().includes(q)) ||
+    a.rawButtons.some(b => b.className?.toLowerCase().includes(q) || b.snippet.toLowerCase().includes(q))
+  );
+
+  if (matchingComponents.length > 0) {
+    console.log(`🧩 Matching Components & Files (${matchingComponents.length}):`);
+    matchingComponents.slice(0, 15).forEach(c => {
+      const btnCount = c.rawButtons.length + c.uiButtons.length;
+      console.log(`   - [${c.zone}] ${c.relativePath} (${btnCount} buttons, ${c.cardsAndSurfaces.length} cards)`);
+      if (c.rawButtons.length > 0 && (q.includes("btn") || q.includes("button"))) {
+        c.rawButtons.slice(0, 3).forEach(b => {
+          console.log(`       Line ${b.line}: ${b.snippet}`);
+        });
+      }
+    });
+    console.log();
+  }
+
+  // Search Hexes
+  const matchingHexes = audits.filter(a => a.hardcodedHexes.some(h => h.hex.toLowerCase().includes(q)));
+  if (matchingHexes.length > 0) {
+    console.log(`🎨 Matching Colors (${matchingHexes.length} files):`);
+    matchingHexes.slice(0, 8).forEach(h => {
+      const hexList = h.hardcodedHexes.filter(x => x.hex.toLowerCase().includes(q)).map(x => `${x.hex} (line ${x.line})`).join(", ");
+      console.log(`   - ${h.relativePath}: ${hexList}`);
+    });
+    console.log();
+  }
+}
+
+// 9. Main Runner
+export function runUniversalFrontendAudit() {
+  const structure = detectProjectStructure();
 
   const targetDirs = [
     structure.appDir,
@@ -458,24 +560,57 @@ export function runUniversalFrontendAudit() {
     structure.srcDir,
   ].filter(Boolean) as string[];
 
-  // Deduplicate dirs
   const uniqueDirs = Array.from(new Set(targetDirs));
   const allFiles: string[] = [];
   uniqueDirs.forEach(dir => getFiles(dir, allFiles));
-
-  // Deduplicate files
   const uniqueFiles = Array.from(new Set(allFiles));
 
   const audits = uniqueFiles.map(f => auditFile(f, structure));
   const routeMaps = buildRouteMap(audits);
+  const deadComponents = findDeadComponents(audits);
 
+  // If --fix-buttons requested
+  if (SHOULD_FIX_BUTTONS) {
+    executeButtonCodemod(audits);
+    return;
+  }
+
+  // If query requested
+  if (FIND_QUERY) {
+    executeInteractiveQuery(audits, routeMaps, FIND_QUERY);
+    return;
+  }
+
+  // If route query requested
+  if (ROUTE_QUERY) {
+    executeInteractiveQuery(audits, routeMaps, ROUTE_QUERY);
+    return;
+  }
+
+  // If dead-only requested
+  if (SHOW_DEAD_ONLY) {
+    console.log(`👻 Potential Dead / Orphaned Components (${deadComponents.length}):`);
+    deadComponents.forEach(d => console.log(`   - ${d.relativePath}`));
+    return;
+  }
+
+  // Default: Generate Markdown Atlas
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.2.0)...");
+  console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
+  if (deadComponents.length > 0) {
+    console.log(`⚠️ Detected ${deadComponents.length} potential dead / un-imported components.`);
+  }
+
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  }
 
   writeRoutesMap(routeMaps, structure);
   writeComponentInventory(audits);
   writeDesignTokensAudit(audits, structure);
-  writeUIIslandsAudit(audits);
-  writeAtlasSummary(audits, routeMaps, structure);
+  writeUIIslandsAudit(audits, deadComponents);
+  writeAtlasSummary(audits, routeMaps, structure, deadComponents);
 
   console.log(`✨ Universal Frontend Atlas written to: ${path.relative(ROOT_DIR, OUTPUT_DIR)}`);
 }
@@ -519,22 +654,28 @@ function writeComponentInventory(audits: ComponentAudit[]) {
 
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
   const totalUiButtons = audits.reduce((acc, a) => acc + a.uiButtons.length, 0);
+  const totalA11yIssues = audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0);
 
   md += `## 🔘 Button Usage Summary\n\n`;
   md += `- **Standardized \`<Button>\` Components**: **${totalUiButtons}** usages\n`;
-  md += `- **Raw \`<button>\` Tags**: **${totalRawButtons}** usages (Potential UI islands / non-standard styling)\n\n`;
+  md += `- **Raw \`<button>\` Tags**: **${totalRawButtons}** usages (Potential UI islands)\n`;
+  md += `- **Accessibility (a11y) Flags**: **${totalA11yIssues}** buttons missing \`aria-label\` or explicit \`type="button"\`\n\n`;
 
-  md += `### Raw \`<button>\` Occurrences by Panel\n\n`;
-  md += `| Zone | File | Line | Classes / Style Snippet |\n`;
-  md += `| :--- | :--- | :--- | :--- |\n`;
+  md += `### Raw \`<button>\` Occurrences & Accessibility Fast-Check\n\n`;
+  md += `| Zone | File | Line | Snippet Preview | a11y Flags |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
   const nonPrimitiveAudits = audits.filter(a => a.zone !== "Shared UI Primitives");
   nonPrimitiveAudits.forEach(a => {
     if (a.rawButtons.length > 0) {
       a.rawButtons.forEach(b => {
         const fileLink = `[\`${a.relativePath}:${b.line}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")}#L${b.line})`;
-        const classPreview = b.className ? `\`${b.className}\`` : `\`${b.snippet.replace(/\|/g, "\\|").slice(0, 45)}\``;
-        md += `| ${a.zone} | ${fileLink} | ${b.line} | ${classPreview} |\n`;
+        const flags: string[] = [];
+        if (b.missingAria) flags.push("⚠️ Missing aria-label");
+        if (b.missingType) flags.push("ℹ️ Missing type");
+        const flagStr = flags.length > 0 ? flags.join("<br>") : "✅ OK";
+
+        md += `| ${a.zone} | ${fileLink} | ${b.line} | \`${b.snippet.replace(/\|/g, "\\|").slice(0, 40)}\` | ${flagStr} |\n`;
       });
     }
   });
@@ -582,7 +723,6 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
     md += `\n`;
   }
 
-  // Aggregate Hexes
   const hexMap = new Map<string, { zone: string; file: string; line: number }[]>();
   audits.forEach(a => {
     a.hardcodedHexes.forEach(h => {
@@ -621,27 +761,38 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
   fs.writeFileSync(filePath, md);
 }
 
-function writeUIIslandsAudit(audits: ComponentAudit[]) {
+function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "04_UI_ISLANDS_AND_DRIFT.md");
   let md = `# 🏝️ UI Islands, Redundancies & Consistency Audit\n\n`;
   md += `> Identifies isolated design deviations, duplicate components, and actionable refactoring paths.\n\n`;
 
+  // Dead Components Section
+  md += `## 👻 Potential Dead / Orphaned Components (${deadComponents.length})\n`;
+  md += `Components defined in \`components/\` that have **zero active imports** across route pages:\n\n`;
+  if (deadComponents.length === 0) {
+    md += `_No orphaned components detected. Every component is imported._\n\n`;
+  } else {
+    deadComponents.forEach(d => {
+      md += `- [\`${d.relativePath}\`](file:///${path.join(ROOT_DIR, d.relativePath).replace(/\\/g, "/")}) (${d.zone})\n`;
+    });
+    md += `\n`;
+  }
+
   const filesWithRawButtons = audits.filter(a => a.rawButtons.length > 0 && a.zone !== "Shared UI Primitives");
-  md += `### 1. Raw Button Islands (${filesWithRawButtons.length} files)\n`;
+  md += `## 🔘 Raw Button Islands (${filesWithRawButtons.length} files)\n`;
   md += `Files that implement native \`<button>\` instead of standardized button components.\n`;
-  md += `- **Impact**: Inconsistent hover/focus states, different tap targets, missing animations.\n`;
-  md += `- **Remediation**: Migrate to standardized \`<Button>\` primitive.\n\n`;
+  md += `- **Remediation**: Run \`npx frontend-audit --fix-buttons\` to auto-migrate to \`<Button>\`.\n\n`;
 
   const customModalFiles = audits.filter(a => a.modalsAndDialogs.length > 0 && !a.relativePath.includes("components/ui"));
-  md += `### 2. Custom Modal Redundancies (${customModalFiles.length} files)\n`;
+  md += `## 🪟 Custom Modal Redundancies (${customModalFiles.length} files)\n`;
   md += `Files implementing custom modal structures rather than shared primitives:\n`;
   customModalFiles.slice(0, 8).forEach(f => {
     md += `- [\`${f.relativePath}\`](file:///${path.join(ROOT_DIR, f.relativePath).replace(/\\/g, "/")}) (${f.zone})\n`;
   });
 
   const inlineStyleFiles = audits.filter(a => a.hasDirectStyleTag && !a.relativePath.includes("components/ui"));
-  md += `\n### 3. Inline Style Tags (${inlineStyleFiles.length} files)\n`;
-  md += `Files using \`style={{...}}\` which bypass the Tailwind design token pipeline.\n`;
+  md += `\n## 🏷️ Inline Style Tags (${inlineStyleFiles.length} files)\n`;
+  md += `Files using \`style={{...}}\` which bypass the Tailwind design token pipeline:\n`;
   inlineStyleFiles.forEach(f => {
     md += `- [\`${f.relativePath}\`](file:///${path.join(ROOT_DIR, f.relativePath).replace(/\\/g, "/")}) (${f.zone})\n`;
   });
@@ -649,7 +800,7 @@ function writeUIIslandsAudit(audits: ComponentAudit[]) {
   fs.writeFileSync(filePath, md);
 }
 
-function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure) {
+function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "README.md");
   const totalFiles = audits.length;
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
@@ -666,6 +817,7 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `- **Total Active Routes**: **${routes.length}**\n`;
   md += `- **Standardized UI Buttons**: **${totalUiButtons}**\n`;
   md += `- **Raw \`<button>\` Tags**: **${totalRawButtons}**\n`;
+  md += `- **Orphaned / Dead Components**: **${deadComponents.length}**\n`;
   md += `- **Hardcoded Hex Deviations**: **${totalHexes}**\n`;
   md += `- **Rogue Color Classes**: **${totalRogue}**\n\n`;
 
@@ -674,13 +826,13 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `   - Instant lookup for all pages and routes across all panels.\n\n`;
 
   md += `2. **[02_COMPONENT_INVENTORY.md](file:///${path.join(OUTPUT_DIR, "02_COMPONENT_INVENTORY.md").replace(/\\/g, "/")})**\n`;
-  md += `   - Complete inventory of Buttons, Modals, Drawers, and Card containers.\n\n`;
+  md += `   - Complete inventory of Buttons, Modals, Drawers, and a11y fast-check flags.\n\n`;
 
   md += `3. **[03_DESIGN_TOKENS_AND_COLORS.md](file:///${path.join(OUTPUT_DIR, "03_DESIGN_TOKENS_AND_COLORS.md").replace(/\\/g, "/")})**\n`;
   md += `   - Color palettes, typography tokens, and exact line-by-line list of all rogue colors.\n\n`;
 
   md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](file:///${path.join(OUTPUT_DIR, "04_UI_ISLANDS_AND_DRIFT.md").replace(/\\/g, "/")})**\n`;
-  md += `   - High-priority list of discrepancies, raw elements, and isolated UI styling.\n\n`;
+  md += `   - High-priority list of discrepancies, dead components, and isolated UI styling.\n\n`;
 
   fs.writeFileSync(filePath, md);
 }
