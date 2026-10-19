@@ -11,37 +11,37 @@
 
 ---
 
-## 🎯 Bakit Kailangan Mo Ito? (The Problem It Solves)
+## 🎯 The Problem It Solves
 
-Sa lumalaking web projects—lalo na kapag may **Storefront**, **Admin Panel**, **Portal**, o **Dashboard**—tatlong malalaking problema ang palaging nangyayari:
+In growing web applications—especially multi-tenant architectures featuring Public Storefronts, Admin Panels, Reseller/Customer Portals, and Dashboards—three common pitfalls routinely emerge:
 
-1. **"UI Islands" (Kanya-kanyang Styling)**:
-   - May mga screens na gumagamit ng official `<Button>` component, pero may kalahati ng codebase na gumagamit ng native `<button className="...">` na may sariling border-radius, kulay, at padding. Nagiging magulo at hindi consistent ang website.
+1. **"UI Islands" (Fragmented Design Systems)**:
+   - Some pages use a standardized `<Button>` component, while half the codebase uses raw `<button className="...">` tags with arbitrary border-radii, rogue paddings, and inconsistent hover states.
 2. **Invisible Color & Theme Drift**:
-   - Kapag nagpapalit ka ng color theme o nag-a-update ng brand palette, laging may **maiiwang panels o modals** dahil may mga hardcoded hex colors (`#1e293b`, `#27272a`) o ligaw na `zinc`/`gray` classes na nakatago sa 100+ files.
-3. **Naliligaw ang AI Coding Assistants**:
-   - Kapag sinabi mo sa AI: *"Ayusin mo yung checkout modal"* o *"Ayusin mo yung hero section"*, nag-aaksaya ang AI ng libo-libong tokens sa pag-hahanap sa maling folder bago pa man magsimulang mag-code.
+   - When rebranding or updating a dark/light mode palette, developers and AI agents inevitably leave behind rogue panels because dozens of hardcoded hex codes (`#1e293b`, `#27272a`) and un-tokenized Tailwind grays (`zinc`, `neutral`, `stone`) remain scattered across hundreds of files.
+3. **Lost AI Coding Assistants**:
+   - Asking an AI assistant to *"Fix the hero section"* or *"Update the checkout modal"* often causes it to waste thousands of tokens scanning directories or editing outdated duplicate components.
 
-**`frontend-audit`** ang solusyon: Sa loob ng **3 segundo**, gumagawa ito ng buong **Frontend Atlas** (GPS at blueprint) ng buong website mo nang may **Zero Config**.
+**`frontend-audit`** resolves all three issues in **under 3 seconds** with **zero manual configuration**.
 
 ---
 
 ## ⚡ Quickstart
 
-### Gamit ang Slash Command sa AI Assistant:
-I-type lang sa chat:
+### 1. Using Slash Command in Your AI Assistant:
+Simply type in your chat:
 ```text
 /frontend-audit
 ```
-Awtomatikong tatakbuhin ng AI ang audit engine at ihahanda ang updated atlas nang hindi nagti-trigger ng ibang hindi kaugnay na skills.
+Your assistant will immediately execute the audit engine, update the atlas, and report high-level metrics without triggering unrelated design skills.
 
-### Gamit ang CLI sa Terminal:
+### 2. Using Terminal / CLI:
 ```bash
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts
 ```
-*(Sa Windows PowerShell: `npx.cmd tsx .agent/skills/frontend-audit/scripts/audit.ts`)*
+*(On Windows PowerShell: `npx.cmd tsx .agent/skills/frontend-audit/scripts/audit.ts`)*
 
-### O idagdag sa iyong `package.json`:
+### 3. Adding to `package.json`:
 ```json
 {
   "scripts": {
@@ -49,48 +49,48 @@ npx tsx .agent/skills/frontend-audit/scripts/audit.ts
   }
 }
 ```
-Tapos patakbuhin:
+Then run:
 ```bash
 npm run audit:frontend
 ```
 
 ---
 
-## 🧭 Ano ang Ginagawa ng Engine? (`docs/frontend-atlas/`)
+## 🧭 What the Engine Produces (`docs/frontend-atlas/`)
 
-Pagka-run ng audit, kusa itong lilikha ng 5 structured Markdown files sa folder na `docs/frontend-atlas/`:
+Running the audit automatically creates or refreshes 5 clean Markdown files in `docs/frontend-atlas/`:
 
 ```
 your-project/
 └── docs/
     └── frontend-atlas/
-        ├── 01_ROUTES_AND_PANELS_MAP.md     # 🗺️ Bawat URL nakakabit sa Page file at Components
-        ├── 02_COMPONENT_INVENTORY.md       # 🔘 Catalog ng lahat ng Buttons, Modals, at Cards
-        ├── 03_DESIGN_TOKENS_AND_COLORS.md  # 🎨 Official Tokens vs Hardcoded Hex Drift
-        ├── 04_UI_ISLANDS_AND_DRIFT.md      # 🏝️ Listahan ng mga lumilihis na custom styling
-        └── README.md                       # 📊 Platform overview at statistics dashboard
+        ├── 01_ROUTES_AND_PANELS_MAP.md     # 🗺️ Every route mapped to page files & components
+        ├── 02_COMPONENT_INVENTORY.md       # 🔘 Catalog of all buttons, modals, and surfaces
+        ├── 03_DESIGN_TOKENS_AND_COLORS.md  # 🎨 Official tokens vs rogue hex drift & grays
+        ├── 04_UI_ISLANDS_AND_DRIFT.md      # 🏝️ Priority checklist of custom styling deviations
+        └── README.md                       # 📊 High-level statistics and navigation dashboard
 ```
 
 ### 1. `01_ROUTES_AND_PANELS_MAP.md` (Instant GPS)
-* Nakalista ang bawat URL route (hal. `/`, `/admin/orders`, `/portal/wallet`), kung aling `page.tsx`/`App.jsx` ang nagpapatakbo nito, at kung aling components ang naka-import.
-* **Tulong**: Kapag sinabi mong *"Ayusin ang Hero"*, alam agad ng AI kung aling file ang bubuksan sa 1 segundo lang.
+* Maps every route (e.g. `/`, `/admin/orders`, `/portal/wallet`) to its corresponding page file (`page.tsx`, `App.jsx`), layout, and imported components.
+* **Benefit**: When asked to *"Fix the Hero section"*, the AI immediately knows the exact file without guessing.
 
 ### 2. `02_COMPONENT_INVENTORY.md` (Button & Element Catalog)
-* Binibilang kung ilan ang standard `<Button>` components vs raw `<button>` HTML tags.
-* May direct clickable links at line numbers (hal. `src/App.jsx:503`) para mabilis mai-standardize ang lahat ng interactive buttons.
+* Audits every button across the platform: compares official `<Button>` component usages against raw `<button>` HTML elements.
+* Provides direct clickable file links with line numbers (e.g. `src/App.jsx:503`) to accelerate standardization.
 
 ### 3. `03_DESIGN_TOKENS_AND_COLORS.md` (Zero-Missed-Colors Ledger)
-* Inaalam kung aling hex codes ang pinakamadalas lumitaw sa codebase na hindi nakatali sa Tailwind config.
-* Kapag nagbago ka ng brand color, dito titingin para siguruhing **walang maiiwang file**.
+* Ranks hardcoded hex codes by frequency and identifies affected files.
+* Lists all rogue utility classes (`zinc`, `neutral`, `stone`) bypassing the project's Tailwind configuration.
 
 ### 4. `04_UI_ISLANDS_AND_DRIFT.md` (Actionable Fixes)
-* Nililista ang mga duplicate modal structures, inline `style={{...}}` tags, at divergent styles na dapat unahin para maging 100% consistent ang frontend.
+* Highlights custom modal structures, inline `style={{...}}` usages, and fragmented button implementations for swift refactoring.
 
 ---
 
-## 🌐 Universal Framework Compatibility
+## 🌐 Universal Compatibility
 
-Gumagana ito kahit anong tech stack ang gamit mo:
+Runs seamlessly on modern web frameworks:
 * ✅ **Next.js App Router** (`app/**/page.tsx`)
 * ✅ **Next.js Pages Router** (`pages/**/*.tsx`)
 * ✅ **Vite + React SPAs** (`src/App.jsx`, `src/main.jsx`)
@@ -99,25 +99,25 @@ Gumagana ito kahit anong tech stack ang gamit mo:
 
 ---
 
-## 🤖 Paano Ito Nakikipagtulungan sa Ibang Skills
+## 🤖 Skill Synergy (How It Powers Other Agent Skills)
 
-Nagsisilbi itong foundational index para sa iba pang popular frontend skills:
+`frontend-audit` serves as the foundational spatial index for other specialized frontend skills:
 
-| Skill | Paano Sila Nagtutulungan |
+| Skill | How They Collaborate |
 | :--- | :--- |
-| **`frontend-audit`** | **Ang GPS at Inventory**: Sinasabi kung *nasaan* ang bawat button, route, at kulay sa code. |
-| **`ui-ux-pro-max`** | Ginagamit ang color audit list para mag-apply ng tamang design token hierarchy at typography scale. |
-| **`emil-design-eng`** | Ginagamit ang button inventory para lagyan ng spring micro-interactions ang lahat ng buttons. |
-| **`impeccable`** | Ginagamit ang UI islands list para i-harden ang form states at accessibility (a11y). |
+| **`frontend-audit`** | **The GPS & Inventory**: Identifies *where* every button, route, and color token lives in the codebase. |
+| **`ui-ux-pro-max`** | Uses the color audit list to enforce proper design tokens, typography scales, and contrast hierarchies. |
+| **`emil-design-eng`** | Uses the button inventory to attach spring physics and micro-interactions across every interactive element. |
+| **`impeccable`** | Uses the UI islands report to harden accessibility (a11y), focus traps, and modal lifecycles. |
 
 ---
 
 ## 🛡️ CI/CD & Safe Versioning (GitHub Actions)
 
-Naka-setup ang repository na may:
-1. **Automated CI Workflow (`.github/workflows/ci.yml`)**: Tumatakbo sa bawat Pull Request para masigurong pumapasa ang TypeScript compilation at smoke test bago i-merge.
-2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Awtomatikong gumagawa ng release notes at tags (`v1.0.1`, `v1.1.0`) kapag nag-release ng bagong update sa `main`.
-3. **Pull Request Template (`.github/pull_request_template.md`)**: Tinitiyak na may checklist bago i-merge ang anumang update para maiwasan ang regressions at madaling makapag-rollback kung kinakailangan.
+This repository includes a production-ready automated release and verification pipeline:
+1. **Automated CI Workflow (`.github/workflows/ci.yml`)**: Runs on every Pull Request and Push to verify TypeScript compilation and execute the CLI smoke test.
+2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Generates GitHub Releases and release notes upon pushing tags (`v1.0.1`, `v1.1.0`) to `main`.
+3. **Pull Request Template (`.github/pull_request_template.md`)**: Enforces pre-merge verification across Next.js and Vite to prevent regressions.
 
 ---
 
