@@ -4,23 +4,26 @@ import path from "path";
 /**
  * Universal Frontend Atlas & Design System Audit Engine
  * 
- * Works out-of-the-box on ANY Next.js / React / Tailwind project:
- * 1. Auto-discovers project routing structure (App Router, Pages Router, src/)
- * 2. Dynamically groups routes into logical business panels (Admin, Storefront, Portal, Dashboard, Auth)
- * 3. Dynamically extracts Tailwind tokens from tailwind.config.*
- * 4. Audits UI components: Buttons (<Button> vs raw <button>), Cards, Modals, Forms, Tables
- * 5. Pinpoints rogue hardcoded hex colors and divergent color utilities
- * 6. Generates persistent, highly navigable Markdown Atlas files in docs/frontend-atlas/
+ * Works out-of-the-box on ANY Next.js / Vite / React / Tailwind project:
+ * 1. Auto-discovers project routing (App Router, Pages Router, Vite SPA, src/)
+ * 2. Scans TypeScript & JavaScript components (.tsx, .jsx, .ts, .js)
+ * 3. Dynamically groups routes and components into logical business panels
+ * 4. Dynamically extracts Tailwind tokens from tailwind.config.*
+ * 5. Audits UI components: Buttons (<Button> vs raw <button>), Cards, Modals, Forms
+ * 6. Pinpoints rogue hardcoded hex colors and divergent color utilities
+ * 7. Generates persistent, highly navigable Markdown Atlas files in docs/frontend-atlas/
  */
 
 const ROOT_DIR = process.cwd();
 const OUTPUT_DIR = path.join(ROOT_DIR, "docs", "frontend-atlas");
 
 interface ProjectStructure {
+  framework: "Next.js (App Router)" | "Next.js (Pages Router)" | "Vite / React SPA" | "Generic React";
   hasAppRouter: boolean;
   appDir?: string;
   hasPagesRouter: boolean;
   pagesDir?: string;
+  srcDir?: string;
   componentsDir?: string;
   uiPrimitivesDir?: string;
   tailwindConfigPath?: string;
@@ -54,34 +57,51 @@ interface RouteMapItem {
 // 1. Project Structure Auto-Discovery
 function detectProjectStructure(): ProjectStructure {
   const structure: ProjectStructure = {
+    framework: "Generic React",
     hasAppRouter: false,
     hasPagesRouter: false,
     customTokens: new Set<string>(),
   };
 
+  // Detect src directory
+  if (fs.existsSync(path.join(ROOT_DIR, "src"))) {
+    structure.srcDir = path.join(ROOT_DIR, "src");
+  }
+
   // Detect App Router
   if (fs.existsSync(path.join(ROOT_DIR, "app"))) {
     structure.hasAppRouter = true;
     structure.appDir = path.join(ROOT_DIR, "app");
-  } else if (fs.existsSync(path.join(ROOT_DIR, "src", "app"))) {
+    structure.framework = "Next.js (App Router)";
+  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "app"))) {
     structure.hasAppRouter = true;
-    structure.appDir = path.join(ROOT_DIR, "src", "app");
+    structure.appDir = path.join(structure.srcDir, "app");
+    structure.framework = "Next.js (App Router)";
   }
 
   // Detect Pages Router
   if (fs.existsSync(path.join(ROOT_DIR, "pages"))) {
     structure.hasPagesRouter = true;
     structure.pagesDir = path.join(ROOT_DIR, "pages");
-  } else if (fs.existsSync(path.join(ROOT_DIR, "src", "pages"))) {
+    if (!structure.hasAppRouter) structure.framework = "Next.js (Pages Router)";
+  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "pages"))) {
     structure.hasPagesRouter = true;
-    structure.pagesDir = path.join(ROOT_DIR, "src", "pages");
+    structure.pagesDir = path.join(structure.srcDir, "pages");
+    if (!structure.hasAppRouter) structure.framework = "Next.js (Pages Router)";
+  }
+
+  // Detect Vite
+  if (!structure.hasAppRouter && !structure.hasPagesRouter) {
+    if (fs.existsSync(path.join(ROOT_DIR, "vite.config.js")) || fs.existsSync(path.join(ROOT_DIR, "vite.config.ts"))) {
+      structure.framework = "Vite / React SPA";
+    }
   }
 
   // Detect Components
   if (fs.existsSync(path.join(ROOT_DIR, "components"))) {
     structure.componentsDir = path.join(ROOT_DIR, "components");
-  } else if (fs.existsSync(path.join(ROOT_DIR, "src", "components"))) {
-    structure.componentsDir = path.join(ROOT_DIR, "src", "components");
+  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "components"))) {
+    structure.componentsDir = path.join(structure.srcDir, "components");
   }
 
   // Detect UI Primitives
@@ -90,6 +110,8 @@ function detectProjectStructure(): ProjectStructure {
     if (fs.existsSync(uiPath)) {
       structure.uiPrimitivesDir = uiPath;
     }
+  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "ui"))) {
+    structure.uiPrimitivesDir = path.join(structure.srcDir, "ui");
   }
 
   // Detect Tailwind Config & Extract Custom Color Tokens
@@ -105,7 +127,6 @@ function detectProjectStructure(): ProjectStructure {
     if (fs.existsSync(fullPath)) {
       structure.tailwindConfigPath = fullPath;
       const content = fs.readFileSync(fullPath, "utf-8");
-      // Extract custom color keys
       const colorBlock = content.match(/colors:\s*\{([\s\S]*?)\n\s*\},/);
       if (colorBlock) {
         const keys = colorBlock[1].match(/^\s*([a-zA-Z0-9_-]+):/gm);
@@ -128,7 +149,7 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
   const norm = relPath.replace(/\\/g, "/");
 
   // Check UI primitives
-  if (norm.includes("components/ui")) {
+  if (norm.includes("components/ui") || norm.includes("/ui/")) {
     return "Shared UI Primitives";
   }
 
@@ -139,7 +160,6 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
     const first = segments[0];
 
     if (first.startsWith("(") && first.endsWith(")")) {
-      // Route group like (public), (marketing), (store)
       const groupName = first.slice(1, -1);
       return groupName.charAt(0).toUpperCase() + groupName.slice(1) + " (Public)";
     }
@@ -172,10 +192,20 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
     return `${first.charAt(0).toUpperCase() + first.slice(1)} Components`;
   }
 
+  // Vite / General SPA structure
+  if (norm.startsWith("src/")) {
+    const sub = norm.replace(/^src\//, "");
+    if (!sub.includes("/")) {
+      return "Root Application (SPA)";
+    }
+    const seg = sub.split("/")[0];
+    return `${seg.charAt(0).toUpperCase() + seg.slice(1)} Module`;
+  }
+
   return "Core Platform";
 }
 
-// 3. File Scanner Helper
+// 3. File Scanner Helper (.tsx, .jsx, .ts, .js)
 function getFiles(dir: string, fileList: string[] = []): string[] {
   if (!fs.existsSync(dir)) return fileList;
   const items = fs.readdirSync(dir);
@@ -183,10 +213,20 @@ function getFiles(dir: string, fileList: string[] = []): string[] {
     const fullPath = path.join(dir, item);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
-      if (!["node_modules", ".next", "dist", ".git", ".turbo", "build"].includes(item)) {
+      if (!["node_modules", ".next", "dist", ".git", ".turbo", "build", ".checkpoint-stage2"].includes(item)) {
         getFiles(fullPath, fileList);
       }
-    } else if (item.endsWith(".tsx") || (item.endsWith(".ts") && !item.endsWith(".test.ts") && !item.endsWith(".d.ts"))) {
+    } else if (
+      (item.endsWith(".tsx") || item.endsWith(".jsx") || item.endsWith(".ts") || item.endsWith(".js")) &&
+      !item.endsWith(".test.ts") &&
+      !item.endsWith(".test.js") &&
+      !item.endsWith(".test.jsx") &&
+      !item.endsWith(".spec.ts") &&
+      !item.endsWith(".spec.js") &&
+      !item.endsWith(".d.ts") &&
+      !item.endsWith(".config.js") &&
+      !item.endsWith(".config.ts")
+    ) {
       fileList.push(fullPath);
     }
   }
@@ -232,7 +272,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   }
 
   // Extract component imports
-  const importMatches = content.match(/from\s+["'](@\/components\/[^"']+)["']/g);
+  const importMatches = content.match(/from\s+["'](@\/components\/[^"']+|\.\/[^"']+|\.\.\/[^"']+)["']/g);
   if (importMatches) {
     importMatches.forEach(m => {
       const imp = m.replace(/from\s+["']/, "").replace(/["']/, "");
@@ -341,17 +381,15 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
   const routes: RouteMapItem[] = [];
   const pageFiles = audits.filter(a =>
     (a.relativePath.includes("app/") || a.relativePath.includes("pages/")) &&
-    (a.relativePath.endsWith("page.tsx") || a.relativePath.endsWith("page.ts") || a.relativePath.endsWith(".tsx"))
+    (a.relativePath.endsWith("page.tsx") || a.relativePath.endsWith("page.jsx") || a.relativePath.endsWith("page.ts") || a.relativePath.endsWith("page.js"))
   );
 
   for (const page of pageFiles) {
-    if (!page.relativePath.includes("page.tsx") && !page.relativePath.includes("page.ts")) continue;
-
     let route = "/" + page.relativePath
       .replace(/^(src\/)?app\//, "")
       .replace(/\([^)]+\)\/?/, "")
-      .replace(/\/page\.(tsx|ts)$/, "")
-      .replace(/^page\.(tsx|ts)$/, "");
+      .replace(/\/page\.(tsx|jsx|ts|js)$/, "")
+      .replace(/^page\.(tsx|jsx|ts|js)$/, "");
 
     if (route === "") route = "/";
     route = route.replace(/\/+/g, "/");
@@ -372,6 +410,26 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
     });
   }
 
+  // If no App/Pages router found (e.g. Vite SPA), detect root App component
+  if (routes.length === 0) {
+    const rootComponent = audits.find(a =>
+      a.relativePath.endsWith("App.jsx") ||
+      a.relativePath.endsWith("App.tsx") ||
+      a.relativePath.endsWith("App.js") ||
+      a.relativePath.endsWith("main.jsx") ||
+      a.relativePath.endsWith("main.tsx")
+    );
+
+    if (rootComponent) {
+      routes.push({
+        route: "/ (Single Page App)",
+        zone: "Root Application",
+        pageFile: rootComponent.relativePath,
+        importedComponents: rootComponent.imports,
+      });
+    }
+  }
+
   return routes.sort((a, b) => a.route.localeCompare(b.route));
 }
 
@@ -381,8 +439,10 @@ export function runUniversalFrontendAudit() {
 
   const structure = detectProjectStructure();
   console.log(`📦 Framework Auto-Discovery:`);
+  console.log(`   - Architecture: ${structure.framework}`);
   console.log(`   - App Router: ${structure.hasAppRouter ? "✅ Detected (" + structure.appDir + ")" : "❌ Not found"}`);
   console.log(`   - Pages Router: ${structure.hasPagesRouter ? "✅ Detected (" + structure.pagesDir + ")" : "❌ Not found"}`);
+  console.log(`   - Src Root: ${structure.srcDir ? "✅ Detected (" + structure.srcDir + ")" : "❌ Not found"}`);
   console.log(`   - Components: ${structure.componentsDir ? "✅ Detected (" + structure.componentsDir + ")" : "❌ Not found"}`);
   console.log(`   - UI Primitives: ${structure.uiPrimitivesDir ? "✅ Detected (" + structure.uiPrimitivesDir + ")" : "❌ Not found"}`);
   console.log(`   - Tailwind Config: ${structure.tailwindConfigPath ? "✅ Detected" : "❌ Not found"}`);
@@ -395,17 +455,22 @@ export function runUniversalFrontendAudit() {
     structure.appDir,
     structure.pagesDir,
     structure.componentsDir,
+    structure.srcDir,
   ].filter(Boolean) as string[];
 
+  // Deduplicate dirs
+  const uniqueDirs = Array.from(new Set(targetDirs));
   const allFiles: string[] = [];
-  targetDirs.forEach(dir => getFiles(dir, allFiles));
+  uniqueDirs.forEach(dir => getFiles(dir, allFiles));
 
-  const audits = allFiles.map(f => auditFile(f, structure));
+  // Deduplicate files
+  const uniqueFiles = Array.from(new Set(allFiles));
+
+  const audits = uniqueFiles.map(f => auditFile(f, structure));
   const routeMaps = buildRouteMap(audits);
 
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
 
-  // Write files
   writeRoutesMap(routeMaps, structure);
   writeComponentInventory(audits);
   writeDesignTokensAudit(audits, structure);
@@ -419,6 +484,7 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md");
   let md = `# 🗺️ Frontend Routes & Panels Map\n\n`;
   md += `> Auto-generated navigation map linking every route to its page file, layout, and imported components.\n\n`;
+  md += `- **Detected Architecture**: \`${structure.framework}\`\n\n`;
 
   const zones = Array.from(new Set(routes.map(r => r.zone))).sort();
 
@@ -431,7 +497,7 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
     md += `| :--- | :--- | :--- | :--- |\n`;
 
     zoneRoutes.forEach(r => {
-      const layoutStr = r.layoutFile ? `[\`${r.layoutFile}\`](file:///${path.join(ROOT_DIR, r.layoutFile).replace(/\\/g, "/")})` : `_Inherited_`;
+      const layoutStr = r.layoutFile ? `[\`${r.layoutFile}\`](file:///${path.join(ROOT_DIR, r.layoutFile).replace(/\\/g, "/")})` : `_Inherited / N/A_`;
       const pageLink = `[\`${r.pageFile}\`](file:///${path.join(ROOT_DIR, r.pageFile).replace(/\\/g, "/")})`;
       const importsStr = r.importedComponents.length > 0
         ? r.importedComponents.map(c => `\`${c.replace(/@\/(components|src\/components)\//, "")}\``).join("<br>")
@@ -595,6 +661,7 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `> Centralized documentation and audit ledger for this project.\n\n`;
 
   md += `## 📊 Platform Statistics\n\n`;
+  md += `- **Framework Architecture**: **${structure.framework}**\n`;
   md += `- **Total Frontend Files**: **${totalFiles}**\n`;
   md += `- **Total Active Routes**: **${routes.length}**\n`;
   md += `- **Standardized UI Buttons**: **${totalUiButtons}**\n`;
