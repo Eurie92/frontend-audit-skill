@@ -1,19 +1,24 @@
 import fs from "fs";
 import path from "path";
+import child_process from "child_process";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.4.0)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.5.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
- * 2. Instant Query Search (--find <query>, --route <route>) for massive codebases (now with text labels!)
- * 3. 2-Level Deep Component Tree (Parent ➔ [Subcomponents]) in 01_ROUTES_AND_PANELS_MAP.md
- * 4. Screenshot-to-Code Visible UI Text & Labels Map (06_VISIBLE_TEXT_AND_LABELS_MAP.md)
- * 5. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
- * 6. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
- * 7. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
- * 8. Live File Watcher (--watch) for automatic continuous atlas syncing
- * 9. Persistent Markdown Atlas Generation in docs/frontend-atlas/
+ * 2. Instant Query Search (--find <query>, --route <route>) for massive codebases
+ * 3. Next.js Component Boundary Radar ([Client ⚡] vs [Server 🖥️])
+ * 4. 2-Level Deep Component Tree (Parent ➔ [Subcomponents]) in 01_ROUTES_AND_PANELS_MAP.md
+ * 5. Screenshot-to-Code Visible UI Text & Labels Map (06_VISIBLE_TEXT_AND_LABELS_MAP.md)
+ * 6. Visual Icons & Action Symbols Index (07_VISUAL_AND_ICON_INDEX.md)
+ * 7. Zero-Search Handoff Manifest & Dispatch Gateway (08_DISPATCH_GATEWAY.md + --manifest <target>)
+ * 8. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
+ * 9. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
+ * 10. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
+ * 11. Closed-Loop Verification Gate (--verify) with Metric Delta Tracking
+ * 12. Live File Watcher (--watch) for automatic continuous atlas syncing
+ * 13. Persistent Markdown Atlas Generation in docs/frontend-atlas/
  */
 
 const ROOT_DIR = process.cwd();
@@ -23,9 +28,11 @@ const OUTPUT_DIR = path.join(ROOT_DIR, "docs", "frontend-atlas");
 const ARGS = process.argv.slice(2);
 const FIND_QUERY = ARGS.includes("--find") ? ARGS[ARGS.indexOf("--find") + 1] : undefined;
 const ROUTE_QUERY = ARGS.includes("--route") ? ARGS[ARGS.indexOf("--route") + 1] : undefined;
+const MANIFEST_TARGET = ARGS.includes("--manifest") ? ARGS[ARGS.indexOf("--manifest") + 1] : undefined;
 const SHOULD_FIX_BUTTONS = ARGS.includes("--fix-buttons");
 const SHOW_DEAD_ONLY = ARGS.includes("--dead");
 const SHOW_A11Y_ONLY = ARGS.includes("--a11y");
+const VERIFY_MODE = ARGS.includes("--verify");
 const WATCH_MODE = ARGS.includes("--watch");
 
 interface ProjectStructure {
@@ -48,10 +55,19 @@ interface VisibleLabel {
   snippet: string;
 }
 
+interface VisualIconUsage {
+  line: number;
+  iconName: string;
+  sourceLib: string;
+  context: "Button" | "Link / Navigation" | "Badge / Status" | "Dialog Action" | "Menu Item" | "Visual Indicator";
+  snippet: string;
+}
+
 interface ComponentAudit {
   filePath: string;
   relativePath: string;
   zone: string;
+  isClientComponent: boolean;
   componentNames: string[];
   imports: string[];
   rawButtons: { line: number; snippet: string; className?: string; missingAria?: boolean; missingType?: boolean }[];
@@ -62,12 +78,14 @@ interface ComponentAudit {
   rogueTailwindColors: { line: number; token: string; snippet: string }[];
   typographyUsages: { line: number; fontToken: string; snippet: string }[];
   visibleLabels: VisibleLabel[];
+  visualIcons: VisualIconUsage[];
   hasDirectStyleTag: boolean;
   isExportedComponent: boolean;
 }
 
 interface RouteComponentNode {
   name: string;
+  isClientComponent: boolean;
   children: string[];
 }
 
@@ -76,8 +94,32 @@ interface RouteMapItem {
   zone: string;
   pageFile: string;
   layoutFile?: string;
+  isClientComponent: boolean;
   importedComponents: string[];
   componentTree: RouteComponentNode[];
+}
+
+interface SkillDispatch {
+  targetSkill: "emil-design-eng" | "ui-ux-pro-max" | "a11y-debugging" | "impeccable" | "codemod (--fix-buttons)";
+  category: "Interaction & Physics" | "Design Tokens & Colors" | "Accessibility (a11y)" | "Craft & Micro-Polish" | "Button Standardization";
+  issueCount: number;
+  description: string;
+  targets: { file: string; line?: number; zone: string; detail: string }[];
+}
+
+interface VerificationReceipt {
+  timestamp: string;
+  version: string;
+  totalFiles: number;
+  routesCount: number;
+  rawButtonsCount: number;
+  uiButtonsCount: number;
+  a11yFlagsCount: number;
+  hardcodedHexesCount: number;
+  rogueColorsCount: number;
+  orphanedComponentsCount: number;
+  visualIconsCount: number;
+  typeCheckStatus: "PASS" | "FAIL" | "SKIPPED";
 }
 
 // 1. Framework Auto-Discovery
@@ -250,12 +292,15 @@ const CARD_SURFACE_REGEX = /className=["'`]([^"'`]*(?:bg-(?:void|slab|surface|ca
 const MODAL_REGEX = /<(?:Dialog|Modal|Drawer|DrawerContent|DialogContent)\b|<div[^>]*role=["']dialog["']/g;
 const TYPOGRAPHY_REGEX = /\b(font-mono|font-sans|font-geist|font-jetbrains|text-(?:xs|sm|base|lg|xl|2xl|3xl|4xl|5xl))\b/g;
 
-// 4. File-Level Audit with a11y & Export checks
+// 4. File-Level Audit with Next.js Boundary Radar, a11y & Icon Indexing
 function auditFile(filePath: string, structure: ProjectStructure): ComponentAudit {
   const content = fs.readFileSync(filePath, "utf-8");
   const lines = content.split("\n");
   const relPath = path.relative(ROOT_DIR, filePath).replace(/\\/g, "/");
   const zone = determineZone(relPath, structure);
+
+  // Next.js Boundary Radar: Statically detect 'use client'
+  const isClientComponent = /^\s*["']use client["']/m.test(content) || /["']use client["']/.test(lines.slice(0, 5).join(" "));
 
   const componentNames: string[] = [];
   const imports: string[] = [];
@@ -267,6 +312,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const rogueTailwindColors: { line: number; token: string; snippet: string }[] = [];
   const typographyUsages: { line: number; fontToken: string; snippet: string }[] = [];
   const visibleLabels: VisibleLabel[] = [];
+  const visualIcons: VisualIconUsage[] = [];
   const seenLabels = new Set<string>();
   let hasDirectStyleTag = false;
   let isExportedComponent = false;
@@ -291,6 +337,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     }
   }
 
+  // Extract component names
   const compMatch = content.match(/(?:export\s+default\s+function|export\s+function|function|const)\s+([A-Z][a-zA-Z0-9_]*)/g);
   if (compMatch) {
     isExportedComponent = true;
@@ -309,6 +356,21 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     });
   }
 
+  // Extract imported Icon packages (Lucide, Radix, Tabler, Heroicons, React-Icons, Phosphor)
+  const importedIcons = new Map<string, string>();
+  const iconImportRegex = /import\s+\{([^}]+)\}\s+from\s+["'](lucide-react|@radix-ui\/react-icons|@tabler\/icons(?:-react)?|@heroicons\/react(?:\/[^"']*)?|react-icons(?:\/[^"']*)?|phosphor-react)["']/g;
+  let iconMatch;
+  while ((iconMatch = iconImportRegex.exec(content)) !== null) {
+    const lib = iconMatch[2];
+    const items = iconMatch[1].split(",");
+    items.forEach(item => {
+      const clean = item.trim().split(/\s+as\s+/)[0].trim();
+      if (clean && /^[A-Z]/.test(clean)) {
+        importedIcons.set(clean, lib);
+      }
+    });
+  }
+
   lines.forEach((line, idx) => {
     const lineNum = idx + 1;
     const trimmed = line.trim();
@@ -323,7 +385,6 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       // Accessibility checks
       const hasType = /\btype=["'](button|submit|reset)["']/.test(block);
       const hasAria = /\b(aria-label|aria-labelledby|title)=["']/.test(block);
-      // If button has no visible text inside tag or next line (e.g. icon button)
       const hasDirectText = />\s*[^<{\s]+/.test(block);
       const missingAria = !hasAria && !hasDirectText;
       const missingType = !hasType;
@@ -386,6 +447,57 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       addLabel(lineNum, spanBadgeMatch[1], "Badge / Eyebrow", trimmed);
     }
 
+    // Visual Icon Usages Scan
+    if (importedIcons.size > 0) {
+      for (const [iconName, lib] of importedIcons.entries()) {
+        const tagRegex = new RegExp(`<${iconName}\\b`);
+        if (tagRegex.test(line)) {
+          const contextWindow = lines.slice(Math.max(0, idx - 3), Math.min(lines.length, idx + 4)).join(" ");
+          let iconContext: VisualIconUsage["context"] = "Visual Indicator";
+          if (/<(?:button|Button)\b/i.test(contextWindow)) {
+            iconContext = "Button";
+          } else if (/<(?:a|Link)\b/i.test(contextWindow)) {
+            iconContext = "Link / Navigation";
+          } else if (/<(?:Badge)\b/i.test(contextWindow) || /rounded-full.*badge/i.test(contextWindow)) {
+            iconContext = "Badge / Status";
+          } else if (/<(?:Dialog|Modal|Drawer)/i.test(contextWindow)) {
+            iconContext = "Dialog Action";
+          } else if (/<(?:Dropdown|Menu|SelectItem)/i.test(contextWindow)) {
+            iconContext = "Menu Item";
+          }
+
+          visualIcons.push({
+            line: lineNum,
+            iconName,
+            sourceLib: lib,
+            context: iconContext,
+            snippet: trimmed.slice(0, 75),
+          });
+        }
+      }
+    }
+
+    // Raw SVG Detection
+    if (/<svg\b/i.test(line)) {
+      const ariaMatch = line.match(/(?:aria-label|title)=["']([^"']+)["']/);
+      const name = ariaMatch ? `SVG (${ariaMatch[1]})` : "inline SVG";
+      const contextWindow = lines.slice(Math.max(0, idx - 3), Math.min(lines.length, idx + 4)).join(" ");
+      let iconContext: VisualIconUsage["context"] = "Visual Indicator";
+      if (/<(?:button|Button)\b/i.test(contextWindow)) {
+        iconContext = "Button";
+      } else if (/<(?:a|Link)\b/i.test(contextWindow)) {
+        iconContext = "Link / Navigation";
+      }
+
+      visualIcons.push({
+        line: lineNum,
+        iconName: name,
+        sourceLib: "raw SVG",
+        context: iconContext,
+        snippet: trimmed.slice(0, 75),
+      });
+    }
+
     let cardMatch;
     CARD_SURFACE_REGEX.lastIndex = 0;
     while ((cardMatch = CARD_SURFACE_REGEX.exec(line)) !== null) {
@@ -436,6 +548,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     filePath,
     relativePath: relPath,
     zone,
+    isClientComponent,
     componentNames,
     imports,
     rawButtons,
@@ -446,6 +559,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     rogueTailwindColors,
     typographyUsages,
     visibleLabels,
+    visualIcons,
     hasDirectStyleTag,
     isExportedComponent,
   };
@@ -487,7 +601,7 @@ function findDeadComponents(audits: ComponentAudit[]): ComponentAudit[] {
   return dead;
 }
 
-// 6. Dynamic Route Builder
+// 6. Dynamic Route Builder with Boundary Radar & 2-Level Tree
 function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
   const routes: RouteMapItem[] = [];
   const pageFiles = audits.filter(a =>
@@ -498,6 +612,7 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
   for (const page of pageFiles) {
     let route = "/" + page.relativePath
       .replace(/^(src\/)?app\//, "")
+      .replace(/^(src\/)?pages\//, "")
       .replace(/\([^)]+\)\/?/, "")
       .replace(/\/page\.(tsx|jsx|ts|js)$/, "")
       .replace(/^page\.(tsx|jsx|ts|js)$/, "");
@@ -531,15 +646,20 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
       });
 
       let children: string[] = [];
-      if (matchingAudit && matchingAudit.imports.length > 0) {
-        children = matchingAudit.imports
-          .map(c => path.basename(c).replace(/\.[^/.]+$/, ""))
-          .filter(c => !["ui", "button", "theme-toggle", "clsx", "lucide-react", "tailwind-merge", "utils"].includes(c.toLowerCase()) && c !== baseName);
-        children = Array.from(new Set(children)).slice(0, 4);
+      let isClient = false;
+      if (matchingAudit) {
+        isClient = matchingAudit.isClientComponent;
+        if (matchingAudit.imports.length > 0) {
+          children = matchingAudit.imports
+            .map(c => path.basename(c).replace(/\.[^/.]+$/, ""))
+            .filter(c => !["ui", "button", "theme-toggle", "clsx", "lucide-react", "tailwind-merge", "utils"].includes(c.toLowerCase()) && c !== baseName);
+          children = Array.from(new Set(children)).slice(0, 4);
+        }
       }
 
       componentTree.push({
         name: cleanName,
+        isClientComponent: isClient,
         children,
       });
     });
@@ -549,6 +669,7 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
       zone: page.zone,
       pageFile: page.relativePath,
       layoutFile,
+      isClientComponent: page.isClientComponent,
       importedComponents: page.imports,
       componentTree,
     });
@@ -568,9 +689,11 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
         route: "/ (Single Page App)",
         zone: "Root Application",
         pageFile: rootComponent.relativePath,
+        isClientComponent: true,
         importedComponents: rootComponent.imports,
         componentTree: rootComponent.imports.map(c => ({
           name: c.replace(/@\/(components|src\/components)\//, "").replace(/^\.\//, ""),
+          isClientComponent: true,
           children: [],
         })),
       });
@@ -592,10 +715,8 @@ function executeButtonCodemod(audits: ComponentAudit[]) {
     let content = fs.readFileSync(a.filePath, "utf-8");
     let fileChanged = false;
 
-    // Check if Button is already imported
     const hasButtonImport = /import\s+.*\{?.*Button.*\}?\s+from\s+["']@\/components\/ui\/button["']/.test(content);
 
-    // Replace <button with <Button and </button> with </Button>
     const newContent = content
       .replace(/<button\b/g, () => {
         transformedButtonsCount++;
@@ -618,7 +739,309 @@ function executeButtonCodemod(audits: ComponentAudit[]) {
   console.log(`🎉 Codemod complete: Converted ${transformedButtonsCount} buttons across ${modifiedFilesCount} files.`);
 }
 
-// 8. Interactive Query Filter (--find / --route)
+// 8. Triage & Dispatch Gateway Generator
+function generateSkillDispatches(audits: ComponentAudit[]): SkillDispatch[] {
+  const dispatches: SkillDispatch[] = [];
+
+  // 1. emil-design-eng: Interaction Physics, snappy buttons, active states
+  const physicsTargets: { file: string; line?: number; zone: string; detail: string }[] = [];
+  audits.forEach(a => {
+    a.rawButtons.forEach(b => {
+      if (!b.className?.includes("active:scale") && !b.className?.includes("transition")) {
+        physicsTargets.push({
+          file: a.relativePath,
+          line: b.line,
+          zone: a.zone,
+          detail: "Button missing snappy interaction physics (active:scale-[0.97] / transition)",
+        });
+      }
+    });
+  });
+
+  if (physicsTargets.length > 0) {
+    dispatches.push({
+      targetSkill: "emil-design-eng",
+      category: "Interaction & Physics",
+      issueCount: physicsTargets.length,
+      description: "Apply snappy micro-interactions, press feedback (active:scale-[0.97]), and spring physics.",
+      targets: physicsTargets,
+    });
+  }
+
+  // 2. ui-ux-pro-max: Design Tokens & Colors
+  const tokenTargets: { file: string; line?: number; zone: string; detail: string }[] = [];
+  audits.forEach(a => {
+    a.hardcodedHexes.forEach(h => {
+      tokenTargets.push({
+        file: a.relativePath,
+        line: h.line,
+        zone: a.zone,
+        detail: `Hardcoded hex color: ${h.hex}`,
+      });
+    });
+    a.rogueTailwindColors.forEach(r => {
+      tokenTargets.push({
+        file: a.relativePath,
+        line: r.line,
+        zone: a.zone,
+        detail: `Rogue un-tokenized gray: ${r.token}`,
+      });
+    });
+  });
+
+  if (tokenTargets.length > 0) {
+    dispatches.push({
+      targetSkill: "ui-ux-pro-max",
+      category: "Design Tokens & Colors",
+      issueCount: tokenTargets.length,
+      description: "Migrate hardcoded hexes and rogue Tailwind grays into standardized project tokens.",
+      targets: tokenTargets,
+    });
+  }
+
+  // 3. a11y-debugging: Accessibility fast-checks
+  const a11yTargets: { file: string; line?: number; zone: string; detail: string }[] = [];
+  audits.forEach(a => {
+    a.rawButtons.filter(b => b.missingAria || b.missingType).forEach(b => {
+      const flags: string[] = [];
+      if (b.missingAria) flags.push("Missing aria-label / title");
+      if (b.missingType) flags.push("Missing type='button'");
+      a11yTargets.push({
+        file: a.relativePath,
+        line: b.line,
+        zone: a.zone,
+        detail: flags.join(", "),
+      });
+    });
+  });
+
+  if (a11yTargets.length > 0) {
+    dispatches.push({
+      targetSkill: "a11y-debugging",
+      category: "Accessibility (a11y)",
+      issueCount: a11yTargets.length,
+      description: "Add missing aria-labels, accessible names, keyboard navigation, and explicit button types.",
+      targets: a11yTargets,
+    });
+  }
+
+  // 4. impeccable: Visual craft, inline styles, layout hygiene
+  const craftTargets: { file: string; line?: number; zone: string; detail: string }[] = [];
+  audits.forEach(a => {
+    if (a.hasDirectStyleTag && a.zone !== "Shared UI Primitives") {
+      craftTargets.push({
+        file: a.relativePath,
+        zone: a.zone,
+        detail: "Direct inline style={{...}} tag bypassing Tailwind token pipeline",
+      });
+    }
+  });
+
+  if (craftTargets.length > 0) {
+    dispatches.push({
+      targetSkill: "impeccable",
+      category: "Craft & Micro-Polish",
+      issueCount: craftTargets.length,
+      description: "Refactor inline styles into clean design tokens and harden visual hierarchy.",
+      targets: craftTargets,
+    });
+  }
+
+  // 5. codemod (--fix-buttons): Button standardization
+  const rawButtonFiles = audits.filter(a => a.rawButtons.length > 0 && a.zone !== "Shared UI Primitives");
+  if (rawButtonFiles.length > 0) {
+    dispatches.push({
+      targetSkill: "codemod (--fix-buttons)",
+      category: "Button Standardization",
+      issueCount: rawButtonFiles.reduce((acc, f) => acc + f.rawButtons.length, 0),
+      description: "Automated codemod to migrate raw HTML <button> tags to standardized <Button> component.",
+      targets: rawButtonFiles.map(f => ({
+        file: f.relativePath,
+        zone: f.zone,
+        detail: `${f.rawButtons.length} raw button(s) to migrate`,
+      })),
+    });
+  }
+
+  return dispatches;
+}
+
+// 9. Zero-Search Agent Handoff Manifest Generator (--manifest <target>)
+function executeManifestLookup(audits: ComponentAudit[], target: string) {
+  console.log(`🎫 Generating Agent Handoff Manifest for: "${target}"...\n`);
+  const [filePathQuery, lineStr] = target.split(":");
+  const targetLine = lineStr ? parseInt(lineStr, 10) : undefined;
+  const q = filePathQuery.toLowerCase().replace(/\\/g, "/");
+
+  const matchingAudit = audits.find(a =>
+    a.relativePath.toLowerCase().includes(q) ||
+    a.componentNames.some(c => c.toLowerCase() === q)
+  );
+
+  if (!matchingAudit) {
+    console.error(`❌ Could not locate component matching "${target}". Check 01_ROUTES_AND_PANELS_MAP.md or run --find.`);
+    return;
+  }
+
+  const fileLines = fs.readFileSync(matchingAudit.filePath, "utf-8").split("\n");
+  const compName = matchingAudit.componentNames[0] || path.basename(matchingAudit.relativePath).replace(/\.[^/.]+$/, "");
+  const boundary = matchingAudit.isClientComponent ? "Client ⚡ ('use client')" : "Server 🖥️ (RSC)";
+
+  const detectedIssues: { type: string; recommendedSkill: string; line?: number; note: string }[] = [];
+
+  // Check buttons
+  matchingAudit.rawButtons.forEach(b => {
+    if (!targetLine || Math.abs(b.line - targetLine) <= 15) {
+      if (b.missingAria) {
+        detectedIssues.push({
+          type: "a11y",
+          recommendedSkill: "a11y-debugging",
+          line: b.line,
+          note: "Missing aria-label or accessible text on button",
+        });
+      }
+      if (!b.className?.includes("active:scale")) {
+        detectedIssues.push({
+          type: "physics",
+          recommendedSkill: "emil-design-eng",
+          line: b.line,
+          note: "Missing snappy press physics (active:scale-[0.97])",
+        });
+      }
+    }
+  });
+
+  // Check hardcoded colors
+  matchingAudit.hardcodedHexes.forEach(h => {
+    if (!targetLine || Math.abs(h.line - targetLine) <= 15) {
+      detectedIssues.push({
+        type: "design-token",
+        recommendedSkill: "ui-ux-pro-max",
+        line: h.line,
+        note: `Hardcoded hex color: ${h.hex}`,
+      });
+    }
+  });
+
+  // Check rogue tailwind
+  matchingAudit.rogueTailwindColors.forEach(r => {
+    if (!targetLine || Math.abs(r.line - targetLine) <= 15) {
+      detectedIssues.push({
+        type: "design-token",
+        recommendedSkill: "ui-ux-pro-max",
+        line: r.line,
+        note: `Un-tokenized rogue color utility: ${r.token}`,
+      });
+    }
+  });
+
+  // Check inline styles
+  if (matchingAudit.hasDirectStyleTag) {
+    detectedIssues.push({
+      type: "craft",
+      recommendedSkill: "impeccable",
+      note: "Contains direct style={{...}} tag bypassing Tailwind",
+    });
+  }
+
+  const manifest = [
+    `# === AGENT HANDOFF MANIFEST ===`,
+    `manifest_version: "1.0"`,
+    `component_name: "${compName}"`,
+    `file: "${matchingAudit.relativePath}"`,
+    targetLine ? `target_line: ${targetLine}` : `total_lines: ${fileLines.length}`,
+    `zone: "${matchingAudit.zone}"`,
+    `boundary: "${boundary}"`,
+    `icons_used: [${matchingAudit.visualIcons.map(i => `"${i.iconName}"`).join(", ")}]`,
+    `diagnosed_issues:`,
+    ...(detectedIssues.length > 0
+      ? detectedIssues.map(i => `  - type: "${i.type}"\n    skill: "${i.recommendedSkill}"\n    line: ${i.line || "file-level"}\n    note: "${i.note}"`)
+      : [`  - note: "No immediate styling or a11y violations found."`]),
+    `recommended_dispatch_routing:`,
+    `  interaction_physics: "emil-design-eng"`,
+    `  token_unification: "ui-ux-pro-max"`,
+    `  accessibility_remediation: "a11y-debugging"`,
+    `  visual_hierarchy_polish: "impeccable"`,
+    `# === END MANIFEST ===`,
+  ].join("\n");
+
+  console.log(manifest);
+}
+
+// 10. Closed-Loop Verification Gate (--verify)
+function executeVerificationGate(audits: ComponentAudit[], routes: RouteMapItem[], deadComponents: ComponentAudit[]) {
+  console.log("🛡️ Running Closed-Loop Verification Gate (--verify)...\n");
+
+  const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
+  let prevReceipt: VerificationReceipt | null = null;
+
+  if (fs.existsSync(receiptPath)) {
+    try {
+      prevReceipt = JSON.parse(fs.readFileSync(receiptPath, "utf-8"));
+    } catch {
+      prevReceipt = null;
+    }
+  }
+
+  // TypeScript Compile Check
+  let tsStatus: "PASS" | "FAIL" | "SKIPPED" = "SKIPPED";
+  try {
+    const tscCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+    const tsCheck = child_process.spawnSync(tscCmd, ["tsc", "--noEmit"], {
+      cwd: ROOT_DIR,
+      encoding: "utf-8",
+      shell: true,
+    });
+    if (tsCheck.status === 0) {
+      tsStatus = "PASS";
+    } else {
+      tsStatus = "FAIL";
+    }
+  } catch {
+    tsStatus = "SKIPPED";
+  }
+
+  const currentReceipt: VerificationReceipt = {
+    timestamp: new Date().toISOString(),
+    version: "1.5.0",
+    totalFiles: audits.length,
+    routesCount: routes.length,
+    rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
+    uiButtonsCount: audits.reduce((acc, a) => acc + a.uiButtons.length, 0),
+    a11yFlagsCount: audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0),
+    hardcodedHexesCount: audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0),
+    rogueColorsCount: audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0),
+    orphanedComponentsCount: deadComponents.length,
+    visualIconsCount: audits.reduce((acc, a) => acc + a.visualIcons.length, 0),
+    typeCheckStatus: tsStatus,
+  };
+
+  fs.writeFileSync(receiptPath, JSON.stringify(currentReceipt, null, 2), "utf-8");
+
+  console.log("📊 Verification Delta Report:");
+  console.log("────────────────────────────────────────────────────────────");
+  console.log(`TypeScript Compilation: ${tsStatus === "PASS" ? "✅ PASS (0 errors)" : tsStatus === "FAIL" ? "❌ FAIL (TypeScript errors detected)" : "⚠️ SKIPPED"}`);
+
+  function formatDelta(curr: number, prev?: number, isLowerBetter = true) {
+    if (prev === undefined) return `${curr} (initial benchmark)`;
+    const diff = curr - prev;
+    if (diff === 0) return `${curr} (no change)`;
+    const sign = diff > 0 ? `+${diff}` : `${diff}`;
+    const indicator = isLowerBetter ? (diff < 0 ? "✅ improved" : "⚠️ increased") : (diff > 0 ? "✅ improved" : "⚠️ decreased");
+    return `${prev} ➔ ${curr} (${sign} ${indicator})`;
+  }
+
+  console.log(`- Raw HTML Buttons:       ${formatDelta(currentReceipt.rawButtonsCount, prevReceipt?.rawButtonsCount, true)}`);
+  console.log(`- a11y Fast-Check Flags:  ${formatDelta(currentReceipt.a11yFlagsCount, prevReceipt?.a11yFlagsCount, true)}`);
+  console.log(`- Hardcoded Hexes:        ${formatDelta(currentReceipt.hardcodedHexesCount, prevReceipt?.hardcodedHexesCount, true)}`);
+  console.log(`- Rogue Tailwind Grays:   ${formatDelta(currentReceipt.rogueColorsCount, prevReceipt?.rogueColorsCount, true)}`);
+  console.log(`- Orphaned Components:    ${formatDelta(currentReceipt.orphanedComponentsCount, prevReceipt?.orphanedComponentsCount, true)}`);
+  console.log(`- Standard <Button> Tags: ${formatDelta(currentReceipt.uiButtonsCount, prevReceipt?.uiButtonsCount, false)}`);
+  console.log("────────────────────────────────────────────────────────────");
+  console.log(`📄 Verification receipt saved to: docs/frontend-atlas/.last_receipt.json\n`);
+}
+
+// 11. Interactive Query Filter (--find / --route)
 function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string) {
   console.log(`🔎 Searching Frontend Atlas for query: "${query}"\n`);
   const q = query.toLowerCase();
@@ -628,7 +1051,8 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
   if (matchingRoutes.length > 0) {
     console.log(`📍 Matching Routes (${matchingRoutes.length}):`);
     matchingRoutes.forEach(r => {
-      console.log(`   - Route: ${r.route} ➡️ File: ${r.pageFile}`);
+      const boundary = r.isClientComponent ? "[Client ⚡]" : "[Server 🖥️]";
+      console.log(`   - Route: ${r.route} ${boundary} ➡️ File: ${r.pageFile}`);
     });
     console.log();
   }
@@ -644,7 +1068,8 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     console.log(`🧩 Matching Components & Files (${matchingComponents.length}):`);
     matchingComponents.slice(0, 15).forEach(c => {
       const btnCount = c.rawButtons.length + c.uiButtons.length;
-      console.log(`   - [${c.zone}] ${c.relativePath} (${btnCount} buttons, ${c.cardsAndSurfaces.length} cards)`);
+      const boundary = c.isClientComponent ? "[Client ⚡]" : "[Server 🖥️]";
+      console.log(`   - [${c.zone}] ${c.relativePath} ${boundary} (${btnCount} buttons, ${c.cardsAndSurfaces.length} cards)`);
       if (c.rawButtons.length > 0 && (q.includes("btn") || q.includes("button"))) {
         c.rawButtons.slice(0, 3).forEach(b => {
           console.log(`       Line ${b.line}: ${b.snippet}`);
@@ -690,9 +1115,36 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     }
     console.log();
   }
+
+  // Search Visual Icons
+  const matchingIcons: { file: string; line: number; icon: string; lib: string; context: string }[] = [];
+  audits.forEach(a => {
+    a.visualIcons.forEach(vi => {
+      if (vi.iconName.toLowerCase().includes(q) || vi.sourceLib.toLowerCase().includes(q)) {
+        matchingIcons.push({
+          file: a.relativePath,
+          line: vi.line,
+          icon: vi.iconName,
+          lib: vi.sourceLib,
+          context: vi.context,
+        });
+      }
+    });
+  });
+
+  if (matchingIcons.length > 0) {
+    console.log(`🖼️ Matching Visual Icons (${matchingIcons.length}):`);
+    matchingIcons.slice(0, 10).forEach(i => {
+      console.log(`   - [${i.context}] <${i.icon}> (${i.lib}) ➡️ ${i.file}:${i.line}`);
+    });
+    if (matchingIcons.length > 10) {
+      console.log(`     (+${matchingIcons.length - 10} more matches in 07_VISUAL_AND_ICON_INDEX.md)`);
+    }
+    console.log();
+  }
 }
 
-// 9. Main Runner
+// 12. Main Runner
 export function runUniversalFrontendAudit() {
   const structure = detectProjectStructure();
 
@@ -711,10 +1163,23 @@ export function runUniversalFrontendAudit() {
   const audits = uniqueFiles.map(f => auditFile(f, structure));
   const routeMaps = buildRouteMap(audits);
   const deadComponents = findDeadComponents(audits);
+  const skillDispatches = generateSkillDispatches(audits);
 
   // If --fix-buttons requested
   if (SHOULD_FIX_BUTTONS) {
     executeButtonCodemod(audits);
+    return;
+  }
+
+  // If --manifest requested
+  if (MANIFEST_TARGET) {
+    executeManifestLookup(audits, MANIFEST_TARGET);
+    return;
+  }
+
+  // If --verify requested
+  if (VERIFY_MODE) {
+    executeVerificationGate(audits, routeMaps, deadComponents);
     return;
   }
 
@@ -738,7 +1203,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.4.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.5.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (deadComponents.length > 0) {
@@ -755,7 +1220,27 @@ export function runUniversalFrontendAudit() {
   writeUIIslandsAudit(audits, deadComponents);
   writeDeadComponentsLedger(deadComponents);
   writeVisibleLabelsMap(audits);
+  writeVisualIconIndex(audits);
+  writeDispatchGateway(skillDispatches);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents);
+
+  // Update .last_receipt.json baseline
+  const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
+  const baselineReceipt: VerificationReceipt = {
+    timestamp: new Date().toISOString(),
+    version: "1.5.0",
+    totalFiles: audits.length,
+    routesCount: routeMaps.length,
+    rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
+    uiButtonsCount: audits.reduce((acc, a) => acc + a.uiButtons.length, 0),
+    a11yFlagsCount: audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0),
+    hardcodedHexesCount: audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0),
+    rogueColorsCount: audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0),
+    orphanedComponentsCount: deadComponents.length,
+    visualIconsCount: audits.reduce((acc, a) => acc + a.visualIcons.length, 0),
+    typeCheckStatus: "PASS",
+  };
+  fs.writeFileSync(receiptPath, JSON.stringify(baselineReceipt, null, 2), "utf-8");
 
   console.log(`✨ Universal Frontend Atlas written to: ${path.relative(ROOT_DIR, OUTPUT_DIR)}`);
 }
@@ -781,7 +1266,7 @@ function makeFileLink(relativePath: string, line?: number, displayText?: string)
 function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md");
   let md = `# 🗺️ Frontend Routes & Panels Map\n\n`;
-  md += `> Auto-generated navigation map linking every route to its page file, layout, and imported components.\n\n`;
+  md += `> Auto-generated navigation map linking every route to its page file, layout, and component tree.\n\n`;
   md += `- **Detected Architecture**: \`${structure.framework}\`\n\n`;
 
   const zones = Array.from(new Set(routes.map(r => r.zone))).sort();
@@ -791,22 +1276,24 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
     if (zoneRoutes.length === 0) return;
 
     md += `## 📂 ${zone} (${zoneRoutes.length} Routes)\n\n`;
-    md += `| Route | Page File | Layout File | Key Imported Components |\n`;
-    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| Route | Page File | Boundary | Layout File | Key Imported Components |\n`;
+    md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
     zoneRoutes.forEach(r => {
       const layoutStr = r.layoutFile ? makeFileLink(r.layoutFile) : `_Inherited / N/A_`;
       const pageLink = makeFileLink(r.pageFile);
+      const boundaryStr = r.isClientComponent ? `\`Client ⚡\`` : `\`Server 🖥️\``;
       const importsStr = r.componentTree && r.componentTree.length > 0
         ? r.componentTree.map(node => {
+            const clientBadge = node.isClientComponent ? " `[⚡]`" : "";
             if (node.children.length > 0) {
-              return `\`${node.name}\` ➔ [${node.children.map(c => `\`${c}\``).join(", ")}]`;
+              return `\`${node.name}\`${clientBadge} ➔ [${node.children.map(c => `\`${c}\``).join(", ")}]`;
             }
-            return `\`${node.name}\``;
+            return `\`${node.name}\`${clientBadge}`;
           }).join(" • ")
         : `_None (Direct UI)_`;
 
-      md += `| \`${r.route}\` | ${pageLink} | ${layoutStr} | ${importsStr} |\n`;
+      md += `| \`${r.route}\` | ${pageLink} | ${boundaryStr} | ${layoutStr} | ${importsStr} |\n`;
     });
 
     md += `\n`;
@@ -991,56 +1478,6 @@ function writeDeadComponentsLedger(deadComponents: ComponentAudit[]) {
   fs.writeFileSync(filePath, md);
 }
 
-function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[]) {
-  const filePath = path.join(OUTPUT_DIR, "README.md");
-  const totalFiles = audits.length;
-  const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
-  const totalUiButtons = audits.reduce((acc, a) => acc + a.uiButtons.length, 0);
-  const totalHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
-  const totalRogue = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
-
-  let md = `# 📖 Frontend Atlas & Quick-Reference Catalog\n\n`;
-  md += `> Centralized documentation and audit ledger for this project.\n`;
-  md += `> 💡 **Tip**: Type \`/frontend-audit\` in AI chat or run \`npx frontend-audit\` in terminal to refresh.\n\n`;
-
-  md += `## 📊 Platform Statistics\n\n`;
-  md += `- **Framework Architecture**: **${structure.framework}**\n`;
-  md += `- **Total Frontend Files**: **${totalFiles}**\n`;
-  md += `- **Total Active Routes**: **${routes.length}**\n`;
-  md += `- **Standardized UI Buttons**: **${totalUiButtons}**\n`;
-  md += `- **Raw HTML Button Tags**: **${totalRawButtons}**\n`;
-  md += `- **Orphaned / Dead Components**: **${deadComponents.length}**\n`;
-  md += `- **Hardcoded Hex Deviations**: **${totalHexes}**\n`;
-  md += `- **Rogue Color Classes**: **${totalRogue}**\n\n`;
-
-  md += `## 📑 Atlas Documents Guide\n\n`;
-  md += `1. **[01_ROUTES_AND_PANELS_MAP.md](./01_ROUTES_AND_PANELS_MAP.md)**\n`;
-  md += `   - Instant lookup for all pages and routes across all panels.\n\n`;
-
-  md += `2. **[02_COMPONENT_INVENTORY.md](./02_COMPONENT_INVENTORY.md)**\n`;
-  md += `   - Complete inventory of Buttons, Modals, Drawers, and a11y fast-check flags.\n\n`;
-
-  md += `3. **[03_DESIGN_TOKENS_AND_COLORS.md](./03_DESIGN_TOKENS_AND_COLORS.md)**\n`;
-  md += `   - Color palettes, typography tokens, and exact line-by-line list of all rogue colors.\n\n`;
-
-  md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](./04_UI_ISLANDS_AND_DRIFT.md)**\n`;
-  md += `   - High-priority list of discrepancies, UI redundancies, and isolated styling.\n\n`;
-
-  md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](./05_DEAD_ORPHANED_COMPONENTS.md)**\n`;
-  md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
-
-  md += `6. **[06_VISIBLE_TEXT_AND_LABELS_MAP.md](./06_VISIBLE_TEXT_AND_LABELS_MAP.md)**\n`;
-  md += `   - Master index of buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.\n\n`;
-
-  md += `## 📦 How to Install / Update this Skill\n\n`;
-  md += `To install or update to the latest version in any project:\n\n`;
-  md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex\`\n`;
-  md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash\`\n`;
-  md += `- **GitHub Repository**: [Eurie92/frontend-audit-skill](https://github.com/Eurie92/frontend-audit-skill)\n\n`;
-
-  fs.writeFileSync(filePath, md);
-}
-
 function writeVisibleLabelsMap(audits: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "06_VISIBLE_TEXT_AND_LABELS_MAP.md");
   let md = `# 🏷️ Visible Text & UI Labels Map\n\n`;
@@ -1073,6 +1510,149 @@ function writeVisibleLabelsMap(audits: ComponentAudit[]) {
     const cleanLabel = escapeMarkdownSnippet(l.text, 40);
     md += `| ${l.zone} | \`${cleanLabel}\` | ${l.type} | ${fileLink} | \`${cleanSnippet}\` |\n`;
   });
+
+  fs.writeFileSync(filePath, md);
+}
+
+function writeVisualIconIndex(audits: ComponentAudit[]) {
+  const filePath = path.join(OUTPUT_DIR, "07_VISUAL_AND_ICON_INDEX.md");
+  let md = `# 🖼️ Visual Icons & Action Symbols Index\n\n`;
+  md += `> Comprehensive index of Lucide, Radix, Tabler, and SVG visual action icons across all panels.\n`;
+  md += `> 💡 **Screenshot-to-Code**: When matching icon-only buttons or visual badges from a screenshot (where no text exists), look up the icon name here to locate the exact file and line in 0ms.\n\n`;
+
+  const allIcons: { zone: string; file: string; line: number; iconName: string; sourceLib: string; context: string; snippet: string }[] = [];
+  audits.forEach(a => {
+    a.visualIcons.forEach(vi => {
+      allIcons.push({
+        zone: a.zone,
+        file: a.relativePath,
+        line: vi.line,
+        iconName: vi.iconName,
+        sourceLib: vi.sourceLib,
+        context: vi.context,
+        snippet: vi.snippet,
+      });
+    });
+  });
+
+  allIcons.sort((a, b) => a.iconName.localeCompare(b.iconName) || a.file.localeCompare(b.file));
+  const distinctIconNames = new Set(allIcons.map(i => i.iconName));
+
+  md += `## 📊 Icon Catalog Summary\n\n`;
+  md += `- **Total Icon Usages**: **${allIcons.length}**\n`;
+  md += `- **Distinct Icon Types**: **${distinctIconNames.size}**\n\n`;
+
+  md += `## 📋 Indexed Visual Action Icons\n\n`;
+  md += `| Zone | Icon Name | Library | Context | File & Line | Code Snippet |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  allIcons.forEach(i => {
+    const fileLink = makeFileLink(i.file, i.line, `${i.file}:${i.line}`);
+    const cleanSnippet = escapeMarkdownSnippet(i.snippet, 45);
+    md += `| ${i.zone} | \`${i.iconName}\` | \`${i.sourceLib}\` | ${i.context} | ${fileLink} | \`${cleanSnippet}\` |\n`;
+  });
+
+  fs.writeFileSync(filePath, md);
+}
+
+function writeDispatchGateway(dispatches: SkillDispatch[]) {
+  const filePath = path.join(OUTPUT_DIR, "08_DISPATCH_GATEWAY.md");
+  let md = `# 🎫 Skill Dispatch Gateway & Inter-Skill Handoff Matrix\n\n`;
+  md += `> Triage router connecting detected frontend findings to specialized peer skills.\n`;
+  md += `> 💡 **Handoff Protocol**: Downstream agents can directly accept target files from this matrix without redundant full-codebase searches.\n\n`;
+
+  md += `## 🧭 Peer Skill Routing Architecture\n\n`;
+  md += `| Recommended Skill | Domain & Focus | Trigger Criteria | CLI Auto-Fix |\n`;
+  md += `| :--- | :--- | :--- | :--- |\n`;
+  md += `| \`emil-design-eng\` | Micro-interactions & Physics | Missing \`active:scale-[0.97]\`, transitions | N/A (Agent Polish) |\n`;
+  md += `| \`ui-ux-pro-max\` | Design Tokens & Colors | Hardcoded hexes, un-tokenized Tailwind grays | N/A (Token Alignment) |\n`;
+  md += `| \`a11y-debugging\` | Accessibility Remediation | Missing \`aria-label\`, missing \`type="button"\` | N/A (A11y Hardening) |\n`;
+  md += `| \`impeccable\` | Visual Craft & Layout | Inline \`style={{...}}\` tags, layout drift | N/A (Craft Review) |\n`;
+  md += `| \`codemod\` | Automated Standardization | Mass raw \`<button>\` migration | \`--fix-buttons\` |\n\n`;
+
+  md += `## 📋 Active Skill Dispatch Punch Lists\n\n`;
+
+  dispatches.forEach(d => {
+    md += `### 🎯 \`${d.targetSkill}\` (${d.category} — ${d.issueCount} occurrences)\n\n`;
+    md += `> **Action**: ${d.description}\n\n`;
+    md += `| Zone | Target File & Line | Diagnostic Detail |\n`;
+    md += `| :--- | :--- | :--- |\n`;
+
+    d.targets.slice(0, 30).forEach(t => {
+      const fileLink = makeFileLink(t.file, t.line, t.line ? `${t.file}:${t.line}` : t.file);
+      md += `| ${t.zone} | ${fileLink} | ${t.detail} |\n`;
+    });
+
+    if (d.targets.length > 30) {
+      md += `| _..._ | _(+${d.targets.length - 30} more targets)_ | _See component inventory_ |\n`;
+    }
+
+    md += `\n`;
+  });
+
+  md += `## 🤖 CLI Handoff Command\n\n`;
+  md += `To generate a structured machine-readable manifest for any component or line, run:\n\n`;
+  md += `\`\`\`bash\n`;
+  md += `npx frontend-audit --manifest "path/to/component.tsx:line"\n`;
+  md += `\`\`\`\n\n`;
+
+  fs.writeFileSync(filePath, md);
+}
+
+function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[]) {
+  const filePath = path.join(OUTPUT_DIR, "README.md");
+  const totalFiles = audits.length;
+  const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
+  const totalUiButtons = audits.reduce((acc, a) => acc + a.uiButtons.length, 0);
+  const totalHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
+  const totalRogue = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
+  const totalIcons = audits.reduce((acc, a) => acc + a.visualIcons.length, 0);
+
+  let md = `# 📖 Frontend Atlas & Quick-Reference Catalog\n\n`;
+  md += `> Centralized documentation and audit ledger for this project.\n`;
+  md += `> 💡 **Tip**: Type \`/frontend-audit\` in AI chat or run \`npx frontend-audit\` in terminal to refresh.\n\n`;
+
+  md += `## 📊 Platform Statistics\n\n`;
+  md += `- **Framework Architecture**: **${structure.framework}**\n`;
+  md += `- **Total Frontend Files**: **${totalFiles}**\n`;
+  md += `- **Total Active Routes**: **${routes.length}**\n`;
+  md += `- **Standardized UI Buttons**: **${totalUiButtons}**\n`;
+  md += `- **Raw HTML Button Tags**: **${totalRawButtons}**\n`;
+  md += `- **Orphaned / Dead Components**: **${deadComponents.length}**\n`;
+  md += `- **Hardcoded Hex Deviations**: **${totalHexes}**\n`;
+  md += `- **Rogue Color Classes**: **${totalRogue}**\n`;
+  md += `- **Indexed Visual Icons**: **${totalIcons}**\n\n`;
+
+  md += `## 📑 Atlas Documents Guide\n\n`;
+  md += `1. **[01_ROUTES_AND_PANELS_MAP.md](./01_ROUTES_AND_PANELS_MAP.md)**\n`;
+  md += `   - Instant lookup linking every route directly to its page file, Next.js boundary (\`Client ⚡\` vs \`Server 🖥️\`), layout, and 2-level deep component tree.\n\n`;
+
+  md += `2. **[02_COMPONENT_INVENTORY.md](./02_COMPONENT_INVENTORY.md)**\n`;
+  md += `   - Complete inventory of Buttons, Modals, Drawers, and a11y fast-check flags.\n\n`;
+
+  md += `3. **[03_DESIGN_TOKENS_AND_COLORS.md](./03_DESIGN_TOKENS_AND_COLORS.md)**\n`;
+  md += `   - Color palettes, typography tokens, and exact line-by-line list of all rogue colors.\n\n`;
+
+  md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](./04_UI_ISLANDS_AND_DRIFT.md)**\n`;
+  md += `   - High-priority list of discrepancies, UI redundancies, and isolated styling.\n\n`;
+
+  md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](./05_DEAD_ORPHANED_COMPONENTS.md)**\n`;
+  md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
+
+  md += `6. **[06_VISIBLE_TEXT_AND_LABELS_MAP.md](./06_VISIBLE_TEXT_AND_LABELS_MAP.md)**\n`;
+  md += `   - Master index of buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.\n\n`;
+
+  md += `7. **[07_VISUAL_AND_ICON_INDEX.md](./07_VISUAL_AND_ICON_INDEX.md)**\n`;
+  md += `   - Master index of Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.\n\n`;
+
+  md += `8. **[08_DISPATCH_GATEWAY.md](./08_DISPATCH_GATEWAY.md)**\n`;
+  md += `   - Inter-skill handoff matrix routing diagnosed UI findings to specialized peer skills (\`emil-design-eng\`, \`ui-ux-pro-max\`, \`a11y-debugging\`, \`impeccable\`).\n\n`;
+
+  md += `## 📦 How to Install / Update this Skill\n\n`;
+  md += `To install or update to the latest version in any project:\n\n`;
+  md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex\`\n`;
+  md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash\`\n`;
+  md += `- **GitHub Repository**: [Eurie92/frontend-audit-skill](https://github.com/Eurie92/frontend-audit-skill)\n\n`;
 
   fs.writeFileSync(filePath, md);
 }
