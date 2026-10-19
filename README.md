@@ -27,41 +27,59 @@ In growing web applications—especially multi-tenant architectures featuring Pu
 
 ---
 
-## ⚡ Quickstart & CLI Commands
+## ⚡ How to Run It
 
-### 1. Automated Full Audit (Generates / Refreshes Atlas)
+### 💬 Option A: Inside AI Chat (Recommended)
+You **do not need to open a terminal**. When chatting with Antigravity, AGY, or Claude Code, simply type:
+```text
+/frontend-audit
+```
+Or query specific sections directly in the chat:
+```text
+/frontend-audit --find "button"
+/frontend-audit --dead
+/frontend-audit --fix-buttons
+```
+Your AI assistant will automatically execute the audit in the background and report the summary right in your chat!
+
+---
+
+### 💻 Option B: From the Terminal (Manual CLI)
+If you prefer running from the command line or CI/CD pipelines:
 ```bash
+# Direct run via npx:
 npx frontend-audit
-# or with tsx directly:
-npx tsx .agent/skills/frontend-audit/scripts/audit.ts
-```
 
-### 2. Live File Watcher (`--watch`) — *Continuous Auto-Sync*
-Keep your frontend atlas synchronized automatically on every file save:
-```bash
+# Continuous auto-sync on file save:
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --watch
-```
 
-### 3. Fast Instant Query (`--find`) — *For Massive Codebases*
-Don't want to read a 400KB markdown file? Instantly search routes, components, and buttons in milliseconds:
-```bash
-# Find any section, route, or button:
+# Instant sub-second search:
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find "hero"
-npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find "wallet"
-npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find "#1e293b"
-```
 
-### 4. Dead / Orphaned Component Finder (`--dead`)
-Scan all components to find which ones have **zero active imports** across all route pages:
-```bash
+# Scan orphaned components:
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --dead
-```
 
-### 5. Automated Button Codemod (`--fix-buttons`)
-Automatically migrate raw `<button>` HTML tags to your standardized `<Button>` component and auto-inject imports:
-```bash
+# Auto-migrate raw HTML buttons:
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --fix-buttons
 ```
+
+---
+
+## 📦 Installation & Updating
+
+To install or update `frontend-audit` to the latest version in any project, run this 1-line command in your project root:
+
+**Windows (PowerShell)**:
+```powershell
+irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex
+```
+
+**macOS / Linux**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash
+```
+
+*(Or simply tell your AI assistant in chat: "Please update the frontend-audit skill to the latest version from GitHub.")*
 
 ---
 
