@@ -2,15 +2,16 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.2.0)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.3.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
  * 2. Instant Query Search (--find <query>, --route <route>) for massive codebases
- * 3. Dead / Orphaned Component Finder (Finds un-imported components)
+ * 3. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
  * 4. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
  * 5. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
- * 6. Persistent Markdown Atlas Generation in docs/frontend-atlas/
+ * 6. Live File Watcher (--watch) for automatic continuous atlas syncing
+ * 7. Persistent Markdown Atlas Generation in docs/frontend-atlas/
  */
 
 const ROOT_DIR = process.cwd();
@@ -23,6 +24,7 @@ const ROUTE_QUERY = ARGS.includes("--route") ? ARGS[ARGS.indexOf("--route") + 1]
 const SHOULD_FIX_BUTTONS = ARGS.includes("--fix-buttons");
 const SHOW_DEAD_ONLY = ARGS.includes("--dead");
 const SHOW_A11Y_ONLY = ARGS.includes("--a11y");
+const WATCH_MODE = ARGS.includes("--watch");
 
 interface ProjectStructure {
   framework: "Next.js (App Router)" | "Next.js (Pages Router)" | "Vite / React SPA" | "Generic React";
@@ -595,7 +597,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.2.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.3.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (deadComponents.length > 0) {
@@ -610,6 +612,7 @@ export function runUniversalFrontendAudit() {
   writeComponentInventory(audits);
   writeDesignTokensAudit(audits, structure);
   writeUIIslandsAudit(audits, deadComponents);
+  writeDeadComponentsLedger(deadComponents);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents);
 
   console.log(`✨ Universal Frontend Atlas written to: ${path.relative(ROOT_DIR, OUTPUT_DIR)}`);
@@ -768,15 +771,8 @@ function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: Component
 
   // Dead Components Section
   md += `## 👻 Potential Dead / Orphaned Components (${deadComponents.length})\n`;
-  md += `Components defined in \`components/\` that have **zero active imports** across route pages:\n\n`;
-  if (deadComponents.length === 0) {
-    md += `_No orphaned components detected. Every component is imported._\n\n`;
-  } else {
-    deadComponents.forEach(d => {
-      md += `- [\`${d.relativePath}\`](file:///${path.join(ROOT_DIR, d.relativePath).replace(/\\/g, "/")}) (${d.zone})\n`;
-    });
-    md += `\n`;
-  }
+  md += `Components defined in \`components/\` that have **zero active imports** across route pages.\n`;
+  md += `- **Dedicated Clean-up Punch List**: See [05_DEAD_ORPHANED_COMPONENTS.md](./05_DEAD_ORPHANED_COMPONENTS.md)\n\n`;
 
   const filesWithRawButtons = audits.filter(a => a.rawButtons.length > 0 && a.zone !== "Shared UI Primitives");
   md += `## 🔘 Raw Button Islands (${filesWithRawButtons.length} files)\n`;
@@ -796,6 +792,35 @@ function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: Component
   inlineStyleFiles.forEach(f => {
     md += `- [\`${f.relativePath}\`](file:///${path.join(ROOT_DIR, f.relativePath).replace(/\\/g, "/")}) (${f.zone})\n`;
   });
+
+  fs.writeFileSync(filePath, md);
+}
+
+function writeDeadComponentsLedger(deadComponents: ComponentAudit[]) {
+  const filePath = path.join(OUTPUT_DIR, "05_DEAD_ORPHANED_COMPONENTS.md");
+  let md = `# 👻 Dead & Orphaned Component Ledger\n\n`;
+  md += `> High-confidence inventory of components defined in \`components/\` that have **zero active imports** across route pages, layouts, and panels.\n\n`;
+  md += `## ⚠️ Deletion Safety Policy\n\n`;
+  md += `> **NEVER blindly delete components without checking the following three invariants:**\n`;
+  md += `> 1. **Dynamic Imports**: Is the component loaded dynamically via \`next/dynamic\` or \`React.lazy()\`?\n`;
+  md += `> 2. **WIP / Feature Branch**: Was this component recently created for an upcoming unmerged feature?\n`;
+  md += `> 3. **Tests & Stories**: Is it used in Vitest / Jest unit tests or Storybook stories?\n\n`;
+
+  if (deadComponents.length === 0) {
+    md += `## ✅ Clean Architecture\n\n`;
+    md += `All components in \`components/\` are actively imported. No orphaned files detected.\n\n`;
+  } else {
+    md += `## 📋 Orphaned Components (${deadComponents.length})\n\n`;
+    md += `| Component File | Exported Names | Zone | Safe Deletion Command |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    deadComponents.forEach(d => {
+      const fileLink = `[\`${d.relativePath}\`](file:///${path.join(ROOT_DIR, d.relativePath).replace(/\\/g, "/")})`;
+      const names = d.componentNames.length > 0 ? d.componentNames.map(n => `\`${n}\``).join(", ") : `_Anonymous / Default_`;
+      const delCmd = `\`git rm "${d.relativePath.replace(/\\/g, "/")}"\``;
+      md += `| ${fileLink} | ${names} | ${d.zone} | ${delCmd} |\n`;
+    });
+    md += `\n`;
+  }
 
   fs.writeFileSync(filePath, md);
 }
@@ -832,9 +857,39 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `   - Color palettes, typography tokens, and exact line-by-line list of all rogue colors.\n\n`;
 
   md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](file:///${path.join(OUTPUT_DIR, "04_UI_ISLANDS_AND_DRIFT.md").replace(/\\/g, "/")})**\n`;
-  md += `   - High-priority list of discrepancies, dead components, and isolated UI styling.\n\n`;
+  md += `   - High-priority list of discrepancies, UI redundancies, and isolated styling.\n\n`;
+
+  md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](file:///${path.join(OUTPUT_DIR, "05_DEAD_ORPHANED_COMPONENTS.md").replace(/\\/g, "/")})**\n`;
+  md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
 
   fs.writeFileSync(filePath, md);
 }
 
-runUniversalFrontendAudit();
+function main() {
+  runUniversalFrontendAudit();
+
+  if (WATCH_MODE) {
+    const structure = detectProjectStructure();
+    const watchDirs = [structure.appDir, structure.pagesDir, structure.componentsDir, structure.srcDir].filter(Boolean) as string[];
+    console.log(`\n👀 Watching ${watchDirs.length} frontend directories for changes... (Press Ctrl+C to stop)`);
+    let debounceTimer: NodeJS.Timeout | null = null;
+    watchDirs.forEach(dir => {
+      if (fs.existsSync(dir)) {
+        try {
+          fs.watch(dir, { recursive: true }, (eventType, filename) => {
+            if (!filename || !/\.(tsx|jsx|ts|js)$/.test(filename)) return;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+              console.log(`\n🔄 Change detected in ${filename}. Refreshing Frontend Atlas...`);
+              runUniversalFrontendAudit();
+            }, 600);
+          });
+        } catch {
+          // Recursive watch fallback or ignore
+        }
+      }
+    });
+  }
+}
+
+main();

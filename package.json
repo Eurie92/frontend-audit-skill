@@ -1,6 +1,6 @@
 {
   "name": "frontend-audit-skill",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Universal frontend architecture and design system audit skill. Auto-discovers Next.js / React projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, and detects UI islands into docs/frontend-atlas/.",
   "type": "module",
   "main": "scripts/audit.ts",
@@ -28,6 +28,7 @@
   "author": "EURIE",
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^26.6.5",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }

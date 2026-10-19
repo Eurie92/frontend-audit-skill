@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite & React projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, detects orphaned code, and eliminates UI islands into persistent Markdown documents (`docs/frontend-atlas/`).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v1.2.0](https://img.shields.io/badge/Release-v1.2.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
+[![Version: v1.3.0](https://img.shields.io/badge/Release-v1.3.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
 [![Frameworks: Next.js | Vite | React](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Vite%20%7C%20React-black.svg)](https://react.dev/)
 [![Styling: Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com/)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
@@ -36,7 +36,13 @@ npx frontend-audit
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts
 ```
 
-### 2. Fast Instant Query (`--find`) — *For Massive Codebases*
+### 2. Live File Watcher (`--watch`) — *Continuous Auto-Sync*
+Keep your frontend atlas synchronized automatically on every file save:
+```bash
+npx tsx .agent/skills/frontend-audit/scripts/audit.ts --watch
+```
+
+### 3. Fast Instant Query (`--find`) — *For Massive Codebases*
 Don't want to read a 400KB markdown file? Instantly search routes, components, and buttons in milliseconds:
 ```bash
 # Find any section, route, or button:
@@ -45,13 +51,13 @@ npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find "wallet"
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find "#1e293b"
 ```
 
-### 3. Dead / Orphaned Component Finder (`--dead`)
+### 4. Dead / Orphaned Component Finder (`--dead`)
 Scan all components to find which ones have **zero active imports** across all route pages:
 ```bash
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --dead
 ```
 
-### 4. Automated Button Codemod (`--fix-buttons`)
+### 5. Automated Button Codemod (`--fix-buttons`)
 Automatically migrate raw `<button>` HTML tags to your standardized `<Button>` component and auto-inject imports:
 ```bash
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --fix-buttons
@@ -78,7 +84,7 @@ When a user provides a UI screenshot and asks: *"Please fix this button"*:
 
 ## 🧭 What the Engine Produces (`docs/frontend-atlas/`)
 
-Running the audit automatically creates or refreshes 5 clean Markdown files in `docs/frontend-atlas/`:
+Running the audit automatically creates or refreshes 6 clean Markdown files in `docs/frontend-atlas/`:
 
 ```
 your-project/
@@ -87,7 +93,8 @@ your-project/
         ├── 01_ROUTES_AND_PANELS_MAP.md     # 🗺️ Every route mapped to page files & components
         ├── 02_COMPONENT_INVENTORY.md       # 🔘 Buttons (with a11y fast-check), Modals & Surfaces
         ├── 03_DESIGN_TOKENS_AND_COLORS.md  # 🎨 Official tokens vs rogue hex drift & grays
-        ├── 04_UI_ISLANDS_AND_DRIFT.md      # 🏝️ Dead components & priority unification checklist
+        ├── 04_UI_ISLANDS_AND_DRIFT.md      # 🏝️ UI drift & priority unification checklist
+        ├── 05_DEAD_ORPHANED_COMPONENTS.md  # 👻 Unused component punch-list & safe removal guide
         └── README.md                       # 📊 High-level statistics and navigation dashboard
 ```
 
