@@ -290,9 +290,10 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       const missingAria = !hasAria && !hasDirectText;
       const missingType = !hasType;
 
+      const snippetContent = trimmed.length > 12 ? trimmed : block.replace(/\s+/g, " ");
       rawButtons.push({
         line: lineNum,
-        snippet: trimmed.slice(0, 80),
+        snippet: snippetContent.slice(0, 80),
         className: classMatch ? classMatch[1].slice(0, 60) : undefined,
         missingAria,
         missingType,
@@ -618,6 +619,17 @@ export function runUniversalFrontendAudit() {
   console.log(`✨ Universal Frontend Atlas written to: ${path.relative(ROOT_DIR, OUTPUT_DIR)}`);
 }
 
+function escapeMarkdownSnippet(text: string, maxLen = 50): string {
+  return text
+    .replace(/`/g, "'")
+    .replace(/\|/g, "\\|")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r?\n/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+
 function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md");
   let md = `# 🗺️ Frontend Routes & Panels Map\n\n`;
@@ -638,7 +650,7 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
       const layoutStr = r.layoutFile ? `[\`${r.layoutFile}\`](file:///${path.join(ROOT_DIR, r.layoutFile).replace(/\\/g, "/")})` : `_Inherited / N/A_`;
       const pageLink = `[\`${r.pageFile}\`](file:///${path.join(ROOT_DIR, r.pageFile).replace(/\\/g, "/")})`;
       const importsStr = r.importedComponents.length > 0
-        ? r.importedComponents.map(c => `\`${c.replace(/@\/(components|src\/components)\//, "")}\``).join("<br>")
+        ? r.importedComponents.map(c => `\`${c.replace(/@\/(components|src\/components)\//, "")}\``).join(" • ")
         : `_None (Direct UI)_`;
 
       md += `| **\`${r.route}\`** | ${pageLink} | ${layoutStr} | ${importsStr} |\n`;
@@ -660,11 +672,11 @@ function writeComponentInventory(audits: ComponentAudit[]) {
   const totalA11yIssues = audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0);
 
   md += `## 🔘 Button Usage Summary\n\n`;
-  md += `- **Standardized \`<Button>\` Components**: **${totalUiButtons}** usages\n`;
-  md += `- **Raw \`<button>\` Tags**: **${totalRawButtons}** usages (Potential UI islands)\n`;
+  md += `- **Standardized UI Buttons**: **${totalUiButtons}** usages\n`;
+  md += `- **Raw HTML Button Tags**: **${totalRawButtons}** usages (Potential UI islands)\n`;
   md += `- **Accessibility (a11y) Flags**: **${totalA11yIssues}** buttons missing \`aria-label\` or explicit \`type="button"\`\n\n`;
 
-  md += `### Raw \`<button>\` Occurrences & Accessibility Fast-Check\n\n`;
+  md += `### Raw Button Elements & Accessibility Fast-Check\n\n`;
   md += `| Zone | File | Line | Snippet Preview | a11y Flags |\n`;
   md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
@@ -676,9 +688,10 @@ function writeComponentInventory(audits: ComponentAudit[]) {
         const flags: string[] = [];
         if (b.missingAria) flags.push("⚠️ Missing aria-label");
         if (b.missingType) flags.push("ℹ️ Missing type");
-        const flagStr = flags.length > 0 ? flags.join("<br>") : "✅ OK";
+        const flagStr = flags.length > 0 ? flags.join("; ") : "✅ OK";
 
-        md += `| ${a.zone} | ${fileLink} | ${b.line} | \`${b.snippet.replace(/\|/g, "\\|").slice(0, 40)}\` | ${flagStr} |\n`;
+        const cleanSnippet = escapeMarkdownSnippet(b.snippet, 45);
+        md += `| ${a.zone} | ${fileLink} | ${b.line} | \`${cleanSnippet}\` | ${flagStr} |\n`;
       });
     }
   });
@@ -691,7 +704,7 @@ function writeComponentInventory(audits: ComponentAudit[]) {
     if (a.modalsAndDialogs.length > 0) {
       a.modalsAndDialogs.forEach(m => {
         const fileLink = `[\`${a.relativePath}:${m.line}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")}#L${m.line})`;
-        const cleanSnippet = m.snippet.replace(/\|/g, "\\|").slice(0, 60);
+        const cleanSnippet = escapeMarkdownSnippet(m.snippet, 50);
         md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${cleanSnippet}\` |\n`;
       });
     }
@@ -703,7 +716,7 @@ function writeComponentInventory(audits: ComponentAudit[]) {
 
   audits.forEach(a => {
     if (a.cardsAndSurfaces.length > 0) {
-      const sampleClasses = Array.from(new Set(a.cardsAndSurfaces.map(c => c.classes))).slice(0, 3).join(", ");
+      const sampleClasses = Array.from(new Set(a.cardsAndSurfaces.map(c => escapeMarkdownSnippet(c.classes, 40)))).slice(0, 3).join(", ");
       const fileLink = `[\`${a.relativePath}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")})`;
       md += `| ${a.zone} | ${fileLink} | \`${sampleClasses}\` |\n`;
     }
@@ -755,7 +768,7 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
     if (a.rogueTailwindColors.length > 0) {
       a.rogueTailwindColors.forEach(r => {
         const fileLink = `[\`${a.relativePath}:${r.line}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")}#L${r.line})`;
-        const cleanSnippet = r.snippet.replace(/\|/g, "\\|").slice(0, 50);
+        const cleanSnippet = escapeMarkdownSnippet(r.snippet, 50);
         md += `| ${a.zone} | ${fileLink} | ${r.line} | \`${r.token}\` | \`${cleanSnippet}\` |\n`;
       });
     }
@@ -776,8 +789,8 @@ function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: Component
 
   const filesWithRawButtons = audits.filter(a => a.rawButtons.length > 0 && a.zone !== "Shared UI Primitives");
   md += `## 🔘 Raw Button Islands (${filesWithRawButtons.length} files)\n`;
-  md += `Files that implement native \`<button>\` instead of standardized button components.\n`;
-  md += `- **Remediation**: Run \`npx frontend-audit --fix-buttons\` to auto-migrate to \`<Button>\`.\n\n`;
+  md += `Files that implement native button tags instead of standardized button components.\n`;
+  md += `- **Remediation**: Run \`npx frontend-audit --fix-buttons\` to auto-migrate to standardized Button components.\n\n`;
 
   const customModalFiles = audits.filter(a => a.modalsAndDialogs.length > 0 && !a.relativePath.includes("components/ui"));
   md += `## 🪟 Custom Modal Redundancies (${customModalFiles.length} files)\n`;
@@ -834,14 +847,15 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   const totalRogue = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
 
   let md = `# 📖 Frontend Atlas & Quick-Reference Catalog\n\n`;
-  md += `> Centralized documentation and audit ledger for this project.\n\n`;
+  md += `> Centralized documentation and audit ledger for this project.\n`;
+  md += `> 💡 **Tip**: Type \`/frontend-audit\` in AI chat or run \`npx frontend-audit\` in terminal to refresh.\n\n`;
 
   md += `## 📊 Platform Statistics\n\n`;
   md += `- **Framework Architecture**: **${structure.framework}**\n`;
   md += `- **Total Frontend Files**: **${totalFiles}**\n`;
   md += `- **Total Active Routes**: **${routes.length}**\n`;
   md += `- **Standardized UI Buttons**: **${totalUiButtons}**\n`;
-  md += `- **Raw \`<button>\` Tags**: **${totalRawButtons}**\n`;
+  md += `- **Raw HTML Button Tags**: **${totalRawButtons}**\n`;
   md += `- **Orphaned / Dead Components**: **${deadComponents.length}**\n`;
   md += `- **Hardcoded Hex Deviations**: **${totalHexes}**\n`;
   md += `- **Rogue Color Classes**: **${totalRogue}**\n\n`;
@@ -861,6 +875,12 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
 
   md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](file:///${path.join(OUTPUT_DIR, "05_DEAD_ORPHANED_COMPONENTS.md").replace(/\\/g, "/")})**\n`;
   md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
+
+  md += `## 📦 How to Install / Update this Skill\n\n`;
+  md += `To install or update to the latest version in any project:\n\n`;
+  md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex\`\n`;
+  md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash\`\n`;
+  md += `- **GitHub Repository**: [Eurie92/frontend-audit-skill](https://github.com/Eurie92/frontend-audit-skill)\n\n`;
 
   fs.writeFileSync(filePath, md);
 }

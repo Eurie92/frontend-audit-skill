@@ -27,6 +27,24 @@ In growing web applications—especially multi-tenant architectures featuring Pu
 
 ---
 
+## 📦 Installation & Updating
+
+To install or update `frontend-audit` to the latest version in any project, run this 1-line command in your project root:
+
+**Windows (PowerShell)**:
+```powershell
+irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex
+```
+
+**macOS / Linux**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash
+```
+
+*(Or simply tell your AI assistant in chat: "Please update the frontend-audit skill to the latest version from GitHub.")*
+
+---
+
 ## ⚡ How to Run It
 
 ### 💬 Option A: Inside AI Chat (Recommended)
@@ -62,24 +80,6 @@ npx tsx .agent/skills/frontend-audit/scripts/audit.ts --dead
 # Auto-migrate raw HTML buttons:
 npx tsx .agent/skills/frontend-audit/scripts/audit.ts --fix-buttons
 ```
-
----
-
-## 📦 Installation & Updating
-
-To install or update `frontend-audit` to the latest version in any project, run this 1-line command in your project root:
-
-**Windows (PowerShell)**:
-```powershell
-irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex
-```
-
-**macOS / Linux**:
-```bash
-curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash
-```
-
-*(Or simply tell your AI assistant in chat: "Please update the frontend-audit skill to the latest version from GitHub.")*
 
 ---
 
