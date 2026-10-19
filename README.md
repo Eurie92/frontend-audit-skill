@@ -134,14 +134,27 @@ Runs seamlessly on modern web frameworks:
 
 ---
 
-## 🤖 Making It Always Active in Your Agent
+## 🤖 Making It 100% Always Active in Your AI Agent
 
-To ensure your AI assistant (Antigravity, Claude Code, Cursor) automatically checks the atlas on every frontend task, add this 1-liner to your project's `GEMINI.md`, `CLAUDE.md`, or `AGENTS.md`:
+To ensure your AI assistant (**Antigravity**, **Claude Code**, **Cursor**, or **Codex**) **automatically checks the atlas on every task** without you having to remind it or run manual commands, paste this rule into your project's `GEMINI.md`, `CLAUDE.md`, or `AGENTS.md`:
 
 ```markdown
-### Frontend Architecture Rule:
-For all UI, component, route, or color theme tasks, always consult `docs/frontend-atlas/` (or query `npx tsx .agent/skills/frontend-audit/scripts/audit.ts --find <query>`) first to locate exact files and token inventories before modifying code.
+## 🗺️ Frontend Architecture & Component Lookup Rule
+For all UI, component, route, or color theme tasks (including screenshots and visual bug reports):
+1. **Instant Atlas Lookup**: ALWAYS read `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` (or relevant atlas file in `docs/frontend-atlas/`) FIRST via file reading. It indexes all routes, page files, and imported components with 0ms runtime overhead.
+2. **No Blind Full-Codebase Grepping**: Do NOT run full-codebase grep searches across hundreds of files when the route and component hierarchy is already indexed in the Frontend Atlas.
+3. **Continuous Sync**: At the completion of every frontend modification, execute `npm run audit:frontend` to keep the atlas 100% synchronized for subsequent tasks.
+
+## 🛠️ Available Commands
+- `/frontend-audit` or `npm run audit:frontend`: Regenerates the entire Frontend Atlas.
+- `npx tsx scripts/audit-frontend.ts --watch`: Live file watcher for continuous background sync.
+- `npx tsx scripts/audit-frontend.ts --dead`: Scans for potential orphaned components.
 ```
+
+### Why this works:
+- **0ms Lookup Overhead**: The agent reads the pre-compiled Markdown files directly instead of booting up heavy CLI compilers or guessing keywords.
+- **Accurate Route Scoping**: Even when searching for visual concepts (like *"rotating icons"* or *"checkout modal"*), the agent instantly sees the exact component imported by that route.
+- **Zero Hallucination / Zero Dead Code**: The agent only modifies active, imported components and ignores abandoned legacy files.
 
 ---
 
