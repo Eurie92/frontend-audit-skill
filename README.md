@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite & React projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, detects orphaned code, and eliminates UI islands into persistent Markdown documents (`docs/frontend-atlas/`).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v1.3.1](https://img.shields.io/badge/Release-v1.3.1-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
+[![Version: v1.3.2](https://img.shields.io/badge/Release-v1.3.2-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
 [![Frameworks: Next.js | Vite | React](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Vite%20%7C%20React-black.svg)](https://react.dev/)
 [![Styling: Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com/)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()

@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.3.1)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.3.2)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
@@ -598,7 +598,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.3.1)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.3.2)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (deadComponents.length > 0) {
@@ -630,6 +630,13 @@ function escapeMarkdownSnippet(text: string, maxLen = 50): string {
     .slice(0, maxLen);
 }
 
+function makeFileLink(relativePath: string, line?: number, displayText?: string): string {
+  const cleanPath = relativePath.replace(/\\/g, "/");
+  const relHref = `../../${cleanPath}${line ? `#L${line}` : ""}`;
+  const label = displayText || (line ? `${cleanPath}:${line}` : cleanPath);
+  return `[${label}](${relHref})`;
+}
+
 function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md");
   let md = `# 🗺️ Frontend Routes & Panels Map\n\n`;
@@ -647,13 +654,13 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
     md += `| :--- | :--- | :--- | :--- |\n`;
 
     zoneRoutes.forEach(r => {
-      const layoutStr = r.layoutFile ? `[\`${r.layoutFile}\`](file:///${path.join(ROOT_DIR, r.layoutFile).replace(/\\/g, "/")})` : `_Inherited / N/A_`;
-      const pageLink = `[\`${r.pageFile}\`](file:///${path.join(ROOT_DIR, r.pageFile).replace(/\\/g, "/")})`;
+      const layoutStr = r.layoutFile ? makeFileLink(r.layoutFile) : `_Inherited / N/A_`;
+      const pageLink = makeFileLink(r.pageFile);
       const importsStr = r.importedComponents.length > 0
         ? r.importedComponents.map(c => `\`${c.replace(/@\/(components|src\/components)\//, "")}\``).join(" • ")
         : `_None (Direct UI)_`;
 
-      md += `| **\`${r.route}\`** | ${pageLink} | ${layoutStr} | ${importsStr} |\n`;
+      md += `| \`${r.route}\` | ${pageLink} | ${layoutStr} | ${importsStr} |\n`;
     });
 
     md += `\n`;
@@ -684,7 +691,7 @@ function writeComponentInventory(audits: ComponentAudit[]) {
   nonPrimitiveAudits.forEach(a => {
     if (a.rawButtons.length > 0) {
       a.rawButtons.forEach(b => {
-        const fileLink = `[\`${a.relativePath}:${b.line}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")}#L${b.line})`;
+        const fileLink = makeFileLink(a.relativePath, b.line, `${a.relativePath}:${b.line}`);
         const flags: string[] = [];
         if (b.missingAria) flags.push("⚠️ Missing aria-label");
         if (b.missingType) flags.push("ℹ️ Missing type");
@@ -703,7 +710,7 @@ function writeComponentInventory(audits: ComponentAudit[]) {
   audits.forEach(a => {
     if (a.modalsAndDialogs.length > 0) {
       a.modalsAndDialogs.forEach(m => {
-        const fileLink = `[\`${a.relativePath}:${m.line}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")}#L${m.line})`;
+        const fileLink = makeFileLink(a.relativePath, m.line, `${a.relativePath}:${m.line}`);
         const cleanSnippet = escapeMarkdownSnippet(m.snippet, 50);
         md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${cleanSnippet}\` |\n`;
       });
@@ -717,7 +724,7 @@ function writeComponentInventory(audits: ComponentAudit[]) {
   audits.forEach(a => {
     if (a.cardsAndSurfaces.length > 0) {
       const sampleClasses = Array.from(new Set(a.cardsAndSurfaces.map(c => escapeMarkdownSnippet(c.classes, 40)))).slice(0, 3).join(", ");
-      const fileLink = `[\`${a.relativePath}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")})`;
+      const fileLink = makeFileLink(a.relativePath);
       md += `| ${a.zone} | ${fileLink} | \`${sampleClasses}\` |\n`;
     }
   });
@@ -767,7 +774,7 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
   audits.forEach(a => {
     if (a.rogueTailwindColors.length > 0) {
       a.rogueTailwindColors.forEach(r => {
-        const fileLink = `[\`${a.relativePath}:${r.line}\`](file:///${path.join(ROOT_DIR, a.relativePath).replace(/\\/g, "/")}#L${r.line})`;
+        const fileLink = makeFileLink(a.relativePath, r.line, `${a.relativePath}:${r.line}`);
         const cleanSnippet = escapeMarkdownSnippet(r.snippet, 50);
         md += `| ${a.zone} | ${fileLink} | ${r.line} | \`${r.token}\` | \`${cleanSnippet}\` |\n`;
       });
@@ -796,14 +803,14 @@ function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: Component
   md += `## 🪟 Custom Modal Redundancies (${customModalFiles.length} files)\n`;
   md += `Files implementing custom modal structures rather than shared primitives:\n`;
   customModalFiles.slice(0, 8).forEach(f => {
-    md += `- [\`${f.relativePath}\`](file:///${path.join(ROOT_DIR, f.relativePath).replace(/\\/g, "/")}) (${f.zone})\n`;
+    md += `- ${makeFileLink(f.relativePath)} (${f.zone})\n`;
   });
 
   const inlineStyleFiles = audits.filter(a => a.hasDirectStyleTag && !a.relativePath.includes("components/ui"));
   md += `\n## 🏷️ Inline Style Tags (${inlineStyleFiles.length} files)\n`;
   md += `Files using \`style={{...}}\` which bypass the Tailwind design token pipeline:\n`;
   inlineStyleFiles.forEach(f => {
-    md += `- [\`${f.relativePath}\`](file:///${path.join(ROOT_DIR, f.relativePath).replace(/\\/g, "/")}) (${f.zone})\n`;
+    md += `- ${makeFileLink(f.relativePath)} (${f.zone})\n`;
   });
 
   fs.writeFileSync(filePath, md);
@@ -827,7 +834,7 @@ function writeDeadComponentsLedger(deadComponents: ComponentAudit[]) {
     md += `| Component File | Exported Names | Zone | Safe Deletion Command |\n`;
     md += `| :--- | :--- | :--- | :--- |\n`;
     deadComponents.forEach(d => {
-      const fileLink = `[\`${d.relativePath}\`](file:///${path.join(ROOT_DIR, d.relativePath).replace(/\\/g, "/")})`;
+      const fileLink = makeFileLink(d.relativePath);
       const names = d.componentNames.length > 0 ? d.componentNames.map(n => `\`${n}\``).join(", ") : `_Anonymous / Default_`;
       const delCmd = `\`git rm "${d.relativePath.replace(/\\/g, "/")}"\``;
       md += `| ${fileLink} | ${names} | ${d.zone} | ${delCmd} |\n`;
@@ -861,19 +868,19 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `- **Rogue Color Classes**: **${totalRogue}**\n\n`;
 
   md += `## 📑 Atlas Documents Guide\n\n`;
-  md += `1. **[01_ROUTES_AND_PANELS_MAP.md](file:///${path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md").replace(/\\/g, "/")})**\n`;
+  md += `1. **[01_ROUTES_AND_PANELS_MAP.md](./01_ROUTES_AND_PANELS_MAP.md)**\n`;
   md += `   - Instant lookup for all pages and routes across all panels.\n\n`;
 
-  md += `2. **[02_COMPONENT_INVENTORY.md](file:///${path.join(OUTPUT_DIR, "02_COMPONENT_INVENTORY.md").replace(/\\/g, "/")})**\n`;
+  md += `2. **[02_COMPONENT_INVENTORY.md](./02_COMPONENT_INVENTORY.md)**\n`;
   md += `   - Complete inventory of Buttons, Modals, Drawers, and a11y fast-check flags.\n\n`;
 
-  md += `3. **[03_DESIGN_TOKENS_AND_COLORS.md](file:///${path.join(OUTPUT_DIR, "03_DESIGN_TOKENS_AND_COLORS.md").replace(/\\/g, "/")})**\n`;
+  md += `3. **[03_DESIGN_TOKENS_AND_COLORS.md](./03_DESIGN_TOKENS_AND_COLORS.md)**\n`;
   md += `   - Color palettes, typography tokens, and exact line-by-line list of all rogue colors.\n\n`;
 
-  md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](file:///${path.join(OUTPUT_DIR, "04_UI_ISLANDS_AND_DRIFT.md").replace(/\\/g, "/")})**\n`;
+  md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](./04_UI_ISLANDS_AND_DRIFT.md)**\n`;
   md += `   - High-priority list of discrepancies, UI redundancies, and isolated styling.\n\n`;
 
-  md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](file:///${path.join(OUTPUT_DIR, "05_DEAD_ORPHANED_COMPONENTS.md").replace(/\\/g, "/")})**\n`;
+  md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](./05_DEAD_ORPHANED_COMPONENTS.md)**\n`;
   md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
 
   md += `## 📦 How to Install / Update this Skill\n\n`;
