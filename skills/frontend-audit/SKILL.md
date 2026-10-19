@@ -1,7 +1,7 @@
 ---
 name: frontend-audit
-description: Runs the automated frontend atlas and design system catalog engine into docs/frontend-atlas/. Trigger ONLY when the user explicitly uses the `/frontend-audit` slash command or explicitly asks to generate/refresh the frontend catalog, route map, or component inventory. DO NOT trigger for design critique, UI styling suggestions, or animations (use impeccable or ui-ux-pro-max instead).
-version: 1.3.0
+description: Runs the automated frontend atlas and design system catalog engine into docs/frontend-atlas/. Used to inspect or refresh routes, components, and design tokens, and to locate exact UI component files from screenshots or page names. DO NOT use for visual design critique, micro-animations, or CSS styling ideas (use impeccable, emil-design-eng, or ui-ux-pro-max instead).
+version: 1.3.1
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/frontend-audit/scripts/audit.ts)
@@ -10,18 +10,18 @@ allowed-tools:
 
 # 🗺️ Universal Frontend Atlas & Design System Audit Skill
 
-> **Trigger**: `/frontend-audit`  
-> Run this skill when the user explicitly invokes `/frontend-audit`, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/`.
+> **Trigger**: `/frontend-audit` or when locating UI components and routes.
+> Run this skill when the user invokes `/frontend-audit`, asks to locate UI components, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/`.
 
 ---
 
-## 🚫 Routing & Trigger Boundaries (Strict Isolation)
+## 🚫 Routing & Trigger Boundaries
 
-To prevent multiple skills from firing at the same time:
-* **USE THIS SKILL ONLY FOR**:
-  1. Running the static audit engine to generate or refresh `docs/frontend-atlas/`.
-  2. Looking up routes, file locations, button counts, and hardcoded colors from the generated atlas.
-  3. Explicit slash command: `/frontend-audit`
+* **USE THIS SKILL FOR**:
+  1. Locating exact component files and route owners directly from `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md`.
+  2. Running the static audit engine to refresh `docs/frontend-atlas/`.
+  3. Checking button standardization, a11y flags, design tokens, and dead components.
+  4. Explicit slash command: `/frontend-audit`
 * **DO NOT USE THIS SKILL FOR**:
   - UI visual design, styling ideas, or color advice ➡️ Use **`ui-ux-pro-max`** or **`design-taste-frontend`**.
   - Interaction physics, spring animations, micro-polish ➡️ Use **`emil-design-eng`**.
