@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import child_process from "child_process";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.5.0)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.6.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
@@ -13,12 +14,14 @@ import child_process from "child_process";
  * 5. Screenshot-to-Code Visible UI Text & Labels Map (06_VISIBLE_TEXT_AND_LABELS_MAP.md)
  * 6. Visual Icons & Action Symbols Index (07_VISUAL_AND_ICON_INDEX.md)
  * 7. Zero-Search Handoff Manifest & Dispatch Gateway (08_DISPATCH_GATEWAY.md + --manifest <target>)
- * 8. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
- * 9. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
- * 10. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
- * 11. Closed-Loop Verification Gate (--verify) with Metric Delta Tracking
- * 12. Live File Watcher (--watch) for automatic continuous atlas syncing
- * 13. Persistent Markdown Atlas Generation in docs/frontend-atlas/
+ * 8. Dynamic Skill Auto-Discovery & Dynamic Integration into 08_DISPATCH_GATEWAY.md
+ * 9. CLI Self-Updater (--update) with In-Place Safe Rule Synchronization
+ * 10. Dead / Orphaned Component Finder & Dedicated Ledger (05_DEAD_ORPHANED_COMPONENTS.md)
+ * 11. Accessibility (a11y) Fast-Check (Missing aria-label, missing type="button")
+ * 12. Automated Codemod (--fix-buttons) to migrate raw <button> to <Button>
+ * 13. Closed-Loop Verification Gate (--verify) with Metric Delta Tracking
+ * 14. Live File Watcher (--watch) for automatic continuous atlas syncing
+ * 15. Persistent Markdown Atlas Generation in docs/frontend-atlas/
  */
 
 const ROOT_DIR = process.cwd();
@@ -34,6 +37,7 @@ const SHOW_DEAD_ONLY = ARGS.includes("--dead");
 const SHOW_A11Y_ONLY = ARGS.includes("--a11y");
 const VERIFY_MODE = ARGS.includes("--verify");
 const WATCH_MODE = ARGS.includes("--watch");
+const UPDATE_MODE = ARGS.includes("--update");
 
 interface ProjectStructure {
   framework: "Next.js (App Router)" | "Next.js (Pages Router)" | "Vite / React SPA" | "Generic React";
@@ -100,11 +104,21 @@ interface RouteMapItem {
 }
 
 interface SkillDispatch {
-  targetSkill: "emil-design-eng" | "ui-ux-pro-max" | "a11y-debugging" | "impeccable" | "codemod (--fix-buttons)";
-  category: "Interaction & Physics" | "Design Tokens & Colors" | "Accessibility (a11y)" | "Craft & Micro-Polish" | "Button Standardization";
+  targetSkill: string;
+  category: string;
   issueCount: number;
   description: string;
   targets: { file: string; line?: number; zone: string; detail: string }[];
+}
+
+interface DiscoveredSkill {
+  name: string;
+  description: string;
+  version?: string;
+  path: string;
+  scope: "project" | "global";
+  domain: string;
+  recommendedHandoff: string;
 }
 
 interface VerificationReceipt {
@@ -866,8 +880,309 @@ function generateSkillDispatches(audits: ComponentAudit[]): SkillDispatch[] {
   return dispatches;
 }
 
-// 9. Zero-Search Agent Handoff Manifest Generator (--manifest <target>)
-function executeManifestLookup(audits: ComponentAudit[], target: string) {
+// 9. Dynamic Skill Auto-Discovery & Integration Engine
+function parseSkillFrontmatter(content: string): { name?: string; description?: string; version?: string } {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return {};
+  const yaml = match[1];
+  const result: { name?: string; description?: string; version?: string } = {};
+
+  const nameMatch = yaml.match(/^name:\s*(.+)$/m);
+  if (nameMatch) result.name = nameMatch[1].trim().replace(/^['"]|['"]$/g, "");
+
+  const descMatch = yaml.match(/^description:\s*([^\r\n]+(?:\r?\n(?!\w+:)[^\r\n]+)*)/m);
+  if (descMatch) result.description = descMatch[1].trim().replace(/^['"]|['"]$/g, "").replace(/\s+/g, " ");
+
+  const verMatch = yaml.match(/^version:\s*(.+)$/m);
+  if (verMatch) result.version = verMatch[1].trim().replace(/^['"]|['"]$/g, "");
+
+  return result;
+}
+
+function classifySkillDomain(name: string, description: string): { domain: string; handoff: string } {
+  const text = `${name} ${description}`.toLowerCase();
+
+  if (text.includes("physics") || text.includes("spring") || text.includes("micro-interaction") || text.includes("emil") || text.includes("gesture")) {
+    return {
+      domain: "Micro-Interactions & Physics",
+      handoff: "Apply snappy micro-interactions, press feedback (active:scale-[0.97]), and spring animations.",
+    };
+  }
+  if (text.includes("token") || text.includes("palette") || text.includes("typography") || text.includes("spacing") || text.includes("ui-ux-pro") || text.includes("design system") || text.includes("theme")) {
+    return {
+      domain: "Design Tokens & System",
+      handoff: "Migrate hardcoded colors, rogue grays, and font scales into standardized design tokens.",
+    };
+  }
+  if (text.includes("anti-slop") || text.includes("taste") || text.includes("impeccable") || text.includes("craft") || text.includes("visual hierarchy") || text.includes("aesthetic") || text.includes("critique")) {
+    return {
+      domain: "Visual Craft & Anti-Slop",
+      handoff: "Harden visual hierarchy, eliminate design slop, and polish bespoke UI craft.",
+    };
+  }
+  if (text.includes("a11y") || text.includes("aria") || text.includes("accessibility") || text.includes("screen reader") || text.includes("wcag")) {
+    return {
+      domain: "Accessibility Remediation (a11y)",
+      handoff: "Remediate missing aria-labels, button types, contrast deficiencies, and keyboard focus.",
+    };
+  }
+  if (text.includes("lcp") || text.includes("cwv") || text.includes("performance") || text.includes("memory leak") || text.includes("lighthouse") || text.includes("web vitals")) {
+    return {
+      domain: "Performance & Core Web Vitals",
+      handoff: "Diagnose slow Core Web Vitals (LCP), optimize rendering boundaries, and audit memory leaks.",
+    };
+  }
+  if (text.includes("test") || text.includes("tdd") || text.includes("vitest") || text.includes("playwright") || text.includes("cypress") || text.includes("verification")) {
+    return {
+      domain: "Testing & Verification",
+      handoff: "Author component regression tests, mock fixtures, and assert DOM state transitions.",
+    };
+  }
+  if (text.includes("patch") || text.includes("surgical") || text.includes("debugging") || text.includes("investigate")) {
+    return {
+      domain: "Surgical Patching & Root-Cause Debugging",
+      handoff: "Diagnose ambiguous runtime errors with surgical, narrow bug fixes and regression proof.",
+    };
+  }
+
+  const summary = description ? description.split(".")[0].trim() : "Custom agent capability";
+  return {
+    domain: "Specialized Workflow",
+    handoff: summary.length > 80 ? summary.slice(0, 80) + "..." : summary,
+  };
+}
+
+function discoverInstalledSkills(workspaceRoot: string = ROOT_DIR): DiscoveredSkill[] {
+  const discovered: DiscoveredSkill[] = [];
+  const seen = new Set<string>();
+
+  // 1. Project-local locations
+  const projectDirs = [
+    path.join(workspaceRoot, ".agent", "skills"),
+    path.join(workspaceRoot, ".agents", "skills"),
+    path.join(workspaceRoot, ".hermes", "skills"),
+  ];
+
+  for (const pDir of projectDirs) {
+    if (fs.existsSync(pDir)) {
+      try {
+        const entries = fs.readdirSync(pDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory() && entry.name !== "frontend-audit") {
+            const skillFile = path.join(pDir, entry.name, "SKILL.md");
+            if (fs.existsSync(skillFile)) {
+              try {
+                const content = fs.readFileSync(skillFile, "utf8");
+                const parsed = parseSkillFrontmatter(content);
+                const skillName = parsed.name || entry.name;
+                if (!seen.has(skillName)) {
+                  seen.add(skillName);
+                  const { domain, handoff } = classifySkillDomain(skillName, parsed.description || "");
+                  discovered.push({
+                    name: skillName,
+                    description: parsed.description || "Project-level skill",
+                    version: parsed.version,
+                    path: path.relative(workspaceRoot, path.join(pDir, entry.name)).replace(/\\/g, "/"),
+                    scope: "project",
+                    domain,
+                    recommendedHandoff: handoff,
+                  });
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 2. Global / Plugin locations
+  const userHome = process.env.USERPROFILE || process.env.HOME || "";
+  if (userHome) {
+    const pluginsDir = path.join(userHome, ".gemini", "config", "plugins");
+    if (fs.existsSync(pluginsDir)) {
+      try {
+        const plugins = fs.readdirSync(pluginsDir, { withFileTypes: true });
+        for (const plugin of plugins) {
+          if (plugin.isDirectory()) {
+            const skillsDir = path.join(pluginsDir, plugin.name, "skills");
+            if (fs.existsSync(skillsDir)) {
+              const skills = fs.readdirSync(skillsDir, { withFileTypes: true });
+              for (const s of skills) {
+                if (s.isDirectory() && s.name !== "frontend-audit") {
+                  const skillFile = path.join(skillsDir, s.name, "SKILL.md");
+                  if (fs.existsSync(skillFile)) {
+                    try {
+                      const content = fs.readFileSync(skillFile, "utf8");
+                      const parsed = parseSkillFrontmatter(content);
+                      const skillName = parsed.name || s.name;
+                      if (!seen.has(skillName)) {
+                        seen.add(skillName);
+                        const { domain, handoff } = classifySkillDomain(skillName, parsed.description || "");
+                        discovered.push({
+                          name: skillName,
+                          description: parsed.description || `Global plugin skill from ${plugin.name}`,
+                          version: parsed.version,
+                          path: `~/.gemini/config/plugins/${plugin.name}/skills/${s.name}`,
+                          scope: "global",
+                          domain,
+                          recommendedHandoff: handoff,
+                        });
+                      }
+                    } catch {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  return discovered;
+}
+
+// In-place, safe UTF-8 Rule Synchronizer for AGENTS.md / GEMINI.md
+function syncAgentRulesInPlace() {
+  const ruleBlock = [
+    "<!-- START_FRONTEND_AUDIT_RULE -->",
+    "## 🗺️ Frontend Architecture & Component Lookup Rule",
+    "For all UI, component, route, or color theme tasks (including screenshots and visual bug reports):",
+    "1. **Instant Atlas Lookup**: The FIRST tool call MUST be `view_file` on:",
+    "   - `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` (by Route or Screen)",
+    "   - `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text in a screenshot)",
+    "   - `docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)",
+    "   It indexes all routes, page files, imported components, labels, and icons with 0ms runtime overhead.",
+    "2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches and do NOT spawn CLI scripts (`npx tsx scripts/audit-frontend.ts`) for simple lookups. The atlas is already written on disk as Markdown—read the file directly.",
+    "3. **Continuous Sync**: At the completion of every frontend modification, execute `npm run audit:frontend` to keep the atlas 100% synchronized for subsequent tasks.",
+    "",
+    "## 🛠️ Available Commands",
+    "- `/frontend-audit` or `npm run audit:frontend`: Regenerates the entire Frontend Atlas (all 8 documents).",
+    "- `npx tsx scripts/audit-frontend.ts --verify`: Closed-loop verification gate (TypeScript compile + metric deltas).",
+    "- `npx tsx scripts/audit-frontend.ts --manifest <file:line>`: Generates zero-search agent handoff manifest.",
+    "- `npx tsx scripts/audit-frontend.ts --find <query>`: Instant sub-second search across components, text labels, and icons.",
+    "- `npx tsx scripts/audit-frontend.ts --update`: Checks and updates frontend-audit-skill to latest GitHub release.",
+    "- `npx tsx scripts/audit-frontend.ts --watch`: Live file watcher for continuous background sync.",
+    "- `npx tsx scripts/audit-frontend.ts --dead`: Scans for potential orphaned components.",
+    "<!-- END_FRONTEND_AUDIT_RULE -->",
+  ].join("\n");
+
+  const candidates = ["AGENTS.md", "GEMINI.md", "CLAUDE.md"];
+  let targetFile: string | null = null;
+
+  for (const f of candidates) {
+    if (fs.existsSync(f)) {
+      const content = fs.readFileSync(f, "utf8");
+      if (content.includes("<!-- START_FRONTEND_AUDIT_RULE -->") || /Frontend Architecture\s*&(?:amp;)?\s*Component Lookup/.test(content)) {
+        targetFile = f;
+        break;
+      }
+    }
+  }
+
+  if (!targetFile) {
+    for (const f of candidates) {
+      if (fs.existsSync(f)) {
+        targetFile = f;
+        break;
+      }
+    }
+  }
+
+  if (!targetFile) {
+    targetFile = "AGENTS.md";
+  }
+
+  const markerPattern = /<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->/;
+  const legacyPattern = /##[ \t]*[^\r\n#]*?Frontend Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*[\s\S]*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|$)/;
+
+  if (fs.existsSync(targetFile)) {
+    let content = fs.readFileSync(targetFile, "utf8");
+    if (markerPattern.test(content)) {
+      content = content.replace(markerPattern, ruleBlock);
+      fs.writeFileSync(targetFile, content, "utf8");
+      console.log(`🔄 Cleanly updated Frontend Architecture Rule in ${targetFile}`);
+    } else if (legacyPattern.test(content)) {
+      content = content.replace(legacyPattern, ruleBlock);
+      fs.writeFileSync(targetFile, content, "utf8");
+      console.log(`🔄 Upgraded legacy Frontend Architecture Rule in-place in ${targetFile}`);
+    } else {
+      content = content.trimEnd() + "\n\n" + ruleBlock + "\n";
+      fs.writeFileSync(targetFile, content, "utf8");
+      console.log(`🔗 Injected Frontend Architecture Rule into ${targetFile}`);
+    }
+  } else {
+    fs.writeFileSync(targetFile, `# AGENTS.md — Workspace Guidelines for AI Assistants\n\n${ruleBlock}\n`, "utf8");
+    console.log(`📄 Created AGENTS.md with 100% Always-Active Frontend Atlas rule!`);
+  }
+}
+
+// Automated Self-Updater (--update)
+async function executeSelfUpdate() {
+  console.log("📥 Checking for frontend-audit-skill updates from GitHub (Eurie92/frontend-audit-skill)...");
+  try {
+    const pkgRes = await fetch("https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/package.json");
+    if (!pkgRes.ok) {
+      console.error(`❌ HTTP ${pkgRes.status} fetching remote package.json. Please check your internet connection.`);
+      return;
+    }
+    const remotePkg = (await pkgRes.json()) as { version: string };
+
+    let currentVersion = "1.6.0";
+    if (fs.existsSync("package.json")) {
+      try {
+        const localPkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+        if (localPkg.name === "frontend-audit-skill" && localPkg.version) {
+          currentVersion = localPkg.version;
+        }
+      } catch {}
+    }
+
+    console.log(`📦 Installed: v${currentVersion} | Latest Remote: v${remotePkg.version}`);
+
+    // In local development repo: don't overwrite local uncommitted source unless remote is strictly newer
+    const isDevelopmentRepo = fs.existsSync(".git") && fs.existsSync("package.json") && !fs.existsSync(".agent/skills/frontend-audit");
+    if (isDevelopmentRepo && remotePkg.version === currentVersion) {
+      console.log("💡 Currently in active development repository. Synchronizing rules and atlas without overwriting local source.");
+      syncAgentRulesInPlace();
+      runUniversalFrontendAudit();
+      console.log("🎉 Local development environment is 100% up to date!");
+      return;
+    }
+
+    console.log("📥 Downloading latest SKILL.md and scripts/audit.ts...");
+    const skillRes = await fetch("https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/SKILL.md");
+    const skillContent = await skillRes.text();
+
+    const auditRes = await fetch("https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/audit.ts");
+    const auditContent = await auditRes.text();
+
+    const skillPath = fs.existsSync(".agent/skills/frontend-audit/SKILL.md")
+      ? ".agent/skills/frontend-audit/SKILL.md"
+      : "SKILL.md";
+    const auditPath = fs.existsSync(".agent/skills/frontend-audit/scripts/audit.ts")
+      ? ".agent/skills/frontend-audit/scripts/audit.ts"
+      : "scripts/audit.ts";
+
+    fs.writeFileSync(skillPath, skillContent, "utf8");
+    fs.writeFileSync(auditPath, auditContent, "utf8");
+    console.log(`✅ Successfully updated ${skillPath} and ${auditPath}`);
+
+    // Update agent rules in-place
+    syncAgentRulesInPlace();
+
+    console.log("\n🔄 Refreshing Frontend Atlas with newly updated skill engine...");
+    runUniversalFrontendAudit();
+
+    console.log(`\n🎉 frontend-audit-skill successfully synchronized to v${remotePkg.version}!`);
+  } catch (err: any) {
+    console.error(`❌ Update failed: ${err.message}`);
+  }
+}
+
+// 10. Zero-Search Agent Handoff Manifest Generator (--manifest <target>)
+function executeManifestLookup(audits: ComponentAudit[], target: string, discoveredSkills: DiscoveredSkill[] = []) {
   console.log(`🎫 Generating Agent Handoff Manifest for: "${target}"...\n`);
   const [filePathQuery, lineStr] = target.split(":");
   const targetLine = lineStr ? parseInt(lineStr, 10) : undefined;
@@ -946,7 +1261,7 @@ function executeManifestLookup(audits: ComponentAudit[], target: string) {
 
   const manifest = [
     `# === AGENT HANDOFF MANIFEST ===`,
-    `manifest_version: "1.0"`,
+    `manifest_version: "2.0"`,
     `component_name: "${compName}"`,
     `file: "${matchingAudit.relativePath}"`,
     targetLine ? `target_line: ${targetLine}` : `total_lines: ${fileLines.length}`,
@@ -957,11 +1272,18 @@ function executeManifestLookup(audits: ComponentAudit[], target: string) {
     ...(detectedIssues.length > 0
       ? detectedIssues.map(i => `  - type: "${i.type}"\n    skill: "${i.recommendedSkill}"\n    line: ${i.line || "file-level"}\n    note: "${i.note}"`)
       : [`  - note: "No immediate styling or a11y violations found."`]),
+    `installed_skills_available:`,
+    ...(discoveredSkills.length > 0
+      ? discoveredSkills.slice(0, 8).map(s => `  - ${s.name}: "${s.scope === "project" ? "Local" : "Global"} (${s.domain})"`)
+      : [`  - note: "No external peer skills installed in workspace."`]),
     `recommended_dispatch_routing:`,
     `  interaction_physics: "emil-design-eng"`,
     `  token_unification: "ui-ux-pro-max"`,
     `  accessibility_remediation: "a11y-debugging"`,
     `  visual_hierarchy_polish: "impeccable"`,
+    ...(discoveredSkills.some(s => s.name === "design-taste-frontend")
+      ? [`  taste_and_art_direction: "design-taste-frontend"`]
+      : []),
     `# === END MANIFEST ===`,
   ].join("\n");
 
@@ -1003,7 +1325,7 @@ function executeVerificationGate(audits: ComponentAudit[], routes: RouteMapItem[
 
   const currentReceipt: VerificationReceipt = {
     timestamp: new Date().toISOString(),
-    version: "1.5.0",
+    version: "1.6.0",
     totalFiles: audits.length,
     routesCount: routes.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -1164,6 +1486,7 @@ export function runUniversalFrontendAudit() {
   const routeMaps = buildRouteMap(audits);
   const deadComponents = findDeadComponents(audits);
   const skillDispatches = generateSkillDispatches(audits);
+  const discoveredSkills = discoverInstalledSkills();
 
   // If --fix-buttons requested
   if (SHOULD_FIX_BUTTONS) {
@@ -1173,7 +1496,7 @@ export function runUniversalFrontendAudit() {
 
   // If --manifest requested
   if (MANIFEST_TARGET) {
-    executeManifestLookup(audits, MANIFEST_TARGET);
+    executeManifestLookup(audits, MANIFEST_TARGET, discoveredSkills);
     return;
   }
 
@@ -1203,9 +1526,12 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.5.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.6.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
+  if (discoveredSkills.length > 0) {
+    console.log(`🧩 Auto-Discovered ${discoveredSkills.length} workspace skills across project & plugins.`);
+  }
   if (deadComponents.length > 0) {
     console.log(`⚠️ Detected ${deadComponents.length} potential dead / un-imported components.`);
   }
@@ -1221,14 +1547,14 @@ export function runUniversalFrontendAudit() {
   writeDeadComponentsLedger(deadComponents);
   writeVisibleLabelsMap(audits);
   writeVisualIconIndex(audits);
-  writeDispatchGateway(skillDispatches);
+  writeDispatchGateway(skillDispatches, discoveredSkills);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents);
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
   const baselineReceipt: VerificationReceipt = {
     timestamp: new Date().toISOString(),
-    version: "1.5.0",
+    version: "1.6.0",
     totalFiles: audits.length,
     routesCount: routeMaps.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -1555,20 +1881,69 @@ function writeVisualIconIndex(audits: ComponentAudit[]) {
   fs.writeFileSync(filePath, md);
 }
 
-function writeDispatchGateway(dispatches: SkillDispatch[]) {
+function writeDispatchGateway(dispatches: SkillDispatch[], discoveredSkills: DiscoveredSkill[] = []) {
   const filePath = path.join(OUTPUT_DIR, "08_DISPATCH_GATEWAY.md");
   let md = `# 🎫 Skill Dispatch Gateway & Inter-Skill Handoff Matrix\n\n`;
-  md += `> Triage router connecting detected frontend findings to specialized peer skills.\n`;
+  md += `> Dynamic triage router connecting detected frontend findings to specialized peer skills and newly installed workspace skills.\n`;
   md += `> 💡 **Handoff Protocol**: Downstream agents can directly accept target files from this matrix without redundant full-codebase searches.\n\n`;
 
   md += `## 🧭 Peer Skill Routing Architecture\n\n`;
-  md += `| Recommended Skill | Domain & Focus | Trigger Criteria | CLI Auto-Fix |\n`;
-  md += `| :--- | :--- | :--- | :--- |\n`;
-  md += `| \`emil-design-eng\` | Micro-interactions & Physics | Missing \`active:scale-[0.97]\`, transitions | N/A (Agent Polish) |\n`;
-  md += `| \`ui-ux-pro-max\` | Design Tokens & Colors | Hardcoded hexes, un-tokenized Tailwind grays | N/A (Token Alignment) |\n`;
-  md += `| \`a11y-debugging\` | Accessibility Remediation | Missing \`aria-label\`, missing \`type="button"\` | N/A (A11y Hardening) |\n`;
-  md += `| \`impeccable\` | Visual Craft & Layout | Inline \`style={{...}}\` tags, layout drift | N/A (Craft Review) |\n`;
-  md += `| \`codemod\` | Automated Standardization | Mass raw \`<button>\` migration | \`--fix-buttons\` |\n\n`;
+  md += `| Core Recommended Skill | Domain & Focus | Workspace Status | Trigger Criteria | CLI Auto-Fix |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+
+  const coreSkills = [
+    { name: "emil-design-eng", domain: "Micro-interactions & Physics", trigger: "Missing `active:scale-[0.97]`, transitions", fix: "N/A (Agent Polish)" },
+    { name: "ui-ux-pro-max", domain: "Design Tokens & Colors", trigger: "Hardcoded hexes, un-tokenized Tailwind grays", fix: "N/A (Token Alignment)" },
+    { name: "a11y-debugging", domain: "Accessibility Remediation", trigger: "Missing `aria-label`, missing `type=\"button\"`", fix: "N/A (A11y Hardening)" },
+    { name: "impeccable", domain: "Visual Craft & Layout", trigger: "Inline `style={{...}}` tags, layout drift", fix: "N/A (Craft Review)" },
+    { name: "design-taste-frontend", domain: "Bespoke Art Direction & Taste", trigger: "Generic slop aesthetics, typography composition", fix: "N/A (Art Direction)" },
+    { name: "codemod", domain: "Automated Standardization", trigger: "Mass raw `<button>` migration", fix: "`--fix-buttons`" },
+  ];
+
+  coreSkills.forEach(cs => {
+    const installed = discoveredSkills.find(d => d.name === cs.name);
+    const status = installed
+      ? (installed.scope === "project" ? `🟢 Active (Local)` : `🌐 Active (Global)`)
+      : `⚪ Peer Skill (Available)`;
+    md += `| \`${cs.name}\` | ${cs.domain} | ${status} | ${cs.trigger} | ${cs.fix} |\n`;
+  });
+
+  md += `\n`;
+
+  // Dynamic Discovered Skills Section
+  const projectSkills = discoveredSkills.filter(d => d.scope === "project");
+  const relevantGlobalSkills = discoveredSkills.filter(d => d.scope === "global" && [
+    "Micro-Interactions & Physics",
+    "Design Tokens & System",
+    "Visual Craft & Anti-Slop",
+    "Accessibility Remediation (a11y)",
+    "Performance & Core Web Vitals",
+    "Testing & Verification",
+    "Surgical Patching & Root-Cause Debugging",
+  ].includes(d.domain));
+
+  md += `## 🧩 Discovered Workspace & Global Skills (${discoveredSkills.length} Total Detected)\n\n`;
+  md += `> The Frontend Audit engine auto-discovers skills installed in \`.agent/skills/\`, \`.agents/skills/\`, and global plugin directories.\n\n`;
+
+  if (projectSkills.length > 0) {
+    md += `### 🏠 Project-Local Skills (\`.agent/skills/\`)\n\n`;
+    md += `| Skill Name | Version | Inferred Domain | Path | Recommended Handoff Trigger |\n`;
+    md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+    projectSkills.forEach(s => {
+      md += `| \`${s.name}\` | \`${s.version || "1.0.0"}\` | **${s.domain}** | \`${s.path}\` | ${s.recommendedHandoff} |\n`;
+    });
+    md += `\n`;
+  }
+
+  if (relevantGlobalSkills.length > 0) {
+    md += `### 🌐 Active Global Frontend & Verification Plugins\n\n`;
+    md += `| Skill Name | Inferred Domain | Plugin Source | Recommended Handoff Trigger |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    relevantGlobalSkills.forEach(s => {
+      md += `| \`${s.name}\` | **${s.domain}** | \`${s.path}\` | ${s.recommendedHandoff} |\n`;
+    });
+    md += `\n`;
+  }
 
   md += `## 📋 Active Skill Dispatch Punch Lists\n\n`;
 
@@ -1650,6 +2025,7 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
 
   md += `## 📦 How to Install / Update this Skill\n\n`;
   md += `To install or update to the latest version in any project:\n\n`;
+  md += `- **CLI Self-Updater**: \`npx frontend-audit --update\` (or \`npx tsx scripts/audit-frontend.ts --update\`)\n`;
   md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex\`\n`;
   md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash\`\n`;
   md += `- **GitHub Repository**: [Eurie92/frontend-audit-skill](https://github.com/Eurie92/frontend-audit-skill)\n\n`;
@@ -1657,7 +2033,12 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   fs.writeFileSync(filePath, md);
 }
 
-function main() {
+async function main() {
+  if (UPDATE_MODE) {
+    await executeSelfUpdate();
+    return;
+  }
+
   runUniversalFrontendAudit();
 
   if (WATCH_MODE) {

@@ -1,7 +1,7 @@
 ---
 name: frontend-audit
 description: Runs the automated frontend atlas and design system catalog engine into docs/frontend-atlas/. Used to inspect or refresh routes, components, and design tokens, and to locate exact UI component files from screenshots or page names. DO NOT use for visual design critique, micro-animations, or CSS styling ideas (use impeccable, emil-design-eng, or ui-ux-pro-max instead).
-version: 1.5.0
+version: 1.6.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/frontend-audit/scripts/audit.ts)
@@ -21,9 +21,11 @@ allowed-tools:
   1. Locating exact component files and route owners directly from `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md`, `06_VISIBLE_TEXT_AND_LABELS_MAP.md`, or `07_VISUAL_AND_ICON_INDEX.md`.
   2. Running the static audit engine to refresh `docs/frontend-atlas/`.
   3. Generating zero-search agent handoff manifests via `--manifest <file:line>`.
-  4. Running closed-loop verification gates via `--verify` to track metric improvements and TypeScript compilation.
-  5. Checking button standardization, a11y flags, design tokens, and dead components.
-  6. Explicit slash command: `/frontend-audit`
+  4. Auto-discovering newly installed skills in `.agent/skills/` and global plugins into `docs/frontend-atlas/08_DISPATCH_GATEWAY.md`.
+  5. Running closed-loop verification gates via `--verify` to track metric improvements and TypeScript compilation.
+  6. Self-updating the skill engine and agent rules via `--update`.
+  7. Checking button standardization, a11y flags, design tokens, and dead components.
+  8. Explicit slash command: `/frontend-audit`
 * **DO NOT USE THIS SKILL FOR**:
   - UI visual design, styling ideas, or color advice ➡️ Use **`ui-ux-pro-max`** or **`design-taste-frontend`**.
   - Interaction physics, spring animations, micro-polish ➡️ Use **`emil-design-eng`**.

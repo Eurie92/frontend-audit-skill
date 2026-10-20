@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite & React projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, detects orphaned code, and eliminates UI islands into persistent Markdown documents (`docs/frontend-atlas/`).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v1.5.0](https://img.shields.io/badge/Release-v1.5.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
+[![Version: v1.6.0](https://img.shields.io/badge/Release-v1.6.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
 [![Frameworks: Next.js | Vite | React](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Vite%20%7C%20React-black.svg)](https://react.dev/)
 [![Styling: Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com/)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
@@ -32,6 +32,13 @@ In growing web applications—especially multi-tenant architectures featuring Pu
 ## 📦 Installation & Updating
 
 To install or update `frontend-audit` to the latest version in any project, run this 1-line command in your project root:
+
+**CLI Self-Update**:
+```bash
+npm run update
+# or
+npx frontend-audit --update
+```
 
 **Windows (PowerShell)**:
 ```powershell
@@ -169,16 +176,26 @@ Runs seamlessly on modern web frameworks:
 To ensure your AI assistant (**Antigravity**, **Claude Code**, **Cursor**, or **Codex**) **automatically checks the atlas on every task** without you having to remind it or run manual commands, verify that this rule is present in your project's `AGENTS.md`, `GEMINI.md`, or `CLAUDE.md`:
 
 ```markdown
+<!-- START_FRONTEND_AUDIT_RULE -->
 ## 🗺️ Frontend Architecture & Component Lookup Rule
 For all UI, component, route, or color theme tasks (including screenshots and visual bug reports):
-1. **Instant Atlas Lookup**: The FIRST tool call MUST be `view_file` on `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` (or relevant atlas file in `docs/frontend-atlas/`). It indexes all routes, page files, and imported components with 0ms runtime overhead.
+1. **Instant Atlas Lookup**: The FIRST tool call MUST be `view_file` on:
+   - `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` (by Route or Screen)
+   - `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text in a screenshot)
+   - `docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)
+   It indexes all routes, page files, imported components, labels, and icons with 0ms runtime overhead.
 2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches and do NOT spawn CLI scripts (`npx tsx scripts/audit-frontend.ts`) for simple lookups. The atlas is already written on disk as Markdown—read the file directly.
 3. **Continuous Sync**: At the completion of every frontend modification, execute `npm run audit:frontend` to keep the atlas 100% synchronized for subsequent tasks.
 
 ## 🛠️ Available Commands
-- `/frontend-audit` or `npm run audit:frontend`: Regenerates the entire Frontend Atlas.
+- `/frontend-audit` or `npm run audit:frontend`: Regenerates the entire Frontend Atlas (all 8 documents).
+- `npx tsx scripts/audit-frontend.ts --verify`: Closed-loop verification gate (TypeScript compile + metric deltas).
+- `npx tsx scripts/audit-frontend.ts --manifest <file:line>`: Generates zero-search agent handoff manifest.
+- `npx tsx scripts/audit-frontend.ts --find <query>`: Instant sub-second search across components, text labels, and icons.
+- `npx tsx scripts/audit-frontend.ts --update`: Checks and updates frontend-audit-skill to latest GitHub release.
 - `npx tsx scripts/audit-frontend.ts --watch`: Live file watcher for continuous background sync.
 - `npx tsx scripts/audit-frontend.ts --dead`: Scans for potential orphaned components.
+<!-- END_FRONTEND_AUDIT_RULE -->
 ```
 
 ### Why this works:
@@ -192,7 +209,7 @@ For all UI, component, route, or color theme tasks (including screenshots and vi
 
 This repository includes a production-ready automated release and verification pipeline:
 1. **Automated CI Workflow (`.github/workflows/ci.yml`)**: Runs on every Pull Request and Push to verify TypeScript compilation and execute the CLI smoke test.
-2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Generates GitHub Releases and release notes upon pushing tags (`v1.4.0`, `v1.5.0`) to `main`.
+2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Generates GitHub Releases and release notes upon pushing tags (`v1.4.0`, `v1.5.0`, `v1.6.0`) to `main`.
 3. **Pull Request Template (`.github/pull_request_template.md`)**: Enforces pre-merge verification across Next.js and Vite to prevent regressions.
 
 ---
