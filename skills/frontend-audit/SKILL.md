@@ -1,7 +1,7 @@
 ---
 name: frontend-audit
-description: Runs the automated frontend atlas and design system catalog engine into docs/frontend-atlas/. Used to inspect or refresh routes, components, and design tokens, and to locate exact UI component files from screenshots or page names. DO NOT use for visual design critique, micro-animations, or CSS styling ideas (use impeccable, emil-design-eng, or ui-ux-pro-max instead).
-version: 1.6.0
+description: Runs the automated universal frontend atlas and design system catalog engine into docs/frontend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Used to inspect or refresh routes, components, and design tokens, and to locate exact UI component files from screenshots or page names. DO NOT use for visual design critique, micro-animations, or CSS styling ideas (use impeccable, emil-design-eng, or ui-ux-pro-max instead).
+version: 1.7.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/frontend-audit/scripts/audit.ts)

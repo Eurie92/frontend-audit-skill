@@ -4,7 +4,7 @@ import os from "os";
 import child_process from "child_process";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.6.0)
+ * Universal Frontend Atlas & Design System Audit Engine (v1.7.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
@@ -39,12 +39,27 @@ const VERIFY_MODE = ARGS.includes("--verify");
 const WATCH_MODE = ARGS.includes("--watch");
 const UPDATE_MODE = ARGS.includes("--update");
 
+export type SupportedFramework =
+  | "Next.js (App Router)"
+  | "Next.js (Pages Router)"
+  | "Nuxt 3"
+  | "Astro"
+  | "SvelteKit"
+  | "Svelte (Vite SPA)"
+  | "React Router v7"
+  | "Remix"
+  | "Vite / Vue SPA"
+  | "Vite / React SPA"
+  | "Generic React"
+  | "Generic Frontend";
+
 interface ProjectStructure {
-  framework: "Next.js (App Router)" | "Next.js (Pages Router)" | "Vite / React SPA" | "Generic React";
+  framework: SupportedFramework;
   hasAppRouter: boolean;
   appDir?: string;
   hasPagesRouter: boolean;
   pagesDir?: string;
+  layoutsDir?: string;
   srcDir?: string;
   componentsDir?: string;
   uiPrimitivesDir?: string;
@@ -137,7 +152,7 @@ interface VerificationReceipt {
 }
 
 // 1. Framework Auto-Discovery
-function detectProjectStructure(): ProjectStructure {
+function detectProjectStructure(rootDir: string = ROOT_DIR): ProjectStructure {
   const structure: ProjectStructure = {
     framework: "Generic React",
     hasAppRouter: false,
@@ -145,67 +160,191 @@ function detectProjectStructure(): ProjectStructure {
     customTokens: new Set<string>(),
   };
 
-  if (fs.existsSync(path.join(ROOT_DIR, "src"))) {
-    structure.srcDir = path.join(ROOT_DIR, "src");
+  let pkgDeps: Record<string, string> = {};
+  const pkgPath = path.join(rootDir, "package.json");
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+      pkgDeps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+    } catch {}
   }
 
-  if (fs.existsSync(path.join(ROOT_DIR, "app"))) {
+  if (fs.existsSync(path.join(rootDir, "src"))) {
+    structure.srcDir = path.join(rootDir, "src");
+  }
+
+  // 1. SvelteKit Detection (svelte.config.* or @sveltejs/kit)
+  const svelteConfigs = ["svelte.config.js", "svelte.config.ts", "svelte.config.mjs", "svelte.config.cjs"];
+  const hasSvelteConfig = svelteConfigs.some(cf => fs.existsSync(path.join(rootDir, cf)));
+  if (hasSvelteConfig || Boolean(pkgDeps["@sveltejs/kit"])) {
+    structure.framework = "SvelteKit";
+    structure.pagesDir = path.join(rootDir, "src", "routes");
+    structure.hasPagesRouter = fs.existsSync(structure.pagesDir);
+    structure.componentsDir = path.join(rootDir, "src", "lib", "components");
+    if (!fs.existsSync(structure.componentsDir)) {
+      structure.componentsDir = path.join(rootDir, "src", "components");
+    }
+    return finishProjectStructure(structure, rootDir);
+  }
+
+  // 2. Astro Detection (astro.config.* or astro dependency)
+  const astroConfigs = ["astro.config.mjs", "astro.config.ts", "astro.config.js", "astro.config.cjs"];
+  const hasAstroConfig = astroConfigs.some(cf => fs.existsSync(path.join(rootDir, cf)));
+  if (hasAstroConfig || Boolean(pkgDeps["astro"])) {
+    structure.framework = "Astro";
+    structure.pagesDir = path.join(rootDir, "src", "pages");
+    structure.hasPagesRouter = fs.existsSync(structure.pagesDir);
+    structure.componentsDir = path.join(rootDir, "src", "components");
+    structure.layoutsDir = path.join(rootDir, "src", "layouts");
+    return finishProjectStructure(structure, rootDir);
+  }
+
+  // 3. Nuxt 3 Detection (nuxt.config.* or nuxt dependency)
+  const nuxtConfigs = ["nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs", "nuxt.config.cjs"];
+  const hasNuxtConfig = nuxtConfigs.some(cf => fs.existsSync(path.join(rootDir, cf)));
+  if (hasNuxtConfig || Boolean(pkgDeps["nuxt"]) || Boolean(pkgDeps["nuxt3"])) {
+    structure.framework = "Nuxt 3";
+    const nuxt4AppDir = path.join(rootDir, "app");
+    const hasNuxt4App = fs.existsSync(nuxt4AppDir) && (
+      fs.existsSync(path.join(nuxt4AppDir, "pages")) ||
+      fs.existsSync(path.join(nuxt4AppDir, "app.vue")) ||
+      fs.existsSync(path.join(nuxt4AppDir, "components"))
+    );
+    const baseDir = hasNuxt4App ? nuxt4AppDir : (structure.srcDir || rootDir);
+    const pagesCand = path.join(baseDir, "pages");
+    if (fs.existsSync(pagesCand)) {
+      structure.hasPagesRouter = true;
+      structure.pagesDir = pagesCand;
+    }
+    const layoutsCand = path.join(baseDir, "layouts");
+    if (fs.existsSync(layoutsCand)) {
+      structure.layoutsDir = layoutsCand;
+    }
+    const compCand = path.join(baseDir, "components");
+    if (fs.existsSync(compCand)) {
+      structure.componentsDir = compCand;
+    }
+    return finishProjectStructure(structure, rootDir);
+  }
+
+  // 4. React Router v7 Detection (react-router.config.* or @react-router/dev)
+  const rr7Configs = ["react-router.config.ts", "react-router.config.js", "react-router.config.mjs"];
+  const hasRR7Config = rr7Configs.some(cf => fs.existsSync(path.join(rootDir, cf)));
+  if (hasRR7Config || Boolean(pkgDeps["@react-router/dev"]) || Boolean(pkgDeps["@react-router/fs-routes"])) {
+    structure.framework = "React Router v7";
+    structure.appDir = path.join(rootDir, "app");
     structure.hasAppRouter = true;
-    structure.appDir = path.join(ROOT_DIR, "app");
-    structure.framework = "Next.js (App Router)";
-  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "app"))) {
+    structure.componentsDir = path.join(rootDir, "app", "components");
+    return finishProjectStructure(structure, rootDir);
+  }
+
+  // 5. Remix Detection (remix.config.* or @remix-run/dev)
+  const remixConfigs = ["remix.config.js", "remix.config.ts", "remix.config.mjs"];
+  const hasRemixConfig = remixConfigs.some(cf => fs.existsSync(path.join(rootDir, cf)));
+  if (hasRemixConfig || Boolean(pkgDeps["@remix-run/dev"]) || Boolean(pkgDeps["@remix-run/react"])) {
+    structure.framework = "Remix";
+    structure.appDir = path.join(rootDir, "app");
     structure.hasAppRouter = true;
-    structure.appDir = path.join(structure.srcDir, "app");
+    structure.componentsDir = path.join(rootDir, "app", "components");
+    return finishProjectStructure(structure, rootDir);
+  }
+
+  // 6. Next.js Detection (App Router & Pages Router)
+  const nextConfigs = ["next.config.js", "next.config.mjs", "next.config.ts"];
+  const hasNextConfig = nextConfigs.some(cf => fs.existsSync(path.join(rootDir, cf))) || Boolean(pkgDeps["next"]);
+
+  const appRouterCand = structure.srcDir ? path.join(structure.srcDir, "app") : path.join(rootDir, "app");
+  if (fs.existsSync(appRouterCand)) {
+    structure.hasAppRouter = true;
+    structure.appDir = appRouterCand;
     structure.framework = "Next.js (App Router)";
   }
 
-  if (fs.existsSync(path.join(ROOT_DIR, "pages"))) {
+  const pagesRouterCand = structure.srcDir ? path.join(structure.srcDir, "pages") : path.join(rootDir, "pages");
+  if (fs.existsSync(pagesRouterCand)) {
     structure.hasPagesRouter = true;
-    structure.pagesDir = path.join(ROOT_DIR, "pages");
-    if (!structure.hasAppRouter) structure.framework = "Next.js (Pages Router)";
-  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "pages"))) {
-    structure.hasPagesRouter = true;
-    structure.pagesDir = path.join(structure.srcDir, "pages");
-    if (!structure.hasAppRouter) structure.framework = "Next.js (Pages Router)";
+    structure.pagesDir = pagesRouterCand;
+    if (!structure.hasAppRouter && hasNextConfig) {
+      structure.framework = "Next.js (Pages Router)";
+    }
   }
 
-  if (!structure.hasAppRouter && !structure.hasPagesRouter) {
-    if (fs.existsSync(path.join(ROOT_DIR, "vite.config.js")) || fs.existsSync(path.join(ROOT_DIR, "vite.config.ts"))) {
+  // 7. Vite SPA Detection (Vue vs Svelte vs React)
+  const viteConfigs = ["vite.config.ts", "vite.config.js", "vite.config.mjs", "vite.config.cjs"];
+  const viteConfigPath = viteConfigs.find(cf => fs.existsSync(path.join(rootDir, cf)));
+  if (!structure.hasAppRouter && (!hasNextConfig || !structure.hasPagesRouter) && viteConfigPath) {
+    let viteContent = "";
+    try {
+      viteContent = fs.readFileSync(path.join(rootDir, viteConfigPath), "utf-8");
+    } catch {}
+
+    const isVue = /@vitejs\/plugin-vue|unplugin-vue/.test(viteContent) || Boolean(pkgDeps["vue"]);
+    const isSvelte = /@sveltejs\/vite-plugin-svelte/.test(viteContent) || Boolean(pkgDeps["svelte"]);
+
+    if (isVue) {
+      structure.framework = "Vite / Vue SPA";
+      const viewsCand = path.join(structure.srcDir || rootDir, "views");
+      const pagesCand = path.join(structure.srcDir || rootDir, "pages");
+      if (fs.existsSync(viewsCand)) structure.pagesDir = viewsCand;
+      else if (fs.existsSync(pagesCand)) structure.pagesDir = pagesCand;
+    } else if (isSvelte) {
+      structure.framework = "Svelte (Vite SPA)";
+    } else {
       structure.framework = "Vite / React SPA";
     }
   }
 
-  if (fs.existsSync(path.join(ROOT_DIR, "components"))) {
-    structure.componentsDir = path.join(ROOT_DIR, "components");
-  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "components"))) {
-    structure.componentsDir = path.join(structure.srcDir, "components");
+  // 8. Components Directory Fallback
+  if (!structure.componentsDir) {
+    if (fs.existsSync(path.join(rootDir, "components"))) {
+      structure.componentsDir = path.join(rootDir, "components");
+    } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "components"))) {
+      structure.componentsDir = path.join(structure.srcDir, "components");
+    }
   }
 
+  // Fallback framework label
+  if (structure.framework === "Generic React" && !pkgDeps["react"] && !fs.existsSync(path.join(rootDir, "src"))) {
+    structure.framework = "Generic Frontend";
+  }
+
+  return finishProjectStructure(structure, rootDir);
+}
+
+function finishProjectStructure(structure: ProjectStructure, rootDir: string): ProjectStructure {
   if (structure.componentsDir) {
     const uiPath = path.join(structure.componentsDir, "ui");
     if (fs.existsSync(uiPath)) {
       structure.uiPrimitivesDir = uiPath;
     }
-  } else if (structure.srcDir && fs.existsSync(path.join(structure.srcDir, "ui"))) {
-    structure.uiPrimitivesDir = path.join(structure.srcDir, "ui");
+  } else if (structure.srcDir) {
+    const uiPath = path.join(structure.srcDir, "ui");
+    const svelteUiPath = path.join(structure.srcDir, "lib", "components", "ui");
+    if (fs.existsSync(uiPath)) {
+      structure.uiPrimitivesDir = uiPath;
+    } else if (fs.existsSync(svelteUiPath)) {
+      structure.uiPrimitivesDir = svelteUiPath;
+    }
   }
 
   const configFiles = ["tailwind.config.ts", "tailwind.config.js", "tailwind.config.mjs", "tailwind.config.cjs"];
   for (const cf of configFiles) {
-    const fullPath = path.join(ROOT_DIR, cf);
+    const fullPath = path.join(rootDir, cf);
     if (fs.existsSync(fullPath)) {
       structure.tailwindConfigPath = fullPath;
-      const content = fs.readFileSync(fullPath, "utf-8");
-      const colorBlock = content.match(/colors:\s*\{([\s\S]*?)\n\s*\},/);
-      if (colorBlock) {
-        const keys = colorBlock[1].match(/^\s*([a-zA-Z0-9_-]+):/gm);
-        if (keys) {
-          keys.forEach(k => {
-            const token = k.trim().replace(":", "");
-            structure.customTokens.add(token.toLowerCase());
-          });
+      try {
+        const content = fs.readFileSync(fullPath, "utf-8");
+        const colorBlock = content.match(/colors:\s*\{([\s\S]*?)\n\s*\},/);
+        if (colorBlock) {
+          const keys = colorBlock[1].match(/^\s*([a-zA-Z0-9_-]+):/gm);
+          if (keys) {
+            keys.forEach(k => {
+              const token = k.trim().replace(":", "");
+              structure.customTokens.add(token.toLowerCase());
+            });
+          }
         }
-      }
+      } catch {}
       break;
     }
   }
@@ -217,10 +356,50 @@ function detectProjectStructure(): ProjectStructure {
 function determineZone(relPath: string, structure: ProjectStructure): string {
   const norm = relPath.replace(/\\/g, "/");
 
-  if (norm.includes("components/ui") || norm.includes("/ui/")) {
+  // Shared UI primitives across all frameworks
+  if (
+    norm.includes("components/ui") ||
+    norm.includes("/ui/") ||
+    norm.includes("src/lib/components/ui")
+  ) {
     return "Shared UI Primitives";
   }
 
+  // SvelteKit Routes (src/routes/)
+  if (norm.startsWith("src/routes/")) {
+    const sub = norm.replace(/^src\/routes\//, "");
+    const segs = sub.split("/");
+    const first = segs[0];
+    if (first.startsWith("(") && first.endsWith(")")) {
+      const g = first.slice(1, -1);
+      return g.charAt(0).toUpperCase() + g.slice(1) + " (Section)";
+    }
+    if (first === "admin") return "Admin Panel";
+    if (first === "auth" || first.includes("login") || first.includes("signup")) return "Auth & Onboarding";
+    if (first === "api") return "API Routes";
+    return `${first.charAt(0).toUpperCase() + first.slice(1)} Section`;
+  }
+
+  // SvelteKit Lib Components (src/lib/components/)
+  if (norm.startsWith("src/lib/components/")) {
+    const sub = norm.replace(/^src\/lib\/components\//, "");
+    const seg = sub.split("/")[0];
+    return `${seg.charAt(0).toUpperCase() + seg.slice(1)} Components`;
+  }
+
+  // Astro / Nuxt / Pages Router (src/pages/ or pages/)
+  if (norm.startsWith("src/pages/") || norm.startsWith("pages/")) {
+    const sub = norm.replace(/^(src\/)?pages\//, "");
+    const segs = sub.split("/");
+    const first = segs[0];
+    if (first === "admin") return "Admin Panel";
+    if (first === "auth" || first.includes("login")) return "Auth & Onboarding";
+    if (first === "api") return "API Routes";
+    if (first === "posts" || first === "blog") return "Blog / Content";
+    return `${first.charAt(0).toUpperCase() + first.slice(1)} Section`;
+  }
+
+  // Next.js App Router / Remix / React Router (app/ or src/app/)
   if (norm.startsWith("app/") || norm.startsWith("src/app/")) {
     const subPath = norm.replace(/^(src\/)?app\//, "");
     const segments = subPath.split("/");
@@ -239,10 +418,19 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
     if (first === "supplier") return "Supplier Portal";
     if (first === "auth" || first.includes("login") || first.includes("signup")) return "Auth & Onboarding";
     if (first === "api") return "API Routes";
+    if (first === "routes") {
+      const second = segments[1] || "";
+      if (second.startsWith("admin")) return "Admin Panel";
+      if (second.startsWith("auth") || second.startsWith("_auth")) return "Auth & Onboarding";
+      if (second.startsWith("api")) return "API Routes";
+      const prefix = second.split(".")[0].replace(/^_+/, "");
+      return prefix ? `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} Section` : "App Routes";
+    }
 
     return `${first.charAt(0).toUpperCase() + first.slice(1)} Section`;
   }
 
+  // Components dir
   if (norm.startsWith("components/") || norm.startsWith("src/components/")) {
     const subPath = norm.replace(/^(src\/)?components\//, "");
     const segments = subPath.split("/");
@@ -268,7 +456,7 @@ function determineZone(relPath: string, structure: ProjectStructure): string {
   return "Core Platform";
 }
 
-// 3. Scan Files (.tsx, .jsx, .ts, .js)
+// 3. Scan Files (.tsx, .jsx, .ts, .js, .vue, .astro, .svelte)
 function getFiles(dir: string, fileList: string[] = []): string[] {
   if (!fs.existsSync(dir)) return fileList;
   const items = fs.readdirSync(dir);
@@ -276,19 +464,36 @@ function getFiles(dir: string, fileList: string[] = []): string[] {
     const fullPath = path.join(dir, item);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
-      if (!["node_modules", ".next", "dist", ".git", ".turbo", "build", ".checkpoint-stage2"].includes(item)) {
+      if (![
+        "node_modules", ".next", "dist", ".git", ".turbo", "build", ".checkpoint-stage2",
+        ".svelte-kit", ".nuxt", ".astro", ".react-router", ".cache", ".output"
+      ].includes(item)) {
         getFiles(fullPath, fileList);
       }
     } else if (
-      (item.endsWith(".tsx") || item.endsWith(".jsx") || item.endsWith(".ts") || item.endsWith(".js")) &&
+      (
+        item.endsWith(".tsx") || item.endsWith(".jsx") || item.endsWith(".ts") || item.endsWith(".js") ||
+        item.endsWith(".vue") || item.endsWith(".astro") || item.endsWith(".svelte") ||
+        item.endsWith(".svelte.ts") || item.endsWith(".svelte.js")
+      ) &&
       !item.endsWith(".test.ts") &&
       !item.endsWith(".test.js") &&
+      !item.endsWith(".test.tsx") &&
       !item.endsWith(".test.jsx") &&
+      !item.endsWith(".test.vue") &&
+      !item.endsWith(".test.svelte") &&
       !item.endsWith(".spec.ts") &&
       !item.endsWith(".spec.js") &&
+      !item.endsWith(".spec.tsx") &&
+      !item.endsWith(".spec.jsx") &&
+      !item.endsWith(".spec.vue") &&
+      !item.endsWith(".spec.svelte") &&
       !item.endsWith(".d.ts") &&
+      !item.endsWith(".d.svelte.ts") &&
       !item.endsWith(".config.js") &&
-      !item.endsWith(".config.ts")
+      !item.endsWith(".config.ts") &&
+      !item.endsWith(".config.mjs") &&
+      !item.endsWith(".config.cjs")
     ) {
       fileList.push(fullPath);
     }
@@ -302,7 +507,7 @@ const APPROVED_HEXES = new Set([
 
 const ROGUE_COLOR_REGEX = /\b(bg|text|border|ring)-(zinc|neutral|gray|stone)-[1-9]00\b/g;
 const HEX_REGEX = /#(?:[0-9a-fA-F]{3,4}){1,2}\b/g;
-const CARD_SURFACE_REGEX = /className=["'`]([^"'`]*(?:bg-(?:void|slab|surface|card|white|black)|rounded-(?:xl|2xl|3xl)|border-line|backdrop-blur)[^"'`]*)["'`]/g;
+const CARD_SURFACE_REGEX = /(?:class(?:Name)?|:class|class:list|v-bind:class)=["'`]([^"'`]*(?:bg-(?:void|slab|surface|card|white|black)|rounded-(?:xl|2xl|3xl)|border-line|backdrop-blur)[^"'`]*)["'`]/g;
 const MODAL_REGEX = /<(?:Dialog|Modal|Drawer|DrawerContent|DialogContent)\b|<div[^>]*role=["']dialog["']/g;
 const TYPOGRAPHY_REGEX = /\b(font-mono|font-sans|font-geist|font-jetbrains|text-(?:xs|sm|base|lg|xl|2xl|3xl|4xl|5xl))\b/g;
 
@@ -313,8 +518,16 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const relPath = path.relative(ROOT_DIR, filePath).replace(/\\/g, "/");
   const zone = determineZone(relPath, structure);
 
-  // Next.js Boundary Radar: Statically detect 'use client'
-  const isClientComponent = /^\s*["']use client["']/m.test(content) || /["']use client["']/.test(lines.slice(0, 5).join(" "));
+  // Boundary Radar: Statically detect client vs server execution
+  const isClientComponent =
+    /^\s*["']use client["']/m.test(content) ||
+    /["']use client["']/.test(lines.slice(0, 5).join(" ")) ||
+    relPath.includes(".client.") ||
+    relPath.endsWith("+page.svelte") ||
+    (structure.framework === "SvelteKit" && relPath.endsWith(".svelte")) ||
+    (structure.framework === "Vite / Vue SPA") ||
+    (structure.framework === "Vite / React SPA") ||
+    (structure.framework === "Svelte (Vite SPA)");
 
   const componentNames: string[] = [];
   const imports: string[] = [];
@@ -351,7 +564,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     }
   }
 
-  // Extract component names
+  // Extract component names (React / TS / JS functions)
   const compMatch = content.match(/(?:export\s+default\s+function|export\s+function|function|const)\s+([A-Z][a-zA-Z0-9_]*)/g);
   if (compMatch) {
     isExportedComponent = true;
@@ -361,22 +574,34 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     });
   }
 
-  // Extract imports (local and alias)
-  const importMatches = content.match(/from\s+["'](@\/components\/[^"']+|\.\/[^"']+|\.\.\/[^"']+)["']/g);
+  // Extract component names for Vue / Svelte / Astro SFCs based on filename
+  if (relPath.endsWith(".vue") || relPath.endsWith(".svelte") || relPath.endsWith(".astro")) {
+    const baseName = path.basename(relPath).replace(/\.[^/.]+$/, "");
+    const cleanName = (baseName === "index" || baseName === "+page" || baseName === "+layout")
+      ? path.basename(path.dirname(relPath))
+      : baseName;
+    if (cleanName && /^[A-Z]/.test(cleanName) && !componentNames.includes(cleanName)) {
+      componentNames.push(cleanName);
+      isExportedComponent = true;
+    }
+  }
+
+  // Extract imports (local and alias across React, SvelteKit, Nuxt, Astro)
+  const importMatches = content.match(/from\s+["']((?:@|\$lib|~|\.|\.\.)\/[^"']+)["']/g);
   if (importMatches) {
     importMatches.forEach(m => {
-      const imp = m.replace(/from\s+["']/, "").replace(/["']/, "");
+      const imp = m.replace(/^from\s+["']/, "").replace(/["']$/, "");
       if (!imports.includes(imp)) imports.push(imp);
     });
   }
 
-  // Extract imported Icon packages (Lucide, Radix, Tabler, Heroicons, React-Icons, Phosphor)
+  // Extract imported Icon packages (Lucide React/Vue/Svelte/Astro, Radix, Tabler, Heroicons, Svelte-Radix, Phosphor)
   const importedIcons = new Map<string, string>();
-  const iconImportRegex = /import\s+\{([^}]+)\}\s+from\s+["'](lucide-react|@radix-ui\/react-icons|@tabler\/icons(?:-react)?|@heroicons\/react(?:\/[^"']*)?|react-icons(?:\/[^"']*)?|phosphor-react)["']/g;
+  const iconImportRegex = /import\s+(?:\{([^}]+)\}|([A-Z][a-zA-Z0-9_]*))\s+from\s+["'](@?lucide-svelte(?:\/icons\/[^"']*)?|@lucide\/svelte(?:\/icons\/[^"']*)?|@iconify\/svelte|svelte-radix|phosphor-svelte|lucide-vue-next|lucide-astro|lucide-react|@radix-ui\/react-icons|@tabler\/icons(?:-react|-vue)?|@heroicons\/(?:react|vue)(?:\/[^"']*)?|react-icons(?:\/[^"']*)?|phosphor-react)["']/g;
   let iconMatch;
   while ((iconMatch = iconImportRegex.exec(content)) !== null) {
-    const lib = iconMatch[2];
-    const items = iconMatch[1].split(",");
+    const lib = iconMatch[3] || iconMatch[2] || iconMatch[0];
+    const items = (iconMatch[1] || iconMatch[2] || "").split(",");
     items.forEach(item => {
       const clean = item.trim().split(/\s+as\s+/)[0].trim();
       if (clean && /^[A-Z]/.test(clean)) {
@@ -389,47 +614,79 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     const lineNum = idx + 1;
     const trimmed = line.trim();
 
-    if (trimmed.includes("style={{")) hasDirectStyleTag = true;
+    if (trimmed.includes("style={{") || trimmed.includes("style=\"")) hasDirectStyleTag = true;
 
-    // Multiline-aware Button Tag Catchers + a11y Fast-Check
+    // Multiline-aware Button Tag Catchers + a11y Fast-Check (React, Vue, Svelte, Astro, Skeleton UI)
     if (/<button\b/i.test(line)) {
       const block = lines.slice(idx, idx + 4).join(" ");
-      const classMatch = block.match(/className=["'`]([^"'`]+)["'`]/);
+      const classMatch = block.match(/(?:class(?:Name)?|:class|class:list)=["'`]([^"'`]+)["'`]/);
       
-      // Accessibility checks
-      const hasType = /\btype=["'](button|submit|reset)["']/.test(block);
-      const hasAria = /\b(aria-label|aria-labelledby|title)=["']/.test(block);
-      const hasDirectText = />\s*[^<{\s]+/.test(block);
-      const missingAria = !hasAria && !hasDirectText;
-      const missingType = !hasType;
+      // Skeleton UI check: if <button contains class="btn", classify as UI button!
+      if (classMatch && /\bbtn\b/.test(classMatch[1])) {
+        uiButtons.push({
+          line: lineNum,
+          snippet: trimmed.slice(0, 80),
+          variant: classMatch[1].includes("btn-primary") || classMatch[1].includes("preset-filled") ? "filled" : "default",
+        });
+      } else {
+        // Accessibility checks (supporting :type, :aria-label, title, inner text, and template bindings)
+        const hasType = /\b:?type=["'](?:button|submit|reset|['"](?:button|submit|reset)['"])["']/i.test(block);
+        const hasAria = /\b(?:v-bind:)?(?::?aria-label|:?aria-labelledby|:?title)=["']/.test(block);
+        const hasDirectText = />\s*[^<{\s]+/.test(block) || /\{\{.+?\}\}/.test(block) || /\{.+?\}/.test(block);
+        const missingAria = !hasAria && !hasDirectText;
+        const missingType = !hasType;
 
-      const snippetContent = trimmed.length > 12 ? trimmed : block.replace(/\s+/g, " ");
-      rawButtons.push({
-        line: lineNum,
-        snippet: snippetContent.slice(0, 80),
-        className: classMatch ? classMatch[1].slice(0, 60) : undefined,
-        missingAria,
-        missingType,
-      });
+        const snippetContent = trimmed.length > 12 ? trimmed : block.replace(/\s+/g, " ");
+        rawButtons.push({
+          line: lineNum,
+          snippet: snippetContent.slice(0, 80),
+          className: classMatch ? classMatch[1].slice(0, 60) : undefined,
+          missingAria,
+          missingType,
+        });
 
-      const btnInner = block.match(/<button[^>]*>([\s\S]*?)<\/button>/i);
-      if (btnInner && btnInner[1]) {
-        addLabel(lineNum, btnInner[1], "Button", snippetContent);
+        const btnInner = block.match(/<button[^>]*>([\s\S]*?)<\/button>/i);
+        if (btnInner && btnInner[1]) {
+          addLabel(lineNum, btnInner[1], "Button", snippetContent);
+        }
       }
     }
 
-    if (/<Button\b/.test(line)) {
+    // UI Buttons (React Button, Nuxt UButton, PrimeVue PButton, Svelte Button.Root, etc.)
+    if (/<(?:Button|UButton|PButton|AstroButton)\b/.test(line) || /<Button\.Root\b/.test(line)) {
       const block = lines.slice(idx, idx + 4).join(" ");
-      const variantMatch = block.match(/variant=["'`]([^"'`]+)["'`]/);
+      const variantMatch = block.match(/(?:variant|color|severity)=["'`]([^"'`]+)["'`]/);
       uiButtons.push({
         line: lineNum,
         snippet: trimmed.slice(0, 80),
         variant: variantMatch ? variantMatch[1] : "default",
       });
 
-      const btnInner = block.match(/<Button[^>]*>([\s\S]*?)<\/Button>/i);
+      const btnInner = block.match(/<(?:Button|UButton|PButton|AstroButton|Button\.Root)[^>]*>([\s\S]*?)<\/(?:Button|UButton|PButton|AstroButton|Button\.Root)>/i);
       if (btnInner && btnInner[1]) {
         addLabel(lineNum, btnInner[1], "Button", trimmed);
+      }
+    }
+
+    // Tag-Based Icon Systems (<Icon name="..." />, <Icon icon="..." />, <UIcon name="..." />)
+    if (/<(?:Icon|UIcon)\b/i.test(line)) {
+      const nameMatch = line.match(/\b(?:name|icon)=["']([^"']+)["']/);
+      if (nameMatch) {
+        const iconName = nameMatch[1];
+        const contextWindow = lines.slice(Math.max(0, idx - 3), Math.min(lines.length, idx + 4)).join(" ");
+        let iconContext: VisualIconUsage["context"] = "Visual Indicator";
+        if (/<(?:button|Button|UButton)\b/i.test(contextWindow)) {
+          iconContext = "Button";
+        } else if (/<(?:a|Link|NuxtLink)\b/i.test(contextWindow)) {
+          iconContext = "Link / Navigation";
+        }
+        visualIcons.push({
+          line: lineNum,
+          iconName,
+          sourceLib: structure.framework === "Astro" ? "astro-icon" : structure.framework === "Nuxt 3" ? "Nuxt Icon" : "@iconify/svelte",
+          context: iconContext,
+          snippet: trimmed.slice(0, 75),
+        });
       }
     }
 
@@ -579,14 +836,20 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   };
 }
 
-// 5. Dead / Orphaned Component Finder
-function findDeadComponents(audits: ComponentAudit[]): ComponentAudit[] {
+// 5. Dead / Orphaned Component Finder (Multi-Framework Aware)
+function findDeadComponents(audits: ComponentAudit[], structure?: ProjectStructure): ComponentAudit[] {
   const componentFiles = audits.filter(a =>
-    (a.relativePath.includes("components/") || a.relativePath.includes("src/components/")) &&
+    (
+      a.relativePath.includes("components/") ||
+      a.relativePath.includes("src/components/") ||
+      a.relativePath.includes("src/lib/components/")
+    ) &&
     !a.relativePath.includes("components/ui") &&
     !a.relativePath.includes("/ui/") &&
     !a.relativePath.endsWith("index.ts") &&
-    !a.relativePath.endsWith("index.tsx")
+    !a.relativePath.endsWith("index.tsx") &&
+    !a.relativePath.endsWith("index.vue") &&
+    !a.relativePath.endsWith("index.svelte")
   );
 
   const allImportStrings = new Set<string>();
@@ -594,20 +857,38 @@ function findDeadComponents(audits: ComponentAudit[]): ComponentAudit[] {
     a.imports.forEach(imp => allImportStrings.add(imp));
   });
 
+  const isNuxtOrVue = structure?.framework === "Nuxt 3" || structure?.framework === "Vite / Vue SPA";
+  let allFileContents: string | null = null;
+
   const dead: ComponentAudit[] = [];
 
   componentFiles.forEach(cf => {
     const baseNameNoExt = path.basename(cf.relativePath).replace(/\.[^/.]+$/, "");
-    let isImported = false;
+    let isUsed = false;
 
+    // 1. Check explicit import statements
     for (const imp of allImportStrings) {
       if (imp.includes(baseNameNoExt)) {
-        isImported = true;
+        isUsed = true;
         break;
       }
     }
 
-    if (!isImported) {
+    // 2. If Nuxt / Vue auto-imports, check template tag invocations: <ComponentName or <component-name
+    if (!isUsed && (isNuxtOrVue || cf.relativePath.endsWith(".vue"))) {
+      if (allFileContents === null) {
+        allFileContents = audits.map(a => {
+          try { return fs.readFileSync(a.filePath, "utf-8"); } catch { return ""; }
+        }).join("\n");
+      }
+      const kebabName = baseNameNoExt.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+      const tagRegex = new RegExp(`<(?:Lazy)?(?:${baseNameNoExt}|${kebabName})\\b`, "i");
+      if (tagRegex.test(allFileContents)) {
+        isUsed = true;
+      }
+    }
+
+    if (!isUsed) {
       dead.push(cf);
     }
   });
@@ -615,87 +896,328 @@ function findDeadComponents(audits: ComponentAudit[]): ComponentAudit[] {
   return dead;
 }
 
-// 6. Dynamic Route Builder with Boundary Radar & 2-Level Tree
-function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
-  const routes: RouteMapItem[] = [];
-  const pageFiles = audits.filter(a =>
-    (a.relativePath.includes("app/") || a.relativePath.includes("pages/")) &&
-    (a.relativePath.endsWith("page.tsx") || a.relativePath.endsWith("page.jsx") || a.relativePath.endsWith("page.ts") || a.relativePath.endsWith("page.js"))
-  );
+// Route Transformation Helpers
+function transformSvelteKitRoute(relPath: string): { route: string; layoutFile?: string } {
+  const norm = relPath.replace(/\\/g, "/");
+  const sub = norm
+    .replace(/^src\/routes\/?/, "")
+    .replace(/\/\+page(@[a-zA-Z0-9_-]*)?\.svelte$/, "")
+    .replace(/^\+page(@[a-zA-Z0-9_-]*)?\.svelte$/, "");
 
-  for (const page of pageFiles) {
-    let route = "/" + page.relativePath
-      .replace(/^(src\/)?app\//, "")
-      .replace(/^(src\/)?pages\//, "")
-      .replace(/\([^)]+\)\/?/, "")
-      .replace(/\/page\.(tsx|jsx|ts|js)$/, "")
-      .replace(/^page\.(tsx|jsx|ts|js)$/, "");
+  const segments = sub
+    .split("/")
+    .filter(seg => seg.length > 0 && !(seg.startsWith("(") && seg.endsWith(")")))
+    .map(seg => {
+      if (/^\[\.\.\.[^\]]+\]$/.test(seg)) return "*";
+      if (/^\[\[[^\]]+\]\]$/.test(seg)) return `:${seg.slice(2, -2)}?`;
+      if (/^\[([^\]=]+)=[^\]]+\]$/.test(seg)) return `:${seg.slice(1).split("=")[0]}`;
+      if (/^\[([^\]]+)\]$/.test(seg)) return `:${seg.slice(1, -1)}`;
+      return seg;
+    });
 
-    if (route === "") route = "/";
-    route = route.replace(/\/+/g, "/");
+  let route = "/" + segments.join("/");
+  route = route.replace(/\/+/g, "/");
+  if (route.length > 1 && route.endsWith("/")) route = route.slice(0, -1);
+  return { route: route === "" ? "/" : route };
+}
 
-    const pageDir = path.dirname(page.filePath);
-    const layoutPath = path.join(pageDir, "layout.tsx");
-    let layoutFile: string | undefined = undefined;
-    if (fs.existsSync(layoutPath)) {
-      layoutFile = path.relative(ROOT_DIR, layoutPath).replace(/\\/g, "/");
+function transformRemixFlatRoute(relPath: string): { route: string; layoutFile?: string } {
+  const norm = relPath.replace(/\\/g, "/");
+  const fileBase = norm
+    .replace(/^app\/routes\/?/, "")
+    .replace(/\/route\.(tsx|jsx|ts|js)$/, "")
+    .replace(/\.(tsx|jsx|ts|js)$/, "");
+
+  if (fileBase === "_index") {
+    return { route: "/" };
+  }
+
+  const segments: string[] = [];
+  let current = "";
+  let insideBracket = false;
+
+  for (let i = 0; i < fileBase.length; i++) {
+    const char = fileBase[i];
+    if (char === "[") {
+      insideBracket = true;
+      current += char;
+    } else if (char === "]") {
+      insideBracket = false;
+      current += char;
+    } else if (char === "." && !insideBracket) {
+      segments.push(current);
+      current = "";
+    } else {
+      current += char;
     }
+  }
+  if (current) segments.push(current);
 
-    const componentTree: RouteComponentNode[] = [];
-    page.imports.forEach(imp => {
-      const cleanName = imp.replace(/@\/(components|src\/components)\//, "").replace(/^\.\//, "").replace(/^\.\.\//, "");
-      const baseName = path.basename(cleanName).replace(/\.[^/.]+$/, "");
+  const urlSegments: string[] = [];
 
-      const matchingAudit = audits.find(a => {
-        const normRel = a.relativePath.replace(/\\/g, "/");
-        return (
-          normRel.endsWith(`components/${cleanName}.tsx`) ||
-          normRel.endsWith(`components/${cleanName}.ts`) ||
-          normRel.endsWith(`components/${cleanName}.jsx`) ||
-          normRel.endsWith(`components/${cleanName}.js`) ||
-          normRel.endsWith(`components/${cleanName}/index.tsx`) ||
-          normRel.endsWith(`/${cleanName}.tsx`) ||
-          path.basename(a.relativePath).replace(/\.[^/.]+$/, "") === baseName
-        );
-      });
+  for (let seg of segments) {
+    if (seg.startsWith("[") && seg.endsWith("]")) {
+      urlSegments.push(seg.slice(1, -1));
+      continue;
+    }
+    if (seg === "_index") continue;
+    if (seg.startsWith("_") && !seg.endsWith("_")) continue;
+    if (seg.endsWith("_")) seg = seg.slice(0, -1);
+    if (seg === "$") {
+      urlSegments.push("*");
+      continue;
+    }
+    if (seg.startsWith("$")) {
+      urlSegments.push(":" + seg.slice(1));
+      continue;
+    }
+    seg = seg.replace(/\[([^\]]+)\]/g, "$1");
+    seg = seg.replace(/\$([a-zA-Z0-9_]+)/g, ":$1");
+    if (seg) urlSegments.push(seg);
+  }
 
-      let children: string[] = [];
-      let isClient = false;
-      if (matchingAudit) {
-        isClient = matchingAudit.isClientComponent;
-        if (matchingAudit.imports.length > 0) {
-          children = matchingAudit.imports
-            .map(c => path.basename(c).replace(/\.[^/.]+$/, ""))
-            .filter(c => !["ui", "button", "theme-toggle", "clsx", "lucide-react", "tailwind-merge", "utils"].includes(c.toLowerCase()) && c !== baseName);
-          children = Array.from(new Set(children)).slice(0, 4);
+  let route = "/" + urlSegments.join("/");
+  route = route.replace(/\/+/g, "/");
+  if (route.length > 1 && route.endsWith("/")) route = route.slice(0, -1);
+  return { route: route === "" ? "/" : route };
+}
+
+function transformNuxtRoute(relPath: string): { route: string; layoutFile?: string } {
+  const norm = relPath.replace(/\\/g, "/");
+  let sub = norm
+    .replace(/^(src\/|app\/)?pages\//, "")
+    .replace(/\.vue$/, "")
+    .replace(/\/index$/, "")
+    .replace(/^index$/, "");
+
+  // Dynamic segments: [id] -> :id, [...slug] -> *
+  sub = sub
+    .replace(/\[\.\.\.[^\]]+\]/g, "*")
+    .replace(/\[\[([^\]]+)\]\]/g, ":$1?")
+    .replace(/\[([^\]]+)\]/g, ":$1");
+
+  let route = "/" + sub;
+  route = route.replace(/\/+/g, "/");
+  if (route.length > 1 && route.endsWith("/")) route = route.slice(0, -1);
+  return { route: route === "" ? "/" : route };
+}
+
+function transformAstroRoute(relPath: string): { route: string; layoutFile?: string } {
+  const norm = relPath.replace(/\\/g, "/");
+  let sub = norm
+    .replace(/^(src\/)?pages\//, "")
+    .replace(/\.(astro|mdx|md|html|ts|js)$/, "")
+    .replace(/\/index$/, "")
+    .replace(/^index$/, "");
+
+  sub = sub
+    .replace(/\[\.\.\.[^\]]+\]/g, "*")
+    .replace(/\[([^\]]+)\]/g, ":$1");
+
+  let route = "/" + sub;
+  route = route.replace(/\/+/g, "/");
+  if (route.length > 1 && route.endsWith("/")) route = route.slice(0, -1);
+  return { route: route === "" ? "/" : route };
+}
+
+// 6. Dynamic Route Builder with Multi-Framework Adapters
+function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): RouteMapItem[] {
+  const routes: RouteMapItem[] = [];
+  const framework = structure?.framework;
+
+  // 1. SvelteKit Route Resolution
+  if (framework === "SvelteKit") {
+    const pageFiles = audits.filter(a =>
+      a.relativePath.startsWith("src/routes/") &&
+      a.relativePath.endsWith("+page.svelte")
+    );
+
+    for (const page of pageFiles) {
+      const { route } = transformSvelteKitRoute(page.relativePath);
+      const pageDir = path.dirname(page.filePath);
+      const layoutCandidates = [path.join(pageDir, "+layout.svelte"), path.join(ROOT_DIR, "src", "routes", "+layout.svelte")];
+      let layoutFile: string | undefined = undefined;
+      for (const cand of layoutCandidates) {
+        if (fs.existsSync(cand)) {
+          layoutFile = path.relative(ROOT_DIR, cand).replace(/\\/g, "/");
+          break;
         }
       }
 
-      componentTree.push({
-        name: cleanName,
-        isClientComponent: isClient,
-        children,
+      routes.push({
+        route,
+        zone: page.zone,
+        pageFile: page.relativePath,
+        layoutFile,
+        isClientComponent: true,
+        importedComponents: page.imports,
+        componentTree: buildComponentTree(page, audits),
       });
-    });
-
-    routes.push({
-      route,
-      zone: page.zone,
-      pageFile: page.relativePath,
-      layoutFile,
-      isClientComponent: page.isClientComponent,
-      importedComponents: page.imports,
-      componentTree,
-    });
+    }
   }
 
+  // 2. React Router v7 & Remix Flat Routes
+  else if (framework === "React Router v7" || framework === "Remix") {
+    const pageFiles = audits.filter(a =>
+      a.relativePath.startsWith("app/routes/") &&
+      (a.relativePath.endsWith(".tsx") || a.relativePath.endsWith(".jsx") || a.relativePath.endsWith(".ts") || a.relativePath.endsWith(".js"))
+    );
+
+    for (const page of pageFiles) {
+      const { route } = transformRemixFlatRoute(page.relativePath);
+      const rootLayout = path.join(ROOT_DIR, "app", "root.tsx");
+      const layoutFile = fs.existsSync(rootLayout) ? path.relative(ROOT_DIR, rootLayout).replace(/\\/g, "/") : undefined;
+
+      routes.push({
+        route,
+        zone: page.zone,
+        pageFile: page.relativePath,
+        layoutFile,
+        isClientComponent: page.isClientComponent,
+        importedComponents: page.imports,
+        componentTree: buildComponentTree(page, audits),
+      });
+    }
+  }
+
+  // 3. Nuxt 3 File-Based Routing
+  else if (framework === "Nuxt 3") {
+    const pageFiles = audits.filter(a =>
+      a.relativePath.endsWith(".vue") &&
+      (a.relativePath.startsWith("pages/") || a.relativePath.startsWith("src/pages/") || a.relativePath.startsWith("app/pages/"))
+    );
+
+    for (const page of pageFiles) {
+      const { route } = transformNuxtRoute(page.relativePath);
+      let layoutFile: string | undefined = undefined;
+      if (structure?.layoutsDir) {
+        const defaultLayout = path.join(structure.layoutsDir, "default.vue");
+        if (fs.existsSync(defaultLayout)) {
+          layoutFile = path.relative(ROOT_DIR, defaultLayout).replace(/\\/g, "/");
+        }
+      }
+
+      routes.push({
+        route,
+        zone: page.zone,
+        pageFile: page.relativePath,
+        layoutFile,
+        isClientComponent: page.isClientComponent,
+        importedComponents: page.imports,
+        componentTree: buildComponentTree(page, audits),
+      });
+    }
+
+    if (routes.length === 0) {
+      const appVue = audits.find(a => /app\.vue$/.test(a.relativePath));
+      if (appVue) {
+        routes.push({
+          route: "/ (Single Page App - app.vue)",
+          zone: "Root Application",
+          pageFile: appVue.relativePath,
+          isClientComponent: false,
+          importedComponents: appVue.imports,
+          componentTree: buildComponentTree(appVue, audits),
+        });
+      }
+    }
+  }
+
+  // 4. Astro Routing
+  else if (framework === "Astro") {
+    const pageFiles = audits.filter(a =>
+      (a.relativePath.startsWith("src/pages/") || a.relativePath.startsWith("pages/")) &&
+      !a.relativePath.split("/").some(segment => segment.startsWith("_") || segment.startsWith("."))
+    );
+
+    for (const page of pageFiles) {
+      const { route } = transformAstroRoute(page.relativePath);
+      let layoutFile: string | undefined = undefined;
+      if (structure?.layoutsDir) {
+        const defaultLayout = path.join(structure.layoutsDir, "BaseLayout.astro");
+        if (fs.existsSync(defaultLayout)) {
+          layoutFile = path.relative(ROOT_DIR, defaultLayout).replace(/\\/g, "/");
+        }
+      }
+
+      routes.push({
+        route,
+        zone: page.zone,
+        pageFile: page.relativePath,
+        layoutFile,
+        isClientComponent: page.isClientComponent,
+        importedComponents: page.imports,
+        componentTree: buildComponentTree(page, audits),
+      });
+    }
+  }
+
+  // 5. Next.js App / Pages Router (Default React Router)
+  else {
+    const isPagesRouter = framework === "Next.js (Pages Router)";
+    const pageFiles = audits.filter(a => {
+      if (isPagesRouter) {
+        return (
+          (a.relativePath.startsWith("pages/") || a.relativePath.startsWith("src/pages/")) &&
+          !a.relativePath.includes("/_app.") &&
+          !a.relativePath.includes("/_document.") &&
+          !a.relativePath.includes("/api/")
+        );
+      }
+      return (
+        (a.relativePath.includes("app/") || a.relativePath.includes("pages/")) &&
+        (a.relativePath.endsWith("page.tsx") || a.relativePath.endsWith("page.jsx") || a.relativePath.endsWith("page.ts") || a.relativePath.endsWith("page.js"))
+      );
+    });
+
+    for (const page of pageFiles) {
+      let route = "/" + page.relativePath
+        .replace(/^(src\/)?(app|pages)\//, "")
+        .replace(/\([^)]+\)\/?/g, "")
+        .replace(/\.(tsx|jsx|ts|js)$/, "")
+        .replace(/\/page$/, "")
+        .replace(/^page$/, "")
+        .replace(/\/index$/, "")
+        .replace(/^index$/, "");
+
+      if (route === "") route = "/";
+      route = route.replace(/\/+/g, "/");
+
+      const pageDir = path.dirname(page.filePath);
+      const layoutCandidates = ["layout.tsx", "layout.jsx", "layout.js", "layout.ts"];
+      let layoutFile: string | undefined = undefined;
+      for (const cand of layoutCandidates) {
+        const fullCand = path.join(pageDir, cand);
+        if (fs.existsSync(fullCand)) {
+          layoutFile = path.relative(ROOT_DIR, fullCand).replace(/\\/g, "/");
+          break;
+        }
+      }
+
+      routes.push({
+        route,
+        zone: page.zone,
+        pageFile: page.relativePath,
+        layoutFile,
+        isClientComponent: page.isClientComponent,
+        importedComponents: page.imports,
+        componentTree: buildComponentTree(page, audits),
+      });
+    }
+  }
+
+  // 6. Generic Single Page Application Fallback (App.tsx / App.vue / App.svelte / main.*)
   if (routes.length === 0) {
     const rootComponent = audits.find(a =>
       a.relativePath.endsWith("App.jsx") ||
       a.relativePath.endsWith("App.tsx") ||
+      a.relativePath.endsWith("App.vue") ||
+      a.relativePath.endsWith("App.svelte") ||
       a.relativePath.endsWith("App.js") ||
       a.relativePath.endsWith("main.jsx") ||
-      a.relativePath.endsWith("main.tsx")
+      a.relativePath.endsWith("main.tsx") ||
+      a.relativePath.endsWith("main.js") ||
+      a.relativePath.endsWith("main.ts")
     );
 
     if (rootComponent) {
@@ -705,11 +1227,7 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
         pageFile: rootComponent.relativePath,
         isClientComponent: true,
         importedComponents: rootComponent.imports,
-        componentTree: rootComponent.imports.map(c => ({
-          name: c.replace(/@\/(components|src\/components)\//, "").replace(/^\.\//, ""),
-          isClientComponent: true,
-          children: [],
-        })),
+        componentTree: buildComponentTree(rootComponent, audits),
       });
     }
   }
@@ -717,7 +1235,56 @@ function buildRouteMap(audits: ComponentAudit[]): RouteMapItem[] {
   return routes.sort((a, b) => a.route.localeCompare(b.route));
 }
 
-// 7. Automated Codemod (--fix-buttons)
+function buildComponentTree(page: ComponentAudit, audits: ComponentAudit[]): RouteComponentNode[] {
+  const componentTree: RouteComponentNode[] = [];
+
+  page.imports.forEach(imp => {
+    const cleanName = imp
+      .replace(/@\/(components|src\/components)\//, "")
+      .replace(/^\$lib\/(components\/)?/, "")
+      .replace(/^~\/(components\/)?/, "")
+      .replace(/^\.\//, "")
+      .replace(/^\.\.\//, "");
+    const baseName = path.basename(cleanName).replace(/\.[^/.]+$/, "");
+
+    const matchingAudit = audits.find(a => {
+      const normRel = a.relativePath.replace(/\\/g, "/");
+      return (
+        normRel.endsWith(`components/${cleanName}.tsx`) ||
+        normRel.endsWith(`components/${cleanName}.ts`) ||
+        normRel.endsWith(`components/${cleanName}.jsx`) ||
+        normRel.endsWith(`components/${cleanName}.vue`) ||
+        normRel.endsWith(`components/${cleanName}.svelte`) ||
+        normRel.endsWith(`components/${cleanName}.astro`) ||
+        normRel.endsWith(`components/${cleanName}/index.tsx`) ||
+        normRel.endsWith(`/${cleanName}.tsx`) ||
+        path.basename(a.relativePath).replace(/\.[^/.]+$/, "") === baseName
+      );
+    });
+
+    let children: string[] = [];
+    let isClient = false;
+    if (matchingAudit) {
+      isClient = matchingAudit.isClientComponent;
+      if (matchingAudit.imports.length > 0) {
+        children = matchingAudit.imports
+          .map(c => path.basename(c).replace(/\.[^/.]+$/, ""))
+          .filter(c => !["ui", "button", "theme-toggle", "clsx", "lucide-react", "lucide-vue-next", "lucide-svelte", "tailwind-merge", "utils"].includes(c.toLowerCase()) && c !== baseName);
+        children = Array.from(new Set(children)).slice(0, 4);
+      }
+    }
+
+    componentTree.push({
+      name: cleanName,
+      isClientComponent: isClient,
+      children,
+    });
+  });
+
+  return componentTree;
+}
+
+// 7. Automated Codemod (--fix-buttons) with Framework Safety
 function executeButtonCodemod(audits: ComponentAudit[]) {
   console.log("🛠️ Running Automated Button Codemod (--fix-buttons)...");
   let modifiedFilesCount = 0;
@@ -728,8 +1295,8 @@ function executeButtonCodemod(audits: ComponentAudit[]) {
 
     let content = fs.readFileSync(a.filePath, "utf-8");
     let fileChanged = false;
-
-    const hasButtonImport = /import\s+.*\{?.*Button.*\}?\s+from\s+["']@\/components\/ui\/button["']/.test(content);
+    const isSvelte = a.relativePath.endsWith(".svelte");
+    const isVue = a.relativePath.endsWith(".vue");
 
     const newContent = content
       .replace(/<button\b/g, () => {
@@ -741,9 +1308,34 @@ function executeButtonCodemod(audits: ComponentAudit[]) {
 
     if (fileChanged) {
       let finalContent = newContent;
-      if (!hasButtonImport) {
-        finalContent = `import { Button } from "@/components/ui/button";\n` + newContent;
+
+      if (isSvelte) {
+        const hasButtonImport = /\$lib\/components\/ui\/button/.test(content);
+        if (!hasButtonImport) {
+          const svelteImport = `import { Button } from "$lib/components/ui/button";\n`;
+          if (/<script\b[^>]*>/i.test(finalContent)) {
+            finalContent = finalContent.replace(/(<script\b[^>]*>)/i, `$1\n  ${svelteImport}`);
+          } else {
+            finalContent = `<script lang="ts">\n  ${svelteImport}</script>\n\n` + finalContent;
+          }
+        }
+      } else if (isVue) {
+        const hasButtonImport = /components\/ui\/button/.test(content);
+        if (!hasButtonImport) {
+          const vueImport = `import { Button } from "@/components/ui/button";\n`;
+          if (/<script\b[^>]*setup[^>]*>/i.test(finalContent)) {
+            finalContent = finalContent.replace(/(<script\b[^>]*setup[^>]*>)/i, `$1\n  ${vueImport}`);
+          } else {
+            finalContent = `<script setup lang="ts">\n  ${vueImport}</script>\n\n` + finalContent;
+          }
+        }
+      } else {
+        const hasButtonImport = /import\s+.*\{?.*Button.*\}?\s+from\s+["']@\/components\/ui\/button["']/.test(content);
+        if (!hasButtonImport) {
+          finalContent = `import { Button } from "@/components/ui/button";\n` + newContent;
+        }
       }
+
       fs.writeFileSync(a.filePath, finalContent, "utf-8");
       modifiedFilesCount++;
       console.log(`  ✅ Migrated buttons in: ${a.relativePath}`);
@@ -1129,7 +1721,7 @@ async function executeSelfUpdate() {
     }
     const remotePkg = (await pkgRes.json()) as { version: string };
 
-    let currentVersion = "1.6.0";
+    let currentVersion = "1.7.0";
     if (fs.existsSync("package.json")) {
       try {
         const localPkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -1291,7 +1883,12 @@ function executeManifestLookup(audits: ComponentAudit[], target: string, discove
 }
 
 // 10. Closed-Loop Verification Gate (--verify)
-function executeVerificationGate(audits: ComponentAudit[], routes: RouteMapItem[], deadComponents: ComponentAudit[]) {
+function executeVerificationGate(
+  audits: ComponentAudit[],
+  routes: RouteMapItem[],
+  deadComponents: ComponentAudit[],
+  structure?: ProjectStructure
+) {
   console.log("🛡️ Running Closed-Loop Verification Gate (--verify)...\n");
 
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
@@ -1305,11 +1902,35 @@ function executeVerificationGate(audits: ComponentAudit[], routes: RouteMapItem[
     }
   }
 
-  // TypeScript Compile Check
+  // Framework-Aware TypeCheck Verification
   let tsStatus: "PASS" | "FAIL" | "SKIPPED" = "SKIPPED";
   try {
-    const tscCmd = process.platform === "win32" ? "npx.cmd" : "npx";
-    const tsCheck = child_process.spawnSync(tscCmd, ["tsc", "--noEmit"], {
+    const isWin = process.platform === "win32";
+    const npxCmd = isWin ? "npx.cmd" : "npx";
+    let cmd = "tsc";
+    let args = ["--noEmit"];
+
+    if (structure?.framework === "Astro") {
+      cmd = "astro";
+      args = ["check"];
+    } else if (structure?.framework === "Nuxt 3" || structure?.framework === "Vite / Vue SPA") {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"));
+        if (pkg.devDependencies?.["vue-tsc"] || pkg.dependencies?.["vue-tsc"]) {
+          cmd = "vue-tsc";
+        }
+      } catch {}
+    } else if (structure?.framework === "SvelteKit") {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"));
+        if (pkg.devDependencies?.["svelte-check"] || pkg.dependencies?.["svelte-check"]) {
+          cmd = "svelte-check";
+          args = ["--tsconfig", "./tsconfig.json"];
+        }
+      } catch {}
+    }
+
+    const tsCheck = child_process.spawnSync(npxCmd, [cmd, ...args], {
       cwd: ROOT_DIR,
       encoding: "utf-8",
       shell: true,
@@ -1325,7 +1946,7 @@ function executeVerificationGate(audits: ComponentAudit[], routes: RouteMapItem[
 
   const currentReceipt: VerificationReceipt = {
     timestamp: new Date().toISOString(),
-    version: "1.6.0",
+    version: "1.7.0",
     totalFiles: audits.length,
     routesCount: routes.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -1473,18 +2094,23 @@ export function runUniversalFrontendAudit() {
   const targetDirs = [
     structure.appDir,
     structure.pagesDir,
+    structure.layoutsDir,
     structure.componentsDir,
     structure.srcDir,
   ].filter(Boolean) as string[];
 
   const uniqueDirs = Array.from(new Set(targetDirs));
   const allFiles: string[] = [];
-  uniqueDirs.forEach(dir => getFiles(dir, allFiles));
+  if (uniqueDirs.length > 0) {
+    uniqueDirs.forEach(dir => getFiles(dir, allFiles));
+  } else {
+    getFiles(ROOT_DIR, allFiles);
+  }
   const uniqueFiles = Array.from(new Set(allFiles));
 
   const audits = uniqueFiles.map(f => auditFile(f, structure));
-  const routeMaps = buildRouteMap(audits);
-  const deadComponents = findDeadComponents(audits);
+  const routeMaps = buildRouteMap(audits, structure);
+  const deadComponents = findDeadComponents(audits, structure);
   const skillDispatches = generateSkillDispatches(audits);
   const discoveredSkills = discoverInstalledSkills();
 
@@ -1502,7 +2128,7 @@ export function runUniversalFrontendAudit() {
 
   // If --verify requested
   if (VERIFY_MODE) {
-    executeVerificationGate(audits, routeMaps, deadComponents);
+    executeVerificationGate(audits, routeMaps, deadComponents, structure);
     return;
   }
 
@@ -1526,7 +2152,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.6.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.7.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (discoveredSkills.length > 0) {
@@ -1554,7 +2180,7 @@ export function runUniversalFrontendAudit() {
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
   const baselineReceipt: VerificationReceipt = {
     timestamp: new Date().toISOString(),
-    version: "1.6.0",
+    version: "1.7.0",
     totalFiles: audits.length,
     routesCount: routeMaps.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -2043,14 +2669,20 @@ async function main() {
 
   if (WATCH_MODE) {
     const structure = detectProjectStructure();
-    const watchDirs = [structure.appDir, structure.pagesDir, structure.componentsDir, structure.srcDir].filter(Boolean) as string[];
+    const watchDirs = [
+      structure.appDir,
+      structure.pagesDir,
+      structure.layoutsDir,
+      structure.componentsDir,
+      structure.srcDir,
+    ].filter(Boolean) as string[];
     console.log(`\n👀 Watching ${watchDirs.length} frontend directories for changes... (Press Ctrl+C to stop)`);
     let debounceTimer: NodeJS.Timeout | null = null;
     watchDirs.forEach(dir => {
       if (fs.existsSync(dir)) {
         try {
           fs.watch(dir, { recursive: true }, (eventType, filename) => {
-            if (!filename || !/\.(tsx|jsx|ts|js)$/.test(filename)) return;
+            if (!filename || !/\.(tsx|jsx|ts|js|vue|astro|svelte)$/.test(filename)) return;
             if (debounceTimer) clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
               console.log(`\n🔄 Change detected in ${filename}. Refreshing Frontend Atlas...`);

@@ -1,11 +1,11 @@
 # 🗺️ Frontend Audit Skill (`frontend-audit`)
 
-> **Universal Frontend Architecture, Design System & UI Island Audit Engine**  
-> Auto-discovers Next.js, Vite & React projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, detects orphaned code, and eliminates UI islands into persistent Markdown documents (`docs/frontend-atlas/`).
+> **Universal Multi-Framework Frontend Architecture, Design System & UI Island Audit Engine**  
+> Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7 projects, maps routes to components, catalogs buttons, modals, and cards, audits design tokens, detects orphaned code, and eliminates UI islands into persistent Markdown documents (`docs/frontend-atlas/`).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v1.6.0](https://img.shields.io/badge/Release-v1.6.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
-[![Frameworks: Next.js | Vite | React](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Vite%20%7C%20React-black.svg)](https://react.dev/)
+[![Version: v1.7.0](https://img.shields.io/badge/Release-v1.7.0-emerald.svg)](https://github.com/Eurie92/frontend-audit-skill/releases)
+[![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/frontend-audit-skill)
 [![Styling: Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com/)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/frontend-audit-skill/pulls)
@@ -209,7 +209,7 @@ For all UI, component, route, or color theme tasks (including screenshots and vi
 
 This repository includes a production-ready automated release and verification pipeline:
 1. **Automated CI Workflow (`.github/workflows/ci.yml`)**: Runs on every Pull Request and Push to verify TypeScript compilation and execute the CLI smoke test.
-2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Generates GitHub Releases and release notes upon pushing tags (`v1.4.0`, `v1.5.0`, `v1.6.0`) to `main`.
+2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Generates GitHub Releases and release notes upon pushing tags (`v1.4.0`, `v1.5.0`, `v1.6.0`, `v1.7.0`) to `main`.
 3. **Pull Request Template (`.github/pull_request_template.md`)**: Enforces pre-merge verification across Next.js and Vite to prevent regressions.
 
 ---

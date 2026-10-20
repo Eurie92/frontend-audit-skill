@@ -29,3 +29,6 @@ jobs:
 
       - name: Run CLI smoke test
         run: node bin/audit.js
+
+      - name: Run Multi-Framework Test Matrix
+        run: npx tsx scripts/test-frameworks.ts
