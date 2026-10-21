@@ -1,4 +1,4 @@
-﻿# fullstack-audit-skill — One-line installer & updater (Windows / PowerShell)
+# fullstack-audit-skill - One-line installer and updater (Windows / PowerShell)
 #
 # Usage:
 #   irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1 | iex
@@ -10,10 +10,16 @@ $ErrorActionPreference = "Stop"
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
-# Unicode symbols safely represented without source encoding dependencies
-$emojiMap  = "$([char]::ConvertFromUtf32(0x1F5FA))$([char]0xFE0F)"
-$emojiTool = "$([char]::ConvertFromUtf32(0x1F6E0))$([char]0xFE0F)"
-$emDash    = [char]0x2014
+# Unicode symbols safely generated at runtime without non-ASCII source characters
+$emojiMap     = "$([char]::ConvertFromUtf32(0x1F5FA))$([char]0xFE0F)"
+$emojiTool    = "$([char]::ConvertFromUtf32(0x1F6E0))$([char]0xFE0F)"
+$emojiInbox   = "$([char]::ConvertFromUtf32(0x1F4E5))"
+$emojiRefresh = "$([char]::ConvertFromUtf32(0x1F504))"
+$emojiLink    = "$([char]::ConvertFromUtf32(0x1F517))"
+$emojiDoc     = "$([char]::ConvertFromUtf32(0x1F4C4))"
+$emojiCheck   = "$([char]::ConvertFromUtf32(0x2705))"
+$emojiTip     = "$([char]::ConvertFromUtf32(0x1F4A1))"
+$emDash       = [char]0x2014
 
 $TargetDir = Join-Path (Get-Location) ".agent\skills\fullstack-audit"
 $ScriptsDir = Join-Path $TargetDir "scripts"
@@ -24,7 +30,7 @@ if (-not (Test-Path $ScriptsDir)) {
 
 $BaseUrl = "https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main"
 
-Write-Host "📥 Installing / Updating fullstack-audit-skill to latest version..." -ForegroundColor Cyan
+Write-Host "$emojiInbox Installing / Updating fullstack-audit-skill to latest version..." -ForegroundColor Cyan
 
 Invoke-WebRequest -Uri "$BaseUrl/SKILL.md" -OutFile (Join-Path $TargetDir "SKILL.md")
 Invoke-WebRequest -Uri "$BaseUrl/scripts/audit.ts" -OutFile (Join-Path $ScriptsDir "audit.ts")
@@ -34,7 +40,7 @@ Invoke-WebRequest -Uri "$BaseUrl/scripts/audit-backend.ts" -OutFile (Join-Path $
 $RuleLines = @(
     '<!-- START_FULLSTACK_AUDIT_RULE -->',
     '<!-- START_FRONTEND_AUDIT_RULE -->',
-    '## 🗺️ Fullstack Architecture & Component Lookup Rule',
+    "## $emojiMap Fullstack Architecture & Component Lookup Rule",
     'For all UI, component, route, color theme, API, database, server action, or backend tasks:',
     '',
     '1. **Instant Atlas Lookup (Zero-Grep / Zero-Search)**: The FIRST tool call MUST be `view_file` on:',
@@ -53,11 +59,11 @@ $RuleLines = @(
     '     - `05_INTEGRATIONS_AND_WEBHOOKS.md` (by third-party service: Stripe, Resend, Supabase, S3)',
     '     - `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (to trace UI button/modal directly to backend action & database model)',
     '',
-    '2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—read the files directly.',
+    "2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown$emDash`read the files directly.",
     '',
     '3. **Continuous Sync**: At the completion of any frontend or backend modification, execute `npm run audit` (or `npx fullstack-audit`) to keep the atlases 100% synchronized for subsequent tasks.',
     '',
-    '## 🛠️ Available Commands',
+    "## $emojiTool Available Commands",
     '- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (both `docs/frontend-atlas/` and `docs/backend-atlas/`).',
     '- `npm run audit:frontend`: Regenerates only the Frontend Atlas (`docs/frontend-atlas/`).',
     '- `npm run audit:backend`: Regenerates only the Backend Atlas (`docs/backend-atlas/`).',
@@ -110,26 +116,26 @@ if (Test-Path $TargetFile) {
     $existing = [System.IO.File]::ReadAllText($fullPath, [System.Text.Encoding]::UTF8)
 
     $markerPattern = "(?s)(?:<!-- START_FULLSTACK_AUDIT_RULE -->.*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->.*?<!-- END_FRONTEND_AUDIT_RULE -->)"
-    $legacyPattern = "(?s)##[ \t]*[^\r\n#]*?(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*.*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|\z)"
+    $legacyPattern = "(?s)##[ \t]*[^\r\n#]*?(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*.*?(?=(?:\r?\n---|\r?\n##\s+(?!Available Commands)[^\r\n]+)|\z)"
 
     if ($existing -match $markerPattern) {
         $updated = [System.Text.RegularExpressions.Regex]::Replace($existing, $markerPattern, $RuleBlock)
         [System.IO.File]::WriteAllText($fullPath, $updated, $utf8NoBom)
-        Write-Host "🔄 Cleanly updated Fullstack Architecture Rule in $TargetFile" -ForegroundColor Cyan
+        Write-Host "$emojiRefresh Cleanly updated Fullstack Architecture Rule in $TargetFile" -ForegroundColor Cyan
     } elseif ($existing -match $legacyPattern) {
         $updated = [System.Text.RegularExpressions.Regex]::Replace($existing, $legacyPattern, $RuleBlock)
         [System.IO.File]::WriteAllText($fullPath, $updated, $utf8NoBom)
-        Write-Host "🔄 Upgraded legacy Architecture Rule in-place in $TargetFile" -ForegroundColor Cyan
+        Write-Host "$emojiRefresh Upgraded legacy Architecture Rule in-place in $TargetFile" -ForegroundColor Cyan
     } else {
         $separator = if ($existing.EndsWith("`n")) { "`n" } else { "`n`n" }
         $updated = $existing + $separator + $RuleBlock + "`n"
         [System.IO.File]::WriteAllText($fullPath, $updated, $utf8NoBom)
-        Write-Host "🔗 Injected Fullstack Architecture Rule into $TargetFile" -ForegroundColor Cyan
+        Write-Host "$emojiLink Injected Fullstack Architecture Rule into $TargetFile" -ForegroundColor Cyan
     }
 } else {
     $initialContent = "# AGENTS.md $emDash Workspace Guidelines for AI Assistants`n`n$RuleBlock`n"
     [System.IO.File]::WriteAllText((Join-Path (Get-Location) "AGENTS.md"), $initialContent, $utf8NoBom)
-    Write-Host "📄 Created AGENTS.md with 100% Always-Active Fullstack Atlas rule!" -ForegroundColor Cyan
+    Write-Host "$emojiDoc Created AGENTS.md with 100% Always-Active Fullstack Atlas rule!" -ForegroundColor Cyan
 }
 
 # Mirror to .agent\skills\frontend-audit for 100% backward compatibility
@@ -142,5 +148,5 @@ if (Test-Path $LegacyDir) {
     Copy-Item (Join-Path $ScriptsDir "audit-backend.ts") (Join-Path $LegacyScriptsDir "audit-backend.ts") -Force
 }
 
-Write-Host "✅ fullstack-audit-skill successfully installed / updated in .agent\skills\fullstack-audit!" -ForegroundColor Green
-Write-Host "💡 You can now type '/fullstack-audit' (or '/frontend-audit') directly in your AI chat." -ForegroundColor Yellow
+Write-Host "$emojiCheck fullstack-audit-skill successfully installed / updated in .agent\skills\fullstack-audit!" -ForegroundColor Green
+Write-Host "$emojiTip You can now type '/fullstack-audit' (or '/frontend-audit') directly in your AI chat." -ForegroundColor Yellow
