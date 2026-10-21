@@ -1,6 +1,6 @@
 {
   "name": "fullstack-audit-skill",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Universal fullstack architecture and design system audit skill. Auto-discovers Next.js, React, Vite, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, components, tokens, modals, and pills into docs/frontend-atlas/, and catalogs API routes, Prisma/Drizzle models, server actions, auth guards, and webhooks into docs/backend-atlas/.",
   "type": "module",
   "main": "scripts/audit.ts",

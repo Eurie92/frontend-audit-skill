@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
 description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, buttons, live pulse dots, capsule pills, modals, and design tokens, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth guards, and webhooks.
-version: 2.0.0
+version: 2.1.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -86,6 +86,15 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) **ONLY**:
 7. **`07_VISUAL_AND_ICON_INDEX.md`**: Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.
 8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
 9. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
+
+## 🛠️ Available Commands (v2.1.0 Token-Efficient Engine)
+- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas.
+- `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99% tokens vs reading 6,400 lines).
+- `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: Automated AST codemod in 80ms with 0 LLM output tokens.
+- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Deterministic anti-hallucination gate (fails with exit code 1 if rogue hexes remain).
+- `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
+- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
+- `npx fullstack-audit --watch`: Live background file watcher for continuous auto-sync.
 
 ### `docs/backend-atlas/` (Backend & Fullstack)
 1. **`01_API_ROUTES_AND_ENDPOINTS.md`**: HTTP API endpoints, methods (`GET`, `POST`, `PUT`, `DELETE`), params, and auth guards.

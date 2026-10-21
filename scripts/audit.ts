@@ -1,3 +1,7 @@
+
+function escapeRegexForCodemod(str: string): string {
+  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+}
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -43,6 +47,14 @@ const FRONTEND_MODE = ARGS.includes("--frontend");
 const VERIFY_MODE = ARGS.includes("--verify");
 const WATCH_MODE = ARGS.includes("--watch");
 const UPDATE_MODE = ARGS.includes("--update");
+const MIGRATE_THEME_MODE = ARGS.includes("--migrate-theme") || ARGS.includes("--fix-theme");
+const FROM_HEXES = ARGS.includes("--from") ? ARGS[ARGS.indexOf("--from") + 1] : undefined;
+const TO_TOKEN = ARGS.includes("--to") ? ARGS[ARGS.indexOf("--to") + 1] : undefined;
+const FILE_TARGET = ARGS.includes("--file") ? ARGS[ARGS.indexOf("--file") + 1] : undefined;
+const DRY_RUN_MODE = ARGS.includes("--dry-run");
+const GATE_CLEAN_MODE = ARGS.includes("--gate-clean");
+const COMPACT_MODE = ARGS.includes("--compact") || ARGS.includes("--json");
+const JSON_MODE = ARGS.includes("--json");
 
 export type SupportedFramework =
   | "Next.js (App Router)"
@@ -2358,6 +2370,91 @@ function executeManifestLookup(audits: ComponentAudit[], target: string, discove
 }
 
 // 10. Closed-Loop Verification Gate (--verify)
+
+function executeThemeCodemod(audits: ComponentAudit[], structure?: ProjectStructure) {
+  console.log("🎨 Initializing Universal Theme Codemod Engine (--migrate-theme)...\n");
+
+  if (!FROM_HEXES || !TO_TOKEN) {
+    console.error("❌ Error: --migrate-theme requires both --from <hexes> and --to <target_token>.");
+    console.error('   Example: npx fullstack-audit --migrate-theme --from "#121110,#1E1C1A" --to "dark:bg-[#14161D]"');
+    process.exit(1);
+  }
+
+  const searchHexes = FROM_HEXES.split(",").map(h => h.trim()).filter(Boolean);
+  let targets = audits;
+
+  if (FILE_TARGET) {
+    const ft = FILE_TARGET.toLowerCase();
+    targets = audits.filter(a => a.relativePath.toLowerCase().includes(ft));
+    if (targets.length === 0) {
+      console.error(`❌ Error: No files matched target --file "${FILE_TARGET}".`);
+      process.exit(1);
+    }
+  } else if (ROUTE_QUERY) {
+    const rq = ROUTE_QUERY.toLowerCase();
+    targets = audits.filter(a => a.relativePath.toLowerCase().includes(rq));
+  }
+
+  let totalReplacements = 0;
+  const modifiedFiles: { file: string; count: number }[] = [];
+
+  for (const audit of targets) {
+    const absPath = audit.filePath;
+    if (!fs.existsSync(absPath)) continue;
+    let content = fs.readFileSync(absPath, "utf-8");
+    let fileReplacements = 0;
+
+    for (const rawHex of searchHexes) {
+      const cleanHex = rawHex.startsWith("#") ? rawHex.slice(1) : rawHex;
+      if (rawHex.includes(":")) {
+        const regex = new RegExp(escapeRegexForCodemod(rawHex), "g");
+        const matches = content.match(regex);
+        if (matches) {
+          content = content.replace(regex, TO_TOKEN);
+          fileReplacements += matches.length;
+        }
+      } else {
+        const hexRegex = new RegExp(`(#${cleanHex})`, "gi");
+        const matches = content.match(hexRegex);
+        if (matches) {
+          if (TO_TOKEN.startsWith("#") || (!TO_TOKEN.includes(":") && !TO_TOKEN.startsWith("bg-") && !TO_TOKEN.startsWith("text-") && !TO_TOKEN.startsWith("border-"))) {
+            content = content.replace(hexRegex, TO_TOKEN.startsWith("#") ? TO_TOKEN : `#${TO_TOKEN}`);
+            fileReplacements += matches.length;
+          } else {
+            const classRegex = new RegExp(`(dark:bg|bg|border|text|ring)-\\[#${cleanHex}\\]`, "gi");
+            if (classRegex.test(content)) {
+              content = content.replace(classRegex, TO_TOKEN);
+              fileReplacements += matches.length;
+            } else {
+              content = content.replace(hexRegex, TO_TOKEN);
+              fileReplacements += matches.length;
+            }
+          }
+        }
+      }
+    }
+
+    if (fileReplacements > 0) {
+      totalReplacements += fileReplacements;
+      modifiedFiles.push({ file: audit.relativePath, count: fileReplacements });
+      if (!DRY_RUN_MODE) {
+        fs.writeFileSync(absPath, content, "utf-8");
+      }
+    }
+  }
+
+  console.log(`✅ Theme Codemod Complete (${DRY_RUN_MODE ? "DRY RUN - No disk writes" : "Applied to disk"}):`);
+  console.log(`- Replaced ${totalReplacements} occurrence(s) across ${modifiedFiles.length} file(s).`);
+  console.log(`- From: ${searchHexes.join(", ")}`);
+  console.log(`- To:   ${TO_TOKEN}\n`);
+  modifiedFiles.forEach(m => console.log(`   📝 ${m.file} (${m.count} replacement(s))`));
+
+  if (!DRY_RUN_MODE && modifiedFiles.length > 0) {
+    console.log(`\n🔄 Re-indexing punchlist to update design tokens...`);
+    writeThemePunchlist(audits, ROUTE_QUERY);
+  }
+}
+
 function executeVerificationGate(
   audits: ComponentAudit[],
   routes: RouteMapItem[],
@@ -2436,6 +2533,37 @@ function executeVerificationGate(
 
   fs.writeFileSync(receiptPath, JSON.stringify(currentReceipt, null, 2), "utf-8");
 
+  if (GATE_CLEAN_MODE) {
+    console.log("🔒 Strict Zero-Drift Gate Activated (--gate-clean):");
+    let scopedAudits = audits;
+    if (ROUTE_QUERY) {
+      const rq = ROUTE_QUERY.toLowerCase();
+      scopedAudits = audits.filter(a => a.relativePath.toLowerCase().includes(rq));
+      console.log(`   Scope: Route/Path "${ROUTE_QUERY}" (${scopedAudits.length} files evaluated)`);
+    } else {
+      console.log(`   Scope: Entire Project (${audits.length} files evaluated)`);
+    }
+
+    const remainingHexes = scopedAudits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
+    if (remainingHexes > 0) {
+      console.error(`\n❌ VERIFICATION GATE FAILED (--gate-clean):`);
+      console.error(`   Found ${remainingHexes} rogue hardcoded hex(es) remaining in scope!`);
+      scopedAudits.filter(a => a.hardcodedHexes.length > 0).forEach(a => {
+        const hexStr = a.hardcodedHexes.map(h => `${h.hex} (line ${h.line})`).join(", ");
+        console.error(`   - ${a.relativePath}: ${hexStr}`);
+      });
+      console.error(`\n🚫 Agent CANNOT claim task completion until all rogue hexes in scope are migrated.\n`);
+      process.exit(1);
+    } else {
+      console.log(`   ✅ PASS: 0 rogue hardcoded hexes detected in scope.\n`);
+    }
+
+    if (tsStatus === "FAIL") {
+      console.error(`\n❌ VERIFICATION GATE FAILED: TypeScript compilation errors detected.\n`);
+      process.exit(1);
+    }
+  }
+
   console.log("📊 Verification Delta Report:");
   console.log("────────────────────────────────────────────────────────────");
   console.log(`TypeScript Compilation: ${tsStatus === "PASS" ? "✅ PASS (0 errors)" : tsStatus === "FAIL" ? "❌ FAIL (TypeScript errors detected)" : "⚠️ SKIPPED"}`);
@@ -2461,8 +2589,33 @@ function executeVerificationGate(
 
 // 11. Interactive Query Filter (--find / --route)
 function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string) {
-  console.log(`🔎 Searching Frontend Atlas for query: "${query}"\n`);
   const q = query.toLowerCase();
+
+  if (JSON_MODE) {
+    const matchingRoutes = routes.filter(r => r.route.toLowerCase().includes(q) || r.pageFile.toLowerCase().includes(q));
+    const matchingComponents = audits.filter(a => a.relativePath.toLowerCase().includes(q) || a.componentNames.some(c => c.toLowerCase().includes(q)));
+    const matchingHexes = audits.filter(a => a.hardcodedHexes.some(h => h.hex.toLowerCase().includes(q)));
+    const matchingLabels: { file: string; line: number; text: string; type: string }[] = [];
+    audits.forEach(a => a.visibleLabels.forEach(vl => { if (vl.text.toLowerCase().includes(q)) matchingLabels.push({ file: a.relativePath, line: vl.line, text: vl.text, type: vl.type }); }));
+    console.log(JSON.stringify({ query, matchingRoutes, matchingComponents: matchingComponents.map(c => c.relativePath), matchingHexes: matchingHexes.map(h => ({ file: h.relativePath, hexes: h.hardcodedHexes.filter(x => x.hex.toLowerCase().includes(q)) })), matchingLabels: matchingLabels.slice(0, 20) }, null, 2));
+    return;
+  }
+
+  if (COMPACT_MODE) {
+    const matchingRoutes = routes.filter(r => r.route.toLowerCase().includes(q) || r.pageFile.toLowerCase().includes(q));
+    matchingRoutes.forEach(r => console.log(`[route] ${r.route} ➔ ${r.pageFile}`));
+    const matchingHexes = audits.filter(a => a.hardcodedHexes.some(h => h.hex.toLowerCase().includes(q)));
+    matchingHexes.forEach(h => {
+      const hl = h.hardcodedHexes.filter(x => x.hex.toLowerCase().includes(q)).map(x => `${x.hex}:${x.line}`).join(", ");
+      console.log(`[color] ${h.relativePath} ➔ ${hl}`);
+    });
+    audits.forEach(a => a.visibleLabels.forEach(vl => {
+      if (vl.text.toLowerCase().includes(q)) console.log(`[label] "${vl.text}" ➔ ${a.relativePath}:${vl.line}`);
+    }));
+    return;
+  }
+
+  console.log(`🔎 Searching Frontend Atlas for query: "${query}"\n`);
 
   // Search Routes
   const matchingRoutes = routes.filter(r => r.route.toLowerCase().includes(q) || r.pageFile.toLowerCase().includes(q));
@@ -2692,6 +2845,12 @@ export function runUniversalFrontendAudit() {
     return;
   }
 
+  // If --migrate-theme requested
+  if (MIGRATE_THEME_MODE) {
+    executeThemeCodemod(audits, structure);
+    return;
+  }
+
   // If --verify requested
   if (VERIFY_MODE) {
     executeVerificationGate(audits, routeMaps, deadComponents, structure);
@@ -2727,7 +2886,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v2.0.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v2.1.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (discoveredSkills.length > 0) {
@@ -3087,9 +3246,28 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
   fs.writeFileSync(filePath, md);
 }
 
-function writeThemePunchlist(audits: ComponentAudit[]) {
+function writeThemePunchlist(audits: ComponentAudit[], targetRoute?: string) {
+  let targetAudits = audits;
+  let scopeLabel = "Whole-Website";
+  if (targetRoute || ROUTE_QUERY) {
+    const rq = (targetRoute || ROUTE_QUERY!).toLowerCase();
+    targetAudits = audits.filter(a => a.relativePath.toLowerCase().includes(rq));
+    scopeLabel = `Route Scope: ${targetRoute || ROUTE_QUERY}`;
+  }
+
+  if (COMPACT_MODE) {
+    console.log(`📋 Theme Punchlist (${scopeLabel}) - ${targetAudits.length} files evaluated:`);
+    targetAudits.forEach(a => {
+      if (a.hardcodedHexes.length > 0) {
+        const hexStr = a.hardcodedHexes.map(h => `${h.hex}:${h.line}`).join(", ");
+        console.log(`   ${a.relativePath} ➔ ${hexStr}`);
+      }
+    });
+    return;
+  }
+
   const filePath = path.join(OUTPUT_DIR, "THEME_MIGRATION_PUNCHLIST.md");
-  let md = `# 🎨 Theme Migration & Rebrand Punchlist\n\n`;
+  let md = `# 🎨 Theme Migration & Rebrand Punchlist (${scopeLabel})\n\n`;
   md += `> Automatically generated actionable checklist for whole-website theme and color palette rebrands.\n`;
   md += `> Check off items as you update tokens to ensure zero elements or modals are left un-migrated.\n\n`;
 
@@ -3448,7 +3626,7 @@ async function main() {
     return;
   }
 
-  if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS) {
+  if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS || MIGRATE_THEME_MODE) {
     runUniversalFrontendAudit();
   } else {
     // Default: Fullstack Audit (Runs both Frontend Atlas AND Backend Atlas)
