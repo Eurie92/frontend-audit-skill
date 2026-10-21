@@ -10,7 +10,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
 
 ### 📚 Documentation Quick-Links
-[📖 **How It Works (Architecture & AST Engine)**](docs/HOW_IT_WORKS.md) • [🤖 **Multi-Agent Recipes & Swarms**](docs/MULTI_AGENT_RECIPES.md) • [📊 **Empirical Benchmarks (9,053x Faster)**](docs/HOW_IT_WORKS.md#empirical-benchmarks)
+[📖 **How It Works (Architecture & AST Engine)**](docs/HOW_IT_WORKS.md) • [🤖 **Multi-Agent Recipes & Swarms**](docs/MULTI_AGENT_RECIPES.md) • [📊 **Empirical Benchmarks (9,053x Faster)**](docs/HOW_IT_WORKS.md#empirical-benchmarks) • [📜 **Changelog**](CHANGELOG.md)
 
 ---
 
