@@ -97,13 +97,7 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) **ONLY**:
 - `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
 - `npx fullstack-audit --watch`: Live background file watcher for continuous auto-sync.
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas.
-- `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99% tokens vs reading 6,400 lines).
-- `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: Automated AST codemod in 80ms with 0 LLM output tokens.
-- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Deterministic anti-hallucination gate (fails with exit code 1 if rogue hexes remain).
-- `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
-- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
-- `npx fullstack-audit --watch`: Live background file watcher for continuous auto-sync.
+- `npx fullstack-audit --dead`: Scans for potential orphaned components.
 
 ### `docs/backend-atlas/` (Backend & Fullstack)
 1. **`01_API_ROUTES_AND_ENDPOINTS.md`**: HTTP API endpoints, methods (`GET`, `POST`, `PUT`, `DELETE`), params, and auth guards.

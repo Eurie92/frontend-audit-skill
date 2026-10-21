@@ -4,6 +4,8 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
-docs/
+docs/frontend-atlas/
+docs/backend-atlas/
+docs/superpowers/
 .agent/
 .agents/

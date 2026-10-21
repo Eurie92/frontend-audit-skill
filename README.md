@@ -1,135 +1,84 @@
 # 🗺️ Fullstack Audit Skill (`fullstack-audit`)
 
-> **Universal Multi-Framework Fullstack Architecture, Design System & Backend Engine Audit Skill**  
+> **Universal Multi-Framework Architecture, Design System & Backend Engine Audit Skill**  
 > Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7. Catalogs frontend routes, components, live pulse dots, capsule pills, modals, and design tokens into `docs/frontend-atlas/`, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth middleware, and webhooks into `docs/backend-atlas/`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Version: v2.2.0](https://img.shields.io/badge/Release-v2.2.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/fullstack-audit-skill)
-[![Styling: Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38bdf8.svg)](https://tailwindcss.com/)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
 
----
-
-## 🎯 The Problem It Solves
-
-In modern web applications, developers and AI coding agents routinely waste significant time and token context on recursive grep loops (`Get-ChildItem -Recurse | Select-String`):
-
-1. **Blind Spots in Whole-Website Theme & Color Rebrands**:
-   - Asking an AI assistant to *"Change the whole website's color palette and dark mode"* frequently misses purchase modals, search bars, live status dots (`animate-pulse`), and capsule tags (`rounded-full`) because standard tools only index gray utilities.
-2. **"UI Islands" & Component Drift**:
-   - Some pages use a standardized `<Button>`, while other pages use raw `<button>` tags with arbitrary styles.
-3. **Hidden Backend Surface Area**:
-   - Finding where an API route is declared, which Prisma/Drizzle model backs an action, or whether a route is protected by `middleware.ts` forces agents to perform expensive full-codebase searches.
-4. **Bi-Directional Fullstack Disconnect**:
-   - Tracing which frontend modal triggers which backend Server Action or API route requires searching across layers.
-
-**`fullstack-audit`** resolves all of these issues in **under 350 milliseconds** with **zero manual configuration** and **zero token waste**.
+### 📚 Documentation Quick-Links
+[📖 **How It Works (Architecture & AST Engine)**](docs/HOW_IT_WORKS.md) • [🤖 **Multi-Agent Recipes & Swarms**](docs/MULTI_AGENT_RECIPES.md) • [📊 **Empirical Benchmarks (9,053x Faster)**](docs/HOW_IT_WORKS.md#empirical-benchmarks)
 
 ---
 
-## 📊 Empirical Benchmark & Performance Proof
+## ⚡ 3-Second Quickstart
 
-To empirically verify whether `fullstack-audit` genuinely improves agent speed, token efficiency, and reliability, we conducted an automated head-to-head benchmark on a real-world production Next.js 15 App Router codebase (**448 frontend files, 50 routes, Tailwind CSS, Prisma backend**).
-
-We pitted **Method A (Vanilla AI Agent using standard shell grep / recursive searches)** against **Method B (AI Agent using `fullstack-audit` pre-indexed Atlas files)** across 3 typical real-world development tasks:
-
-### 🔬 Head-to-Head Benchmark Results
-
-| Real-World Task | Vanilla Agent (`Select-String` / `grep -r`) | `fullstack-audit` (Atlas Read) | `fullstack-audit` CLI (`--find`) | Proven Improvement |
-| :--- | :---: | :---: | :---: | :--- |
-| **Task 1: Screenshot-to-Code Localization**<br>*(Find where `"WHOLESALE COMMERCE SUITE"` is rendered)* | **42,961 ms**<br>(43.0 seconds) | **3 ms**<br>(0.003 seconds) | **7,306 ms** | **⚡ 14,320x Faster**<br>**85.7% Token Reduction**<br>(Zero `.next/` build noise) |
-| **Task 2: Rogue Hardcoded Color Detection**<br>*(Find all instances of un-themed `#121110` / `#1E1C1A`)* | **39,595 ms**<br>(39.6 seconds) | **8 ms**<br>(0.008 seconds) | **7,466 ms** | **⚡ 4,949x Faster**<br>Structured token matrix vs noisy text dump |
-| **Task 3: Fullstack Route Hierarchy Trace**<br>*(Trace `/portal/reseller` with Server/Client boundaries)* | **35,142 ms**<br>(35.1 seconds) | **2 ms**<br>(0.002 seconds) | N/A | **⚡ 17,571x Faster**<br>Preserves Server vs Client boundary |
-| **TOTAL BENCHMARK DURATION** | **117,698 ms (~2.0 minutes)** | **13 ms (0.013 seconds)** | — | **🚀 9,053.7x FASTER** |
-
-### 🧠 Grounded in Peer-Reviewed AI Systems Research
-
-Why does this matter for real-world software engineering with AI agents?
-
-1. **Eliminates the #1 Cause of Agent Failure (Princeton University SWE-bench)**:
-   * In Princeton's analysis of autonomous software engineering agents (*Yang et al., 2024*), **over 64% of agent failures stem from "Localization Errors"**—the AI searches using raw regex, gets confused by minified chunks, build artifacts (`.next/`, `dist/`), or circular imports, and exhausts its context or step budget before writing a single line of working code.
-   * `fullstack-audit` provides deterministic, AST-verified ground-truth paths in 0ms, eliminating localization failure entirely.
-
-2. **Dramatically Improves Task Accuracy (The Aider Repository Map Principle)**:
-   * Paul Gauthier's landmark research on **Aider** demonstrated that introducing an AST-based repository map nearly **doubled benchmark solving rates from 26% to 48%+** on SWE-bench Lite.
-   * `fullstack-audit` extends this concept to the modern fullstack: mapping UI boundaries (`[Server 🖥️]` vs `[Client ⚡]`), Tailwind design tokens, database schemas, and server actions.
-
-3. **Prevents "Context Stuffing" and Attention Degradation (Stanford University)**:
-   * Naive tools (like Repomix/Repopack) pack entire codebases into monolithic prompt dumps (200k+ tokens).
-   * Stanford NLP research (*Liu et al., "Lost in the Middle", Transactions of the ACL 2024*) proved that stuffing hundreds of files into an LLM degrades recall by **30% to 45%**.
-   * `fullstack-audit` acts as an on-demand routing table: the agent only reads the targeted 20-line Markdown slice it needs, saving **95%+ input tokens**.
-
----
-
-## 📦 Installation & Updating
-
-To install or update `fullstack-audit` to the latest version in any project, run this 1-line command in your project root:
-
-**CLI Self-Update**:
+### 1. Install or Update in Any Web Project
 ```bash
-npm run update
-# or
-npx fullstack-audit --update
-```
-
-**Windows (PowerShell)**:
-```powershell
+# Windows (PowerShell):
 iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
-```
 
-**macOS / Linux**:
-```bash
+# macOS / Linux:
 curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash
 ```
+> *✨ The installer automatically sets up the skill in `.agent/skills/fullstack-audit/` and configures your project's `AGENTS.md` so your AI assistant checks the atlas on every task.*
 
-> **✨ Zero-Config Auto Setup**: The install script automatically downloads the skill into `.agent/skills/fullstack-audit/` AND configures your project's `AGENTS.md` (or `GEMINI.md` / `CLAUDE.md`) with the `Fullstack Architecture & Component Lookup Rule` so your AI assistant follows it immediately with 100% compliance!
+### 2. How to Run It
 
----
-
-## ⚡ How to Run It
-
-### 💬 Option A: Inside AI Chat (Recommended)
-You **do not need to open a terminal**. When chatting with Antigravity, AGY, Claude Code, or Cursor, simply type:
-```text
-/fullstack-audit
-```
-Or run targeted commands directly in chat:
-```text
-/fullstack-audit --theme
-/fullstack-audit --backend
-/fullstack-audit --frontend
-/fullstack-audit --find "checkout"
-/fullstack-audit --manifest "components/checkout/GuestCheckoutModal.tsx:42"
-/fullstack-audit --verify
-```
+* **Inside AI Chat (Antigravity, Claude Code, Cursor)**:
+  ```text
+  /fullstack-audit
+  ```
+* **From the Terminal (CLI)**:
+  ```bash
+  npx fullstack-audit
+  ```
 
 ---
 
-### 💻 Option B: From the Terminal (Manual CLI)
-```bash
-# Fullstack run (generates both docs/frontend-atlas/ and docs/backend-atlas/):
-npx fullstack-audit
+## 🎯 The Core Problem It Solves
 
-# Theme migration checklist (--theme generates actionable - [ ] punchlist):
-npx fullstack-audit --theme
+Vanilla AI coding assistants waste significant time and token budget on recursive grep searches (`Get-ChildItem -Recurse | Select-String`):
 
-# Backend audit only:
-npx fullstack-audit --backend
+1. **Eliminates Localization Errors (Princeton SWE-bench)**: Over 64% of agent failures stem from getting trapped in minified `.next/` or `dist/` build files. `fullstack-audit` provides deterministic, AST-verified paths in 2ms.
+2. **Next.js Component Boundary Radar**: Statically tags components as `[Client ⚡]` or `[Server 🖥️]` to prevent runtime hydration mismatches.
+3. **Catches Whole-Website Color Drift**: Discovers hardcoded hexes (`bg-[#121110]`), inline JSX styles (`style={{ background: ... }}`), and dark mode asymmetries in modals and sliding drawers.
+4. **Bi-Directional Fullstack Linker**: Directly links UI buttons ➔ Next.js Server Actions / API endpoints ➔ Prisma/Drizzle database models.
 
-# Frontend audit only:
-npx fullstack-audit --frontend
+---
 
-# Closed-loop verification gate (TypeScript compile + metric deltas):
-npx fullstack-audit --verify
+## 🔬 Benchmark Proof: Vanilla Agent vs. `fullstack-audit`
 
-# Zero-search agent handoff manifest:
-npx fullstack-audit --manifest "components/checkout/GuestCheckoutModal.tsx:42"
+Tested head-to-head on a real production Next.js 15 App Router codebase (**448 files, 50 routes, Tailwind CSS, Prisma**):
 
-# Continuous auto-sync on file save:
-npx fullstack-audit --watch
-```
+| Real-World Task | Vanilla Agent (`Select-String` / grep) | `fullstack-audit` (Atlas Read) | Proven Improvement |
+| :--- | :---: | :---: | :--- |
+| **Screenshot-to-Code Localization** *(Find UI text)* | 42,961 ms | **3 ms** | **⚡ 14,320x Faster** (Zero build noise) |
+| **Rogue Hardcoded Color Detection** *(Find un-themed hex)* | 39,595 ms | **8 ms** | **⚡ 4,949x Faster** (Structured token matrix) |
+| **Fullstack Route Hierarchy Trace** *(Server/Client boundary)* | 35,142 ms | **2 ms** | **⚡ 17,571x Faster** (Preserves RSC boundary) |
+| **TOTAL BENCHMARK DURATION** | **117,698 ms (~2.0 min)** | **13 ms (0.013s)** | **🚀 9,053.7x FASTER** |
+
+👉 *Read the full empirical benchmark breakdown and academic research grounding in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md#empirical-benchmarks).*
+
+---
+
+## 🛠️ CLI Command Matrix (v2.2.0)
+
+| Command | Purpose |
+| :--- | :--- |
+| `npx fullstack-audit` | Regenerates both `docs/frontend-atlas/` and `docs/backend-atlas/` (Default: Solo Mode). |
+| `npx fullstack-audit --solo` | Enforces strictly Single-Agent execution (zero subagent overhead). |
+| `npx fullstack-audit --multi-agent` | Partitions the codebase into 4 parallel zone briefs for multi-agent swarms. |
+| `npx fullstack-audit --theme` | Generates `THEME_MIGRATION_PUNCHLIST.md` for whole-website rebrands. |
+| `npx fullstack-audit --theme --route <path> --compact` | Generates an ultra-fast route-scoped micro-punchlist (saves 99.8% tokens). |
+| `npx fullstack-audit --migrate-theme --from "#hex" --to "token"` | CRLF-agnostic AST codemod in 80ms (0 LLM output tokens). |
+| `npx fullstack-audit --verify --gate-clean` | Closed-loop verification gate (TypeScript check + rogue hex exit gate). |
+| `npx fullstack-audit --manifest <file:line>` | Generates a zero-search agent handoff manifest. |
+| `npx fullstack-audit --find <query> --compact` | Instant sub-second search across components, text labels, and icons. |
+| `npx fullstack-audit --watch` | Live file watcher for continuous background sync on save. |
 
 ---
 
@@ -161,95 +110,24 @@ your-project/
         └── README.md                         # 📖 Backend summary statistics dashboard
 ```
 
-### ⚡ Next.js Component Boundary Radar
-In `01_ROUTES_AND_PANELS_MAP.md`, every route and component is statically scanned for `'use client'`:
-- `Client ⚡`: Interactive client component safely capable of hooks, browser APIs, and animations.
-- `Server 🖥️`: React Server Component (RSC). Downstream skills are warned to avoid injecting hooks or event handlers without client conversion.
-
-### ♿ Accessibility (a11y) Fast-Check
-Inside `02_COMPONENT_INVENTORY.md`, every button is audited for:
-- ⚠️ **Missing Accessible Name / `aria-label`**: Detects icon buttons or buttons without screen-reader text.
-- ℹ️ **Missing Explicit `type="button"`**: Flags buttons in forms that can trigger accidental submits.
-
-### 🛡️ Closed-Loop Verification Gate (`--verify`)
-Ensures architectural modifications improved the codebase:
-- Runs TypeScript compilation check (`tsc --noEmit`).
-- Computes before-and-after delta against `.last_receipt.json` for raw buttons, rogue colors, and a11y flags.
-
 ---
 
-## 🌐 Universal Compatibility
+## 🤖 Making It Always Active in Your AI Assistant
 
-Runs seamlessly on modern web frameworks:
-* ✅ **Next.js App Router** (`app/**/page.tsx`)
-* ✅ **Next.js Pages Router** (`pages/**/*.tsx`)
-* ✅ **Vite + React SPAs** (`src/App.jsx`, `src/main.jsx`)
-* ✅ **Tailwind CSS** (Auto-extracts custom palette tokens from `tailwind.config.*`)
-* ✅ **TypeScript & JavaScript** (`.tsx`, `.jsx`, `.ts`, `.js`)
-
----
-
-## 🤖 Making It 100% Always Active in Your AI Agent
-
-> [!TIP]
-> **Automatic Setup**: Running the 1-line installer scripts (`install.ps1` or `install.sh`) **automatically injects this rule** into your project's `AGENTS.md`, `GEMINI.md`, or `CLAUDE.md`. You do NOT need to configure this manually unless you are setting up custom workflows.
-
-To ensure your AI assistant (**Antigravity**, **Claude Code**, **Cursor**, or **Codex**) **automatically checks the atlas on every task** without you having to remind it or run manual commands, verify that this rule is present in your project's `AGENTS.md`, `GEMINI.md`, or `CLAUDE.md`:
+To ensure **Antigravity**, **Claude Code**, **Cursor**, or **Codex** automatically uses the atlas on every task, ensure this rule is present in your project's `AGENTS.md` (the installer adds this automatically):
 
 ```markdown
 <!-- START_FULLSTACK_AUDIT_RULE -->
-<!-- START_FRONTEND_AUDIT_RULE -->
 ## 🗺️ Fullstack Architecture & Component Lookup Rule
 For all UI, component, route, color theme, API, database, server action, or backend tasks:
 
 1. **Instant Atlas Lookup (Zero-Grep / Zero-Search)**: The FIRST tool call MUST be `view_file` on:
-   - **Frontend Atlas (`docs/frontend-atlas/`)**:
-     - `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, or Server/Client boundary)
-     - `02_COMPONENT_INVENTORY.md` (by Modals, Drawers, Live Dots `animate-pulse`, Capsule Pills `rounded-full`, Buttons)
-     - `03_DESIGN_TOKENS_AND_COLORS.md` (for all 22+ Tailwind color families, dark mode asymmetries, hexes)
-     - `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot)
-     - `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)
-     - `THEME_MIGRATION_PUNCHLIST.md` (actionable checklist for whole-website color and dark mode rebrands)
-   - **Backend Atlas (`docs/backend-atlas/`)**:
-     - `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method: GET/POST/PUT/DELETE, or auth guard)
-     - `02_DATABASE_MODELS_AND_SCHEMA.md` (by database table, Prisma model, or Drizzle schema)
-     - `03_SERVER_ACTIONS_AND_MUTATIONS.md` (by Next.js Server Action `"use server"`)
-     - `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (by route matcher or public vs protected route)
-     - `05_INTEGRATIONS_AND_WEBHOOKS.md` (by third-party service: Stripe, Resend, Supabase, S3)
-     - `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (to trace UI button/modal directly to backend action & database model)
-
-2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—read the files directly.
-
-3. **Continuous Sync**: At the completion of any frontend or backend modification, execute `npm run audit` (or `npx fullstack-audit`) to keep the atlases 100% synchronized for subsequent tasks.
-
-## 🛠️ Available Commands
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (both `docs/frontend-atlas/` and `docs/backend-atlas/`).
-- `npm run audit:frontend`: Regenerates only the Frontend Atlas (`docs/frontend-atlas/`).
-- `npm run audit:backend`: Regenerates only the Backend Atlas (`docs/backend-atlas/`).
-- `npm run audit:theme` or `npx fullstack-audit --theme`: Generates `THEME_MIGRATION_PUNCHLIST.md` for whole-website rebrands.
-- `npx fullstack-audit --verify`: Closed-loop verification gate (TypeScript compile + metric deltas).
-- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
-- `npx fullstack-audit --find <query>`: Instant sub-second search across components, text labels, and icons.
-- `npx fullstack-audit --update`: Checks and updates fullstack-audit-skill to latest GitHub release.
-- `npx fullstack-audit --watch`: Live file watcher for continuous background sync.
-- `npx fullstack-audit --dead`: Scans for potential orphaned components.
-<!-- END_FRONTEND_AUDIT_RULE -->
+   - Frontend Atlas: `docs/frontend-atlas/` (Routes, Components, Design Tokens, Visible Text)
+   - Backend Atlas: `docs/backend-atlas/` (API Routes, Database Schema, Server Actions, Middleware)
+2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Select-String` / `grep -r`). Both atlases are already indexed on disk as Markdown—read them directly.
+3. **Continuous Sync**: At the completion of any modification, execute `npx fullstack-audit` to keep atlases synchronized.
 <!-- END_FULLSTACK_AUDIT_RULE -->
 ```
-
-### Why this works:
-- **0ms Lookup Overhead**: The agent reads the pre-compiled Markdown files directly instead of booting up heavy CLI compilers or guessing keywords.
-- **Accurate Route Scoping**: Even when searching for visual concepts (like *"rotating icons"* or *"checkout modal"*), the agent instantly sees the exact component imported by that route.
-- **Zero Hallucination / Zero Dead Code**: The agent only modifies active, imported components and ignores abandoned legacy files.
-
----
-
-## 🛡️ CI/CD & Safe Versioning (GitHub Actions)
-
-This repository includes a production-ready automated release and verification pipeline:
-1. **Automated CI Workflow (`.github/workflows/ci.yml`)**: Runs on every Pull Request and Push to verify TypeScript compilation and execute the CLI smoke test.
-2. **Automated GitHub Releases (`.github/workflows/release.yml`)**: Generates GitHub Releases and release notes upon pushing tags (`v1.4.0`, `v1.5.0`, `v1.6.0`, `v1.7.0`) to `main`.
-3. **Pull Request Template (`.github/pull_request_template.md`)**: Enforces pre-merge verification across Next.js and Vite to prevent regressions.
 
 ---
 
