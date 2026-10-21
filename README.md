@@ -42,7 +42,7 @@ npx fullstack-audit --update
 
 **Windows (PowerShell)**:
 ```powershell
-irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1 | iex
+iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
 ```
 
 **macOS / Linux**:

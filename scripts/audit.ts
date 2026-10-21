@@ -3430,7 +3430,7 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `## 📦 How to Install / Update this Skill\n\n`;
   md += `To install or update to the latest version in any project:\n\n`;
   md += `- **CLI Self-Updater**: \`npx fullstack-audit --update\` (or \`npm run audit\`)\n`;
-  md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1 | iex\`\n`;
+  md += `- **Windows (PowerShell)**: \`iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)\`\n`;
   md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash\`\n`;
   md += `- **GitHub Repository**: [Eurie92/fullstack-audit-skill](https://github.com/Eurie92/fullstack-audit-skill)\n\n`;
 

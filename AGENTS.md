@@ -21,7 +21,7 @@ For all UI, component, route, color theme, API, database, server action, or back
      - `05_INTEGRATIONS_AND_WEBHOOKS.md` (by third-party service: Stripe, Resend, Supabase, S3)
      - `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (to trace UI button/modal directly to backend action & database model)
 
-2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—read the files directly.
+2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (Get-ChildItem -Recurse | Select-String) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—ead the files directly.
 
 3. **Continuous Sync**: At the completion of any frontend or backend modification, execute `npm run audit` (or `npx fullstack-audit`) to keep the atlases 100% synchronized for subsequent tasks.
 

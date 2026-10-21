@@ -1,7 +1,7 @@
 # fullstack-audit-skill - One-line installer and updater (Windows / PowerShell)
 #
 # Usage:
-#   irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1 | iex
+#   iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
 
 $ErrorActionPreference = "Stop"
 
