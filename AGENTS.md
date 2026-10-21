@@ -3,7 +3,7 @@
 <!-- START_FULLSTACK_AUDIT_RULE -->
 <!-- START_FRONTEND_AUDIT_RULE -->
 ## 🗺️ Fullstack Architecture & Component Lookup Rule
-For all UI, component, route, color theme, API, database, server action, or backend tasks:
+Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, VS Code**). For all UI, component, route, color theme, API, database, server action, or backend tasks:
 
 1. **Instant Atlas Lookup (Zero-Grep / Zero-Search)**: The FIRST tool call MUST be `view_file` on:
    - **Frontend Atlas (`docs/frontend-atlas/`)**:
@@ -21,9 +21,15 @@ For all UI, component, route, color theme, API, database, server action, or back
      - `05_INTEGRATIONS_AND_WEBHOOKS.md` (by third-party service: Stripe, Resend, Supabase, S3)
      - `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (to trace UI button/modal directly to backend action & database model)
 
-2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (Get-ChildItem -Recurse | Select-String) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—ead the files directly.
+2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String` or `grep -r`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—read the files directly.
 
-3. **Continuous Sync**: At the completion of any frontend or backend modification, execute `npm run audit` (or `npx fullstack-audit`) to keep the atlases 100% synchronized for subsequent tasks.
+3. **Dual-Speed Execution (Inner-Loop Fast Mode vs. Outer-Loop Verification)**:
+   - **⚡ Inner-Loop (Fast Iteration — 1 to 2s responses)**:
+     - For UI tweaks, styling adjustments, copy changes, or component fixes: perform direct surgical file edits (`edit_file` / native patch). Let the local dev server (Next.js/Vite/Nuxt HMR) refresh the developer's screen in 50ms.
+     - **No Heavy Browser MCPs**: Do NOT invoke headless browser MCP tools (e.g. Chrome DevTools, Puppeteer) for basic edits. If the developer pastes or attaches a screenshot, map visual cues directly to `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md`.
+     - **No Per-Edit Compile Trap**: Do NOT run full TypeScript compilation (`tsc --noEmit` or `--verify`) after every intermediate micro-edit.
+   - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:
+     - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.
 
 ## 🛠️ Available Commands (v2.2.0 Multi-Agent & Zero-Blindspot Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (Default: Solo Mode).

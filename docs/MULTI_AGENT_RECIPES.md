@@ -122,6 +122,26 @@ npx fullstack-audit --verify --gate-clean
 
 ---
 
+## ⚡ Recipe 5: Universal Dual-Speed Workflow (Across Any Harness)
+
+Whether running in **Antigravity, Cursor, Claude Code, Windsurf, Codex, or VS Code**, agents should adopt the **Inner-Loop vs. Outer-Loop** workflow to eliminate latency:
+
+### The Inner-Loop Protocol (Iterative Tweaks — 1 to 2s):
+1. **User input**: A screenshot pasted into chat or a plain-text adjustment request.
+2. **Instant Localization**: The agent reads `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md` (0ms).
+3. **Surgical Edit**: Direct modification of the target component file (1s).
+4. **Dev Server Fast-Refresh**: Next.js / Vite / Nuxt HMR hot-reloads the developer's browser in 50ms.
+5. **No MCP / No Per-Edit Compile**: Headless browser MCPs and full project typechecks are skipped during intermediate steps.
+
+### The Outer-Loop Protocol (Task Checkpoint):
+* When the developer says *"Done"*, *"Test"*, or before committing to Git:
+  ```bash
+  npx fullstack-audit --verify --gate-clean
+  ```
+* This triggers TypeScript verification and checks for remaining rogue design tokens.
+
+---
+
 ## 🔗 Related Documentation
 * [Architecture & How It Works](HOW_IT_WORKS.md)
 * [Main Skill README](../README.md)

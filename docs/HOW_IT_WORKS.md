@@ -95,6 +95,44 @@ By providing pre-indexed, human-readable Markdown tables, the AI agent uses `vie
 
 ---
 
+## ⚡ Universal Dual-Speed Architecture: Inner-Loop vs. Outer-Loop
+
+A common trap in AI-assisted development across modern coding harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex**) is the **Per-Edit Latency Penalty**:
+* Spawning headless browser MCP tools (e.g., Chrome DevTools MCP, Puppeteer) introduces background process hooks, connection timeouts, and 10–15 second overheads.
+* Triggering a full project TypeScript compilation (`tsc --noEmit`) after every minor text or CSS edit forces the agent to re-check 400+ files, locking the conversation for 20+ seconds.
+
+`fullstack-audit` introduces a harness-agnostic **Dual-Speed Architecture**:
+
+```mermaid
+flowchart LR
+    subgraph InnerLoop ["⚡ Inner-Loop: Fast Mode (1–2s responses)"]
+        direction TB
+        A1["Developer Request<br/>(Text or Screenshot)"] --> A2["Instant Atlas Read<br/>(06_VISIBLE_TEXT / 07_VISUAL_INDEX in 0ms)"]
+        A2 --> A3["Direct Surgical Edit<br/>(edit_file in 1s)"]
+        A3 --> A4["Native Dev Server HMR<br/>(Vite/Next.js Fast Refresh in 50ms)"]
+    end
+
+    subgraph OuterLoop ["🛡️ Outer-Loop: Verification Gate (Checkpoints Only)"]
+        direction TB
+        B1["Milestone Complete / Pre-Commit"] --> B2["npx fullstack-audit --verify --gate-clean"]
+        B2 --> B3["TypeScript Typecheck + Anti-Hallucination Gate"]
+    end
+
+    InnerLoop -.->|When milestone complete| OuterLoop
+```
+
+### 1. Harness-Agnostic Native Multimodal Targeting
+Instead of launching slow headless browser automation to inspect UI elements:
+* Any modern harness supports direct image paste (`Ctrl+V`) or screenshot attachments.
+* The AI assistant cross-references visual text and action icons directly against `06_VISIBLE_TEXT_AND_LABELS_MAP.md` and `07_VISUAL_AND_ICON_INDEX.md` (which are already on disk).
+* Localization happens in **under 3 milliseconds** without spawning browser sessions or consuming headless compute.
+
+### 2. Deferred Verification Gates
+* **During Active Iteration**: Edits are applied directly, allowing the developer's running browser (`localhost:3000`) to reflect changes via instant Hot-Module Reloading (HMR).
+* **At Logical Checkpoints**: Full verification (`--verify --gate-clean`) is executed only when the developer says *"Done"*, *"Verify"*, or before committing code to Git.
+
+---
+
 ## 📊 Empirical Benchmarks
 
 Tested on a production Next.js 15 App Router codebase (**448 files, 50 routes, Tailwind CSS, Prisma backend**):

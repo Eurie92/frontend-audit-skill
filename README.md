@@ -47,6 +47,7 @@ Vanilla AI coding assistants waste significant time and token budget on recursiv
 2. **Next.js Component Boundary Radar**: Statically tags components as `[Client ⚡]` or `[Server 🖥️]` to prevent runtime hydration mismatches.
 3. **Catches Whole-Website Color Drift**: Discovers hardcoded hexes (`bg-[#121110]`), inline JSX styles (`style={{ background: ... }}`), and dark mode asymmetries in modals and sliding drawers.
 4. **Bi-Directional Fullstack Linker**: Directly links UI buttons ➔ Next.js Server Actions / API endpoints ➔ Prisma/Drizzle database models.
+5. **Universal Dual-Speed Loop (1–2s Responses)**: Separates instant inner-loop surgical edits from outer-loop verification gates, eliminating 45-second headless browser and per-edit compile delays across all harnesses.
 
 ---
 
@@ -125,7 +126,9 @@ For all UI, component, route, color theme, API, database, server action, or back
    - Frontend Atlas: `docs/frontend-atlas/` (Routes, Components, Design Tokens, Visible Text)
    - Backend Atlas: `docs/backend-atlas/` (API Routes, Database Schema, Server Actions, Middleware)
 2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Select-String` / `grep -r`). Both atlases are already indexed on disk as Markdown—read them directly.
-3. **Continuous Sync**: At the completion of any modification, execute `npx fullstack-audit` to keep atlases synchronized.
+3. **Dual-Speed Loop & Deferred Sync**:
+   - **Inner-Loop (Fast Mode)**: For UI/styling/copy tweaks, perform direct surgical edits. Do NOT invoke heavy browser MCPs and do NOT trigger full project typechecks on micro-edits. Let the dev server HMR refresh in 50ms.
+   - **Outer-Loop (Verification Gate)**: Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at task completion or before git commits.
 <!-- END_FULLSTACK_AUDIT_RULE -->
 ```
 

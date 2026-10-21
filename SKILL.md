@@ -66,11 +66,21 @@ allowed-tools:
 
 ---
 
-## 🔄 When to Run the Audit Script
-Run the audit script (`npm run audit` or `/fullstack-audit`) **ONLY**:
-1. When the user explicitly types `/fullstack-audit` or `/frontend-audit`.
-2. After finishing modifications to frontend or backend code, to keep the atlases in sync.
-3. Point the user to the updated documents in `docs/frontend-atlas/` and `docs/backend-atlas/`.
+## 🔄 Dual-Speed Execution Protocol (Universal Across All Harnesses)
+Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and VS Code**:
+
+### ⚡ 1. Inner-Loop (Fast Mode — 1 to 2s responses)
+For UI adjustments, styling tweaks, copy changes, or component fixes during active pair-programming:
+1. **Zero-Search Atlas Read**: Read the target slice from `docs/frontend-atlas/` or `docs/backend-atlas/` in 0ms.
+2. **Direct Surgical Edit**: Use `edit_file` (or native patch) directly.
+3. **No Heavy Browser MCPs**: Do NOT invoke headless browser automation (e.g. Chrome DevTools MCP, Puppeteer). If the developer pastes or attaches a screenshot, map visual text/icons directly to `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md`.
+4. **No Per-Edit Compile Trap**: Do NOT run full TypeScript compilation (`tsc --noEmit` or `--verify`) after every micro-edit. Let the project's native dev server (Next.js/Vite/Nuxt HMR) refresh the developer's screen in 50ms.
+
+### 🛡️ 2. Outer-Loop (Verification Gate — Checkpoints Only)
+Run the audit script (`npm run audit` or `/fullstack-audit`) and verification gates (`npx fullstack-audit --verify --gate-clean`) **ONLY**:
+1. When the developer explicitly invokes `/fullstack-audit` or asks to verify/audit the codebase.
+2. At the completion of an entire multi-step milestone or feature before committing to Git.
+3. When performing whole-website theme migrations via `--theme` or `--migrate-theme`.
 
 ---
 
