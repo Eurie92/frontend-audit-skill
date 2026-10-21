@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import child_process from "child_process";
+import { runUniversalBackendAudit } from "./audit-backend.js";
 
 /**
  * Universal Frontend Atlas & Design System Audit Engine (v1.7.0)
@@ -35,6 +36,9 @@ const MANIFEST_TARGET = ARGS.includes("--manifest") ? ARGS[ARGS.indexOf("--manif
 const SHOULD_FIX_BUTTONS = ARGS.includes("--fix-buttons");
 const SHOW_DEAD_ONLY = ARGS.includes("--dead");
 const SHOW_A11Y_ONLY = ARGS.includes("--a11y");
+const THEME_MODE = ARGS.includes("--theme") || ARGS.includes("--theme-punchlist");
+const BACKEND_MODE = ARGS.includes("--backend");
+const FRONTEND_MODE = ARGS.includes("--frontend");
 const VERIFY_MODE = ARGS.includes("--verify");
 const WATCH_MODE = ARGS.includes("--watch");
 const UPDATE_MODE = ARGS.includes("--update");
@@ -82,6 +86,46 @@ interface VisualIconUsage {
   snippet: string;
 }
 
+interface LiveStatusDot {
+  line: number;
+  snippet: string;
+  color: string;
+  classes: string;
+  isPulsing: boolean;
+}
+
+interface CapsulePill {
+  line: number;
+  snippet: string;
+  label?: string;
+  classes: string;
+}
+
+interface DisclosedElement {
+  line: number;
+  name: string;
+  type: "Modal" | "Drawer" | "Sheet" | "Dialog" | "Popover";
+  snippet: string;
+}
+
+interface ColorUsage {
+  line: number;
+  token: string;
+  family: string;
+  shade: string;
+  property: string;
+  isDark: boolean;
+  snippet: string;
+}
+
+interface DarkModeAsymmetry {
+  line: number;
+  property: string;
+  lightToken: string;
+  snippet: string;
+  classes: string;
+}
+
 interface ComponentAudit {
   filePath: string;
   relativePath: string;
@@ -93,6 +137,11 @@ interface ComponentAudit {
   uiButtons: { line: number; snippet: string; variant?: string }[];
   cardsAndSurfaces: { line: number; snippet: string; classes: string }[];
   modalsAndDialogs: { line: number; snippet: string }[];
+  disclosedElements: DisclosedElement[];
+  liveStatusDots: LiveStatusDot[];
+  capsulePills: CapsulePill[];
+  colorUsages: ColorUsage[];
+  darkModeAsymmetries: DarkModeAsymmetry[];
   hardcodedHexes: { line: number; hex: string; snippet: string }[];
   rogueTailwindColors: { line: number; token: string; snippet: string }[];
   typographyUsages: { line: number; fontToken: string; snippet: string }[];
@@ -505,6 +554,26 @@ const APPROVED_HEXES = new Set([
   "#ffffff", "#000000", "#f3ede3", "#07080b", "#0b0c10", "#10b981", "#38bdf8", "#f59e0b", "#cbd5e1"
 ]);
 
+const TAILWIND_COLOR_FAMILIES = [
+  "slate", "gray", "zinc", "neutral", "stone",
+  "red", "orange", "amber", "yellow", "lime",
+  "green", "emerald", "teal", "cyan", "sky",
+  "blue", "indigo", "violet", "purple", "fuchsia",
+  "pink", "rose"
+];
+
+// Universal Tailwind JIT Color Regex: Matches all 22 families, light and dark mode, across bg, text, border, ring, etc.
+const UNIVERSAL_COLOR_REGEX = /\b(dark:)?(bg|text|border|ring|divide|from|to|via|outline|accent|shadow)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-([0-9]{2,3}))?(?:\/([0-9]{1,3}))?\b/g;
+
+// Live Status Dots: pulse dots, indicator pips, active badges
+const LIVE_DOT_REGEX = /(?:animate-pulse|h-[1-3]\s+w-[1-3]\s+rounded-full|rounded-full\s+h-[1-3]\s+w-[1-3])/;
+
+// Capsule Pills & Chips: tags, pills, compact rounded badges
+const CAPSULE_PILL_REGEX = /\brounded-full\b/;
+
+// Disclosed Modals, Sheets, Drawers, Dialogs, Popovers
+const DISCLOSED_ELEMENT_REGEX = /<(?:Dialog|Modal|Drawer|Sheet|Popover|AlertDialog|DrawerContent|DialogContent|SheetContent)\b|<div[^>]*role=["']dialog["']|<[A-Z][a-zA-Z0-9]*(?:Modal|Dialog|Drawer|Sheet)\b/g;
+
 const ROGUE_COLOR_REGEX = /\b(bg|text|border|ring)-(zinc|neutral|gray|stone)-[1-9]00\b/g;
 const HEX_REGEX = /#(?:[0-9a-fA-F]{3,4}){1,2}\b/g;
 const CARD_SURFACE_REGEX = /(?:class(?:Name)?|:class|class:list|v-bind:class)=["'`]([^"'`]*(?:bg-(?:void|slab|surface|card|white|black)|rounded-(?:xl|2xl|3xl)|border-line|backdrop-blur)[^"'`]*)["'`]/g;
@@ -535,6 +604,11 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const uiButtons: { line: number; snippet: string; variant?: string }[] = [];
   const cardsAndSurfaces: { line: number; snippet: string; classes: string }[] = [];
   const modalsAndDialogs: { line: number; snippet: string }[] = [];
+  const disclosedElements: DisclosedElement[] = [];
+  const liveStatusDots: LiveStatusDot[] = [];
+  const capsulePills: CapsulePill[] = [];
+  const colorUsages: ColorUsage[] = [];
+  const darkModeAsymmetries: DarkModeAsymmetry[] = [];
   const hardcodedHexes: { line: number; hex: string; snippet: string }[] = [];
   const rogueTailwindColors: { line: number; token: string; snippet: string }[] = [];
   const typographyUsages: { line: number; fontToken: string; snippet: string }[] = [];
@@ -779,9 +853,52 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       });
     }
 
-    if (MODAL_REGEX.test(line) || trimmed.includes("Modal") || trimmed.includes("Drawer")) {
-      if (/<(?:Dialog|Modal|Drawer|DialogContent)/.test(line) || /role=["']dialog["']/.test(line)) {
-        modalsAndDialogs.push({ line: lineNum, snippet: trimmed.slice(0, 80) });
+    // Disclosed Elements (Modals, Sheets, Drawers, Dialogs, Popovers)
+    let disclosedMatch;
+    DISCLOSED_ELEMENT_REGEX.lastIndex = 0;
+    while ((disclosedMatch = DISCLOSED_ELEMENT_REGEX.exec(line)) !== null) {
+      const tag = disclosedMatch[0].replace(/^</, "").trim();
+      let elemType: DisclosedElement["type"] = "Dialog";
+      if (tag.includes("Modal")) elemType = "Modal";
+      else if (tag.includes("Drawer")) elemType = "Drawer";
+      else if (tag.includes("Sheet")) elemType = "Sheet";
+      else if (tag.includes("Popover")) elemType = "Popover";
+
+      disclosedElements.push({
+        line: lineNum,
+        name: tag,
+        type: elemType,
+        snippet: trimmed.slice(0, 80),
+      });
+      modalsAndDialogs.push({ line: lineNum, snippet: trimmed.slice(0, 80) });
+    }
+
+    // Live Status Dots (pulse dots, indicator pips, active states)
+    if (LIVE_DOT_REGEX.test(line)) {
+      const isPulsing = line.includes("animate-pulse");
+      const colorMatch = line.match(/\bbg-([a-zA-Z]+-[0-9]{2,3})\b/);
+      const dotColor = colorMatch ? colorMatch[1] : (isPulsing ? "pulsing-indicator" : "indicator-dot");
+      const classMatch = line.match(/(?:class(?:Name)?|:class)=["'`]([^"'`]+)["'`]/);
+      liveStatusDots.push({
+        line: lineNum,
+        snippet: trimmed.slice(0, 80),
+        color: dotColor,
+        classes: classMatch ? classMatch[1].slice(0, 80) : trimmed.slice(0, 80),
+        isPulsing,
+      });
+    }
+
+    // Capsule Pills & Badges (rounded-full chips, tags, pills)
+    if (CAPSULE_PILL_REGEX.test(line) && !LIVE_DOT_REGEX.test(line)) {
+      if (/\b(?:px-|py-|text-xs|text-sm|badge|tag|inline-flex|rounded-full)\b/.test(line)) {
+        const classMatch = line.match(/(?:class(?:Name)?|:class)=["'`]([^"'`]+)["'`]/);
+        const textMatch = line.match(/>([^<{}]+)</);
+        capsulePills.push({
+          line: lineNum,
+          snippet: trimmed.slice(0, 80),
+          label: textMatch ? textMatch[1].trim() : undefined,
+          classes: classMatch ? classMatch[1].slice(0, 80) : trimmed.slice(0, 80),
+        });
       }
     }
 
@@ -794,14 +911,77 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       }
     }
 
-    let rogueMatch;
-    ROGUE_COLOR_REGEX.lastIndex = 0;
-    while ((rogueMatch = ROGUE_COLOR_REGEX.exec(line)) !== null) {
-      rogueTailwindColors.push({
+    // Universal Tailwind JIT Color Tokenizer (All 22 Color Families + Dark Mode)
+    let colorMatch;
+    UNIVERSAL_COLOR_REGEX.lastIndex = 0;
+    while ((colorMatch = UNIVERSAL_COLOR_REGEX.exec(line)) !== null) {
+      const isDark = Boolean(colorMatch[1]);
+      const property = colorMatch[2];
+      const family = colorMatch[3];
+      const shade = colorMatch[4] || "500";
+      colorUsages.push({
         line: lineNum,
-        token: rogueMatch[0],
+        token: colorMatch[0],
+        family,
+        shade,
+        property,
+        isDark,
         snippet: trimmed.slice(0, 80),
       });
+
+      // Backward compatibility with legacy rogueTailwindColors for neutral grays
+      if (["zinc", "neutral", "gray", "stone"].includes(family)) {
+        rogueTailwindColors.push({
+          line: lineNum,
+          token: `${property}-${family}-${shade}`,
+          snippet: trimmed.slice(0, 80),
+        });
+      }
+    }
+
+    // Dark Mode Asymmetry Scanner
+    const classAttrMatch = line.match(/(?:class(?:Name)?|:class|class:list)=["'`]([^"'`]+)["'`]/);
+    if (classAttrMatch) {
+      const classStr = classAttrMatch[1];
+      const tokens = classStr.split(/\s+/);
+      const hasDarkBg = tokens.some(t => t.startsWith("dark:bg-"));
+      const hasDarkText = tokens.some(t => t.startsWith("dark:text-"));
+
+      const lightBg = tokens.find(t => /^bg-(slate|gray|zinc|neutral|stone|white|black)-[1-9]00$/.test(t) || t === "bg-white" || t === "bg-black");
+      if (lightBg && !hasDarkBg) {
+        darkModeAsymmetries.push({
+          line: lineNum,
+          property: "background",
+          lightToken: lightBg,
+          snippet: trimmed.slice(0, 80),
+          classes: classStr.slice(0, 60),
+        });
+      }
+
+      const lightText = tokens.find(t => /^text-(slate|gray|zinc|neutral|stone)-[1-9]00$/.test(t));
+      if (lightText && !hasDarkText) {
+        darkModeAsymmetries.push({
+          line: lineNum,
+          property: "text",
+          lightToken: lightText,
+          snippet: trimmed.slice(0, 80),
+          classes: classStr.slice(0, 60),
+        });
+      }
+    }
+
+    let rogueMatch: RegExpExecArray | null;
+    ROGUE_COLOR_REGEX.lastIndex = 0;
+    while ((rogueMatch = ROGUE_COLOR_REGEX.exec(line)) !== null) {
+      const currentMatch = rogueMatch;
+      // If not already pushed by universal matcher
+      if (!rogueTailwindColors.some(r => r.line === lineNum && r.token === currentMatch[0])) {
+        rogueTailwindColors.push({
+          line: lineNum,
+          token: currentMatch[0],
+          snippet: trimmed.slice(0, 80),
+        });
+      }
     }
 
     let typeMatch;
@@ -826,6 +1006,11 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     uiButtons,
     cardsAndSurfaces,
     modalsAndDialogs,
+    disclosedElements,
+    liveStatusDots,
+    capsulePills,
+    colorUsages,
+    darkModeAsymmetries,
     hardcodedHexes,
     rogueTailwindColors,
     typographyUsages,
@@ -2132,6 +2317,15 @@ export function runUniversalFrontendAudit() {
     return;
   }
 
+  // If --theme requested
+  if (THEME_MODE) {
+    if (!fs.existsSync(OUTPUT_DIR)) {
+      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+    writeThemePunchlist(audits);
+    return;
+  }
+
   // If query requested
   if (FIND_QUERY) {
     executeInteractiveQuery(audits, routeMaps, FIND_QUERY);
@@ -2152,7 +2346,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v1.7.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v2.0.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (discoveredSkills.length > 0) {
@@ -2174,13 +2368,14 @@ export function runUniversalFrontendAudit() {
   writeVisibleLabelsMap(audits);
   writeVisualIconIndex(audits);
   writeDispatchGateway(skillDispatches, discoveredSkills);
+  writeThemePunchlist(audits);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents);
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
   const baselineReceipt: VerificationReceipt = {
     timestamp: new Date().toISOString(),
-    version: "1.7.0",
+    version: "2.0.0",
     totalFiles: audits.length,
     routesCount: routeMaps.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -2257,18 +2452,24 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
 function writeComponentInventory(audits: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "02_COMPONENT_INVENTORY.md");
   let md = `# 🧩 Component & Elements Inventory\n\n`;
-  md += `> Comprehensive catalog of UI elements (Buttons, Cards, Modals, Forms, Tables) across all panels.\n\n`;
+  md += `> Comprehensive catalog of UI elements (Buttons, Modals, Live Dots, Capsule Pills, Cards) across all panels.\n\n`;
 
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
   const totalUiButtons = audits.reduce((acc, a) => acc + a.uiButtons.length, 0);
   const totalA11yIssues = audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0);
+  const totalLiveDots = audits.reduce((acc, a) => acc + a.liveStatusDots.length, 0);
+  const totalCapsules = audits.reduce((acc, a) => acc + a.capsulePills.length, 0);
+  const totalModals = audits.reduce((acc, a) => acc + a.disclosedElements.length, 0);
 
-  md += `## 🔘 Button Usage Summary\n\n`;
+  md += `## 📊 Quick Summary\n\n`;
   md += `- **Standardized UI Buttons**: **${totalUiButtons}** usages\n`;
   md += `- **Raw HTML Button Tags**: **${totalRawButtons}** usages (Potential UI islands)\n`;
-  md += `- **Accessibility (a11y) Flags**: **${totalA11yIssues}** buttons missing \`aria-label\` or explicit \`type="button"\`\n\n`;
+  md += `- **Accessibility (a11y) Flags**: **${totalA11yIssues}** buttons missing \`aria-label\` or explicit \`type="button"\`\n`;
+  md += `- **🟢 Live Status Indicators & Pulse Dots**: **${totalLiveDots}** occurrences\n`;
+  md += `- **💊 Capsule Pills & Badges**: **${totalCapsules}** occurrences\n`;
+  md += `- **🪟 Modals, Drawers & Disclosed Panels**: **${totalModals}** elements\n\n`;
 
-  md += `### Raw Button Elements & Accessibility Fast-Check\n\n`;
+  md += `## 🔘 Button Usage Summary & a11y Fast-Check\n\n`;
   md += `| Zone | File | Line | Snippet Preview | a11y Flags |\n`;
   md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
@@ -2288,20 +2489,73 @@ function writeComponentInventory(audits: ComponentAudit[]) {
     }
   });
 
-  md += `\n## 🪟 Modals & Dialogs Inventory\n\n`;
-  md += `| Zone | File | Line | Snippet Preview |\n`;
-  md += `| :--- | :--- | :--- | :--- |\n`;
+  // Section 2: Live Status Indicators & Pulse Dots
+  md += `\n## 🟢 Live Status Indicators & Pulse Dots (${totalLiveDots})\n\n`;
+  md += `Live status indicators, pulsing dots (\`animate-pulse\`), and badge pips:\n\n`;
+  md += `| Zone | File | Line | Dot Type / Color | Pulse State | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
   audits.forEach(a => {
-    if (a.modalsAndDialogs.length > 0) {
-      a.modalsAndDialogs.forEach(m => {
-        const fileLink = makeFileLink(a.relativePath, m.line, `${a.relativePath}:${m.line}`);
-        const cleanSnippet = escapeMarkdownSnippet(m.snippet, 50);
-        md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${cleanSnippet}\` |\n`;
+    if (a.liveStatusDots.length > 0) {
+      a.liveStatusDots.forEach(dot => {
+        const fileLink = makeFileLink(a.relativePath, dot.line, `${a.relativePath}:${dot.line}`);
+        const pulseBadge = dot.isPulsing ? "`animate-pulse ⚡`" : "`Static Dot`";
+        const cleanSnippet = escapeMarkdownSnippet(dot.snippet, 45);
+        md += `| ${a.zone} | ${fileLink} | ${dot.line} | \`${dot.color}\` | ${pulseBadge} | \`${cleanSnippet}\` |\n`;
       });
     }
   });
 
+  // Section 3: Capsule Pills & Badges
+  md += `\n## 💊 Capsule Pills, Status Badges & Tags (${totalCapsules})\n\n`;
+  md += `Elements styled with \`rounded-full\` for pills, status chips, and tags:\n\n`;
+  md += `| Zone | File | Line | Label / Badge Text | Classes Found | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.capsulePills.length > 0) {
+      a.capsulePills.forEach(pill => {
+        const fileLink = makeFileLink(a.relativePath, pill.line, `${a.relativePath}:${pill.line}`);
+        const labelText = pill.label ? `**${escapeMarkdownSnippet(pill.label, 25)}**` : `_Icon/Tag_`;
+        const cleanClasses = escapeMarkdownSnippet(pill.classes, 30);
+        const cleanSnippet = escapeMarkdownSnippet(pill.snippet, 40);
+        md += `| ${a.zone} | ${fileLink} | ${pill.line} | ${labelText} | \`${cleanClasses}\` | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // Section 4: Disclosed Modals, Drawers & Sheets with Reverse Route Mapping
+  const modalImporters = new Map<string, string[]>();
+  audits.forEach(a => {
+    a.imports.forEach(imp => {
+      const impBase = path.basename(imp).replace(/\.[^/.]+$/, "");
+      if (!modalImporters.has(impBase)) modalImporters.set(impBase, []);
+      modalImporters.get(impBase)!.push(a.relativePath);
+    });
+  });
+
+  md += `\n## 🪟 Disclosed Modals, Drawers & Sheets (${totalModals})\n\n`;
+  md += `Interactive overlay containers with reverse route caller tracking:\n\n`;
+  md += `| Zone | File | Line | Element / Type | Triggering Routes / Importers | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.disclosedElements.length > 0) {
+      const fileBase = path.basename(a.relativePath).replace(/\.[^/.]+$/, "");
+      const callers = modalImporters.get(fileBase) || [];
+      const callersStr = callers.length > 0
+        ? callers.slice(0, 3).map(c => `\`${path.basename(c)}\``).join(", ")
+        : `_Inline or Root_`;
+
+      a.disclosedElements.forEach(m => {
+        const fileLink = makeFileLink(a.relativePath, m.line, `${a.relativePath}:${m.line}`);
+        const cleanSnippet = escapeMarkdownSnippet(m.snippet, 45);
+        md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${m.name}\` (${m.type}) | ${callersStr} | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // Section 5: Cards & Panels
   md += `\n## 📦 Cards, Panels & Surface Containers\n\n`;
   md += `| Zone | File | Surface Classes Found |\n`;
   md += `| :--- | :--- | :--- |\n`;
@@ -2319,8 +2573,8 @@ function writeComponentInventory(audits: ComponentAudit[]) {
 
 function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "03_DESIGN_TOKENS_AND_COLORS.md");
-  let md = `# 🎨 Design Tokens, Colors & Typography Audit\n\n`;
-  md += `> Matrix of project design tokens vs hardcoded hex drift and rogue color usages.\n\n`;
+  let md = `# 🎨 Design Tokens, Colors & Theme Health Audit\n\n`;
+  md += `> Universal Tailwind Color Matrix, Dark Mode Asymmetry Scanner, and Hardcoded Hex Registry.\n\n`;
 
   if (structure.customTokens.size > 0) {
     md += `## 🏛️ Configured Project Color Tokens\n\n`;
@@ -2331,6 +2585,65 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
     md += `\n`;
   }
 
+  // 1. Universal Tailwind Palette Matrix (All 22+ Colors)
+  const familyMap = new Map<string, ColorUsage[]>();
+  audits.forEach(a => {
+    a.colorUsages.forEach(c => {
+      if (!familyMap.has(c.family)) familyMap.set(c.family, []);
+      familyMap.get(c.family)!.push(c);
+    });
+  });
+
+  const sortedFamilies = Array.from(familyMap.entries()).sort((a, b) => b[1].length - a[1].length);
+
+  md += `## 🌈 Universal Tailwind Palette Matrix (${sortedFamilies.length} Color Families Detected)\n\n`;
+  md += `Exhaustive scan of all standard Tailwind color families across background, text, border, and ring:\n\n`;
+  md += `| Color Family | Total Occurrences | Light Mode | Dark Mode (\`dark:\`) | Shades Breakdown | Top Affected Files |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  sortedFamilies.forEach(([family, usages]) => {
+    const lightCount = usages.filter(u => !u.isDark).length;
+    const darkCount = usages.filter(u => u.isDark).length;
+
+    const shadeCounts = new Map<string, number>();
+    usages.forEach(u => {
+      shadeCounts.set(u.shade, (shadeCounts.get(u.shade) || 0) + 1);
+    });
+    const shadeSummary = Array.from(shadeCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([s, cnt]) => `${s}: ${cnt}`)
+      .join(", ");
+
+    const fileSet = new Set<string>();
+    audits.forEach(a => {
+      if (a.colorUsages.some(u => u.family === family)) {
+        fileSet.add(path.basename(a.relativePath));
+      }
+    });
+    const topFiles = Array.from(fileSet).slice(0, 3).map(f => `\`${f}\``).join(", ");
+
+    md += `| **${family}** | **${usages.length}** | ${lightCount} | ${darkCount} | ${shadeSummary} | ${topFiles}${fileSet.size > 3 ? ` _(+${fileSet.size - 3} more)_` : ""} |\n`;
+  });
+
+  // 2. Dark Mode Asymmetry Scanner
+  const totalAsymmetries = audits.reduce((acc, a) => acc + a.darkModeAsymmetries.length, 0);
+  md += `\n## 🌓 Dark Mode Asymmetry Scanner (${totalAsymmetries} Discrepancies)\n\n`;
+  md += `Elements with light surface/text colors that **lack a corresponding \`dark:\` counterpart**, causing broken rendering in dark mode:\n\n`;
+  md += `| Zone | File | Line | Light Token | Missing Counterpart | Code Snippet |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.darkModeAsymmetries.length > 0) {
+      a.darkModeAsymmetries.forEach(d => {
+        const fileLink = makeFileLink(a.relativePath, d.line, `${a.relativePath}:${d.line}`);
+        const cleanSnippet = escapeMarkdownSnippet(d.snippet, 45);
+        md += `| ${a.zone} | ${fileLink} | ${d.line} | \`${d.lightToken}\` | Missing \`dark:${d.property}-*\` | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // 3. Hardcoded Hex Codes Detected
   const hexMap = new Map<string, { zone: string; file: string; line: number }[]>();
   audits.forEach(a => {
     a.hardcodedHexes.forEach(h => {
@@ -2341,7 +2654,7 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
 
   const sortedHexes = Array.from(hexMap.entries()).sort((a, b) => b[1].length - a[1].length);
 
-  md += `## ⚠️ Hardcoded Hex Codes Detected (${sortedHexes.length} unique colors)\n\n`;
+  md += `\n## ⚠️ Hardcoded Hex Codes Detected (${sortedHexes.length} unique colors)\n\n`;
   md += `| Hex Code | Total Usages | Top Affected Files |\n`;
   md += `| :--- | :--- | :--- |\n`;
 
@@ -2350,15 +2663,16 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
     md += `| \`${hex}\` | **${usages.length}** | ${fileList}${usages.length > 4 ? ` _(+${usages.length - 4} more)_` : ""} |\n`;
   });
 
+  // 4. Neutral Grays & Surface Utilities
   const totalRogue = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
-  md += `\n## ⚠️ Rogue Neutral Grays (${totalRogue} Occurrences)\n\n`;
-  md += `Usages of \`zinc\`, \`gray\`, or \`neutral\` color utilities:\n\n`;
+  md += `\n## ⚠️ Neutral Grays & Surface Utilities (${totalRogue} Occurrences)\n\n`;
+  md += `Usages of \`zinc\`, \`gray\`, \`slate\`, or \`neutral\` color utilities:\n\n`;
   md += `| Zone | File | Line | Token Used | Code Snippet |\n`;
   md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
   audits.forEach(a => {
     if (a.rogueTailwindColors.length > 0) {
-      a.rogueTailwindColors.forEach(r => {
+      a.rogueTailwindColors.slice(0, 15).forEach(r => {
         const fileLink = makeFileLink(a.relativePath, r.line, `${a.relativePath}:${r.line}`);
         const cleanSnippet = escapeMarkdownSnippet(r.snippet, 50);
         md += `| ${a.zone} | ${fileLink} | ${r.line} | \`${r.token}\` | \`${cleanSnippet}\` |\n`;
@@ -2367,6 +2681,68 @@ function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStru
   });
 
   fs.writeFileSync(filePath, md);
+}
+
+function writeThemePunchlist(audits: ComponentAudit[]) {
+  const filePath = path.join(OUTPUT_DIR, "THEME_MIGRATION_PUNCHLIST.md");
+  let md = `# 🎨 Theme Migration & Rebrand Punchlist\n\n`;
+  md += `> Automatically generated actionable checklist for whole-website theme and color palette rebrands.\n`;
+  md += `> Check off items as you update tokens to ensure zero elements or modals are left un-migrated.\n\n`;
+
+  const familyMap = new Map<string, { file: string; line: number; token: string; snippet: string }[]>();
+  audits.forEach(a => {
+    a.colorUsages.forEach(c => {
+      if (!familyMap.has(c.family)) familyMap.set(c.family, []);
+      familyMap.get(c.family)!.push({
+        file: a.relativePath,
+        line: c.line,
+        token: c.token,
+        snippet: c.snippet,
+      });
+    });
+  });
+
+  md += `## 📋 Color Family Migration Checklist\n\n`;
+  Array.from(familyMap.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .forEach(([family, items]) => {
+      md += `### 🎨 Palette: \`${family}\` (${items.length} occurrences)\n\n`;
+      items.forEach(item => {
+        const cleanSnippet = escapeMarkdownSnippet(item.snippet, 50);
+        md += `- [ ] \`${item.file}:${item.line}\`: Replace \`${item.token}\` — _\`${cleanSnippet}\`_\n`;
+      });
+      md += `\n`;
+    });
+
+  const totalAsymmetries = audits.reduce((acc, a) => acc + a.darkModeAsymmetries.length, 0);
+  if (totalAsymmetries > 0) {
+    md += `## 🌓 Dark Mode Asymmetries Checklist (${totalAsymmetries} items to resolve)\n\n`;
+    audits.forEach(a => {
+      a.darkModeAsymmetries.forEach(d => {
+        const cleanSnippet = escapeMarkdownSnippet(d.snippet, 50);
+        md += `- [ ] \`${a.relativePath}:${d.line}\`: Add \`dark:\` counterpart for \`${d.lightToken}\` — _\`${cleanSnippet}\`_\n`;
+      });
+    });
+    md += `\n`;
+  }
+
+  const totalHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
+  if (totalHexes > 0) {
+    md += `## ⚠️ Hardcoded Hex Checklist (${totalHexes} items)\n\n`;
+    audits.forEach(a => {
+      a.hardcodedHexes.forEach(h => {
+        const cleanSnippet = escapeMarkdownSnippet(h.snippet, 50);
+        md += `- [ ] \`${a.relativePath}:${h.line}\`: Replace \`${h.hex}\` with design token — _\`${cleanSnippet}\`_\n`;
+      });
+    });
+    md += `\n`;
+  }
+
+  fs.writeFileSync(filePath, md);
+  console.log(`\n📋 Theme Migration Punchlist generated: ${path.relative(ROOT_DIR, filePath)}`);
+  console.log(`   Total Color Usages: ${Array.from(familyMap.values()).reduce((acc, v) => acc + v.length, 0)}`);
+  console.log(`   Dark Mode Asymmetries: ${totalAsymmetries}`);
+  console.log(`   Hardcoded Hexes: ${totalHexes}\n`);
 }
 
 function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: ComponentAudit[]) {
@@ -2665,7 +3041,18 @@ async function main() {
     return;
   }
 
-  runUniversalFrontendAudit();
+  if (BACKEND_MODE) {
+    await runUniversalBackendAudit();
+    return;
+  }
+
+  if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS) {
+    runUniversalFrontendAudit();
+  } else {
+    // Default: Fullstack Audit (Runs both Frontend Atlas AND Backend Atlas)
+    runUniversalFrontendAudit();
+    await runUniversalBackendAudit();
+  }
 
   if (WATCH_MODE) {
     const structure = detectProjectStructure();

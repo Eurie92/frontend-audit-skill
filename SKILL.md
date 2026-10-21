@@ -1,17 +1,20 @@
 ---
-name: frontend-audit
-description: Runs the automated universal frontend atlas and design system catalog engine into docs/frontend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Used to inspect or refresh routes, components, and design tokens, and to locate exact UI component files from screenshots or page names. DO NOT use for visual design critique, micro-animations, or CSS styling ideas (use impeccable, emil-design-eng, or ui-ux-pro-max instead).
-version: 1.7.0
+name: fullstack-audit
+description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, buttons, live pulse dots, capsule pills, modals, and design tokens, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth guards, and webhooks.
+version: 2.0.0
 allowed-tools:
   - run_command
-  - Bash(npx tsx .agent/skills/frontend-audit/scripts/audit.ts)
+  - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
+  - Bash(npm run audit)
   - Bash(npm run audit:frontend)
+  - Bash(npm run audit:backend)
+  - Bash(npm run audit:theme)
 ---
 
-# 🗺️ Universal Frontend Atlas & Design System Audit Skill
+# 🗺️ Universal Fullstack Atlas & Design System Audit Skill
 
-> **Trigger**: `/frontend-audit` or when locating UI components and routes.
-> Run this skill when the user invokes `/frontend-audit`, asks to locate UI components, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/`.
+> **Trigger**: `/fullstack-audit`, `/frontend-audit`, or when locating UI components, routes, database models, APIs, and color themes.
+> Run this skill when the user invokes `/fullstack-audit`, asks to locate UI components or backend actions, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/` or **Backend Atlas** in `docs/backend-atlas/`.
 
 ---
 
@@ -19,13 +22,12 @@ allowed-tools:
 
 * **USE THIS SKILL FOR**:
   1. Locating exact component files and route owners directly from `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md`, `06_VISIBLE_TEXT_AND_LABELS_MAP.md`, or `07_VISUAL_AND_ICON_INDEX.md`.
-  2. Running the static audit engine to refresh `docs/frontend-atlas/`.
-  3. Generating zero-search agent handoff manifests via `--manifest <file:line>`.
-  4. Auto-discovering newly installed skills in `.agent/skills/` and global plugins into `docs/frontend-atlas/08_DISPATCH_GATEWAY.md`.
-  5. Running closed-loop verification gates via `--verify` to track metric improvements and TypeScript compilation.
-  6. Self-updating the skill engine and agent rules via `--update`.
-  7. Checking button standardization, a11y flags, design tokens, and dead components.
-  8. Explicit slash command: `/frontend-audit`
+  2. Finding live status indicators (`animate-pulse`), capsule pills (`rounded-full`), and disclosed modals in `docs/frontend-atlas/02_COMPONENT_INVENTORY.md`.
+  3. Auditing color palettes across all 22+ Tailwind families and generating rebrand checklists via `--theme` in `docs/frontend-atlas/THEME_MIGRATION_PUNCHLIST.md`.
+  4. Locating API endpoints, database models (Prisma/Drizzle), server actions, and auth guards in `docs/backend-atlas/`.
+  5. Generating zero-search agent handoff manifests via `--manifest <file:line>`.
+  6. Running closed-loop verification gates via `--verify` to track metric improvements and TypeScript compilation.
+  7. Explicit slash command: `/fullstack-audit` or `/frontend-audit`.
 * **DO NOT USE THIS SKILL FOR**:
   - UI visual design, styling ideas, or color advice ➡️ Use **`ui-ux-pro-max`** or **`design-taste-frontend`**.
   - Interaction physics, spring animations, micro-polish ➡️ Use **`emil-design-eng`**.
@@ -33,45 +35,62 @@ allowed-tools:
 
 ---
 
-## 🚀 How to Locate Components (Sub-Second 0ms Lookup)
+## 🚀 How to Locate Components & Endpoints (Sub-Second 0ms Lookup)
 
-When locating a UI component, button, or route (especially from screenshots):
-1. **DO NOT run a script.** The atlas is already compiled in `docs/frontend-atlas/`.
+### Frontend Lookup (Screenshots, Components, Themes):
+1. **DO NOT run grep or search scripts.** Both atlases are already compiled on disk as Markdown.
 2. **If looking up by Visible Text in a Screenshot**:
    - Open `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` directly via `view_file`.
-   - Search for the visible label (e.g. `"🌸 SAKURA-VEND"`, `"Purchases"`, `"XNIGHT SHOWROOM"`) to get the exact file and line number in 1 read!
-3. **If looking up by Icon / Symbol in a Textless Screenshot**:
+   - Search for the visible label (e.g. `"Purchases"`, `"Checkout"`, `"Live"`) to get the exact file and line number in 1 read!
+3. **If looking up Live Status Dots or Capsule Pills**:
+   - Open `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` directly via `view_file`.
+   - Inspect Section 2 (Live Status Dots) or Section 3 (Capsule Pills) to locate the exact file and line.
+4. **If looking up by Icon / Symbol in a Textless Screenshot**:
    - Open `docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md` directly via `view_file`.
    - Search for the icon name (e.g. `Sun`, `Moon`, `ShoppingCart`, `ChevronDown`, `Trash`) to get the exact file, line, and interactive context.
-4. **If looking up by Screen / Route**:
+5. **If looking up by Screen / Route**:
    - Open `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` directly via `view_file`.
-   - Find the Route corresponding to the screen (e.g. `/` for landing, `/admin/*`, `/portal/*`).
-   - Check the Next.js boundary (`Client ⚡` vs `Server 🖥️`) and inspect the 2-level deep component tree (`vending-floor-showcase ➔ [Dock, vending-machines]`).
-5. Open the target component file directly. Done in 0ms without running any commands!
+   - Check the Next.js boundary (`Client ⚡` vs `Server 🖥️`) and inspect the 2-level deep component tree.
+6. **If doing a Theme or Color Palette Rebrand**:
+   - Open `docs/frontend-atlas/THEME_MIGRATION_PUNCHLIST.md` directly via `view_file` to get the line-by-line checklist of every color token to update.
 
-## 🔄 When to Run the Audit Script
-Run the audit script (`npm run audit:frontend` or `/frontend-audit`) **ONLY**:
-1. When the user explicitly types `/frontend-audit`.
-2. After finishing modifications to frontend code, to keep the atlas in sync.
-3. Report the summary statistics:
-   - Framework architecture detected (e.g. Next.js App Router, Vite React SPA)
-   - Total frontend files and active routes
-   - Next.js Client vs Server boundary distribution
-   - Button count: Standard `<Button>` vs raw `<button>`
-   - Orphaned / Dead components count
-   - Top hardcoded hexes and rogue color classes
-   - Indexed visual icons count
-4. Point the user to the updated documents in `docs/frontend-atlas/`.
+### Backend Lookup (APIs, Database, Auth, Server Actions):
+1. **If looking up an API Route**:
+   - Open `docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md` directly via `view_file` to find the handler file, HTTP method, and auth requirements.
+2. **If looking up a Database Table or Model**:
+   - Open `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md` to see Prisma/Drizzle models, field definitions, and foreign keys.
+3. **If looking up a Server Action or Mutation**:
+   - Open `docs/backend-atlas/03_SERVER_ACTIONS_AND_MUTATIONS.md` to see exported action functions and database operations.
+4. **If tracing a UI button to its backend database call**:
+   - Open `docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md` to see the bi-directional bridge.
 
 ---
 
-## 🧭 The 8 Atlas Documents in `docs/frontend-atlas/`
+## 🔄 When to Run the Audit Script
+Run the audit script (`npm run audit` or `/fullstack-audit`) **ONLY**:
+1. When the user explicitly types `/fullstack-audit` or `/frontend-audit`.
+2. After finishing modifications to frontend or backend code, to keep the atlases in sync.
+3. Point the user to the updated documents in `docs/frontend-atlas/` and `docs/backend-atlas/`.
 
-1. **`01_ROUTES_AND_PANELS_MAP.md`**: Instant lookup linking every route directly to its page file, Next.js boundary (`Client ⚡` vs `Server 🖥️`), layout, and 2-level deep component tree (`Parent ➔ [Children]`).
-2. **`02_COMPONENT_INVENTORY.md`**: Catalog of active buttons, modals, drawers, cards, and a11y fast-check flags.
-3. **`03_DESIGN_TOKENS_AND_COLORS.md`**: Project design tokens vs rogue hexes and gray utilities with exact file and line numbers.
-4. **`04_UI_ISLANDS_AND_DRIFT.md`**: Actionable list of raw HTML elements, inline style tags, and custom modal redundancies.
-5. **`05_DEAD_ORPHANED_COMPONENTS.md`**: Dedicated punch-list and safety checklist for unused and orphaned components with safe deletion commands.
-6. **`06_VISIBLE_TEXT_AND_LABELS_MAP.md`**: Master index of buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.
-7. **`07_VISUAL_AND_ICON_INDEX.md`**: Master index of Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.
-8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing diagnosed UI findings directly to peer skills (`emil-design-eng`, `ui-ux-pro-max`, `a11y-debugging`, `impeccable`).
+---
+
+## 🧭 The Atlas Documents Guide
+
+### `docs/frontend-atlas/` (Frontend & UI)
+1. **`01_ROUTES_AND_PANELS_MAP.md`**: Route-to-page link, Next.js boundary (`Client ⚡` vs `Server 🖥️`), layout, and 2-level deep component tree.
+2. **`02_COMPONENT_INVENTORY.md`**: Buttons, Live Dots (`animate-pulse`), Capsule Pills (`rounded-full`), and Disclosed Modals with reverse route mapping.
+3. **`03_DESIGN_TOKENS_AND_COLORS.md`**: Universal Tailwind Color Matrix (all 22+ colors) and Dark Mode Asymmetry scanner.
+4. **`04_UI_ISLANDS_AND_DRIFT.md`**: Raw HTML elements, inline style tags, and custom modal redundancies.
+5. **`05_DEAD_ORPHANED_COMPONENTS.md`**: Dedicated punch-list for unused and orphaned components.
+6. **`06_VISIBLE_TEXT_AND_LABELS_MAP.md`**: Buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.
+7. **`07_VISUAL_AND_ICON_INDEX.md`**: Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.
+8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
+9. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
+
+### `docs/backend-atlas/` (Backend & Fullstack)
+1. **`01_API_ROUTES_AND_ENDPOINTS.md`**: HTTP API endpoints, methods (`GET`, `POST`, `PUT`, `DELETE`), params, and auth guards.
+2. **`02_DATABASE_MODELS_AND_SCHEMA.md`**: Prisma and Drizzle models, fields, types, and relations.
+3. **`03_SERVER_ACTIONS_AND_MUTATIONS.md`**: Next.js Server Actions (`"use server"`), parameters, and DB mutations.
+4. **`04_AUTH_AND_MIDDLEWARE_GUARDS.md`**: Middleware matchers, protected routes, and authentication providers.
+5. **`05_INTEGRATIONS_AND_WEBHOOKS.md`**: Third-party SDK clients (Stripe, Resend, Supabase, S3) and webhooks.
+6. **`06_FULLSTACK_CROSS_REFERENCE_MAP.md`**: Bi-directional bridge linking frontend UI triggers to backend actions and database models.

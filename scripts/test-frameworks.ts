@@ -300,6 +300,63 @@ async function runTestMatrix() {
     assert(routes7.includes("`/posts/:id/edit`"), "Flat route `posts.$id_.edit.tsx` resolves to `/posts/:id/edit`");
     assert(routes7.includes("`/login`"), "Pathless layout `_auth.login.tsx` resolves to `/login`");
 
+    // =========================================================================
+    // TEST 8: Fullstack & Backend Atlas Verification (APIs, Prisma, Server Actions)
+    // =========================================================================
+    console.log("\n▶️ Test 8: Fullstack & Backend Atlas (API Routes + Prisma + Server Actions)");
+    const backendAppDir = path.join(TEST_DIR, "fullstack-app");
+    fs.mkdirSync(path.join(backendAppDir, "app", "api", "checkout"), { recursive: true });
+    fs.mkdirSync(path.join(backendAppDir, "prisma"), { recursive: true });
+    fs.mkdirSync(path.join(backendAppDir, "components"), { recursive: true });
+
+    fs.writeFileSync(path.join(backendAppDir, "package.json"), JSON.stringify({
+      name: "test-fullstack-app",
+      dependencies: { next: "^14.2.0", react: "^18.2.0", "@prisma/client": "^5.0.0", stripe: "^14.0.0" }
+    }));
+    fs.writeFileSync(path.join(backendAppDir, "app", "page.tsx"), `
+      "use client";
+      export default function Page() {
+        return <button onClick={() => fetch("/api/checkout", { method: "POST" })}>Checkout</button>;
+      }
+    `);
+    fs.writeFileSync(path.join(backendAppDir, "app", "api", "checkout", "route.ts"), `
+      import { NextResponse } from "next/server";
+      export async function POST(req: Request) {
+        return NextResponse.json({ status: "ok" });
+      }
+    `);
+    fs.writeFileSync(path.join(backendAppDir, "prisma", "schema.prisma"), `
+      datasource db { provider = "postgresql", url = env("DATABASE_URL") }
+      generator client { provider = "prisma-client-js" }
+      model User {
+        id Int @id @default(autoincrement())
+        email String @unique
+        name String?
+      }
+    `);
+    fs.writeFileSync(path.join(backendAppDir, "app", "actions.ts"), `
+      "use server";
+      export async function createCheckoutSession(userId: string) {
+        return { sessionId: "sess_123" };
+      }
+    `);
+
+    const res8 = runAuditInDir(backendAppDir);
+    assert(res8.status === 0, "Fullstack audit runs without error");
+    assert(res8.stdout.includes("Backend Atlas written to"), "Correctly outputs Backend Atlas");
+
+    const apiMd = fs.readFileSync(path.join(backendAppDir, "docs", "backend-atlas", "01_API_ROUTES_AND_ENDPOINTS.md"), "utf-8");
+    assert(apiMd.includes("`/api/checkout`") && apiMd.includes("POST"), "API catalog indexes `/api/checkout` with POST method");
+
+    const dbMd = fs.readFileSync(path.join(backendAppDir, "docs", "backend-atlas", "02_DATABASE_MODELS_AND_SCHEMA.md"), "utf-8");
+    assert(dbMd.includes("Model `User`") && dbMd.includes("email"), "Database catalog indexes Prisma `User` model with `email` field");
+
+    const actionsMd = fs.readFileSync(path.join(backendAppDir, "docs", "backend-atlas", "03_SERVER_ACTIONS_AND_MUTATIONS.md"), "utf-8");
+    assert(actionsMd.includes("createCheckoutSession"), "Server Actions catalog indexes `createCheckoutSession()`");
+
+    const bridgeMd = fs.readFileSync(path.join(backendAppDir, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), "utf-8");
+    assert(bridgeMd.includes("/api/checkout"), "Cross-reference map links UI button to `/api/checkout`");
+
     console.log(`\n============================================================`);
     console.log(`🎉 Test Matrix Complete: ${passedTests}/${totalTests} Passed (100% Success)`);
     console.log(`============================================================`);
