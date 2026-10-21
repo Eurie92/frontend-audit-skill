@@ -25,10 +25,12 @@ For all UI, component, route, color theme, API, database, server action, or back
 
 3. **Continuous Sync**: At the completion of any frontend or backend modification, execute `npm run audit` (or `npx fullstack-audit`) to keep the atlases 100% synchronized for subsequent tasks.
 
-## 🛠️ Available Commands (v2.1.0 Token-Efficient Engine)
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas.
-- `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99% tokens).
-- `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: Automated AST codemod in 80ms (0 LLM output tokens).
+## 🛠️ Available Commands (v2.2.0 Multi-Agent & Zero-Blindspot Engine)
+- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (Default: Solo Mode).
+- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
+- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
+- `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99.8% tokens).
+- `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
 - `npx fullstack-audit --verify --gate-clean [--route <route>]`: Deterministic anti-hallucination gate (fails with exit 1 if rogue hexes remain).
 - `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.

@@ -1,4 +1,94 @@
 
+function executeMultiAgentPartition(audits: ComponentAudit[], routeMaps: RouteMapItem[], structure?: ProjectStructure) {
+  console.log("🤖 Initializing Multi-Agent Zone Partition Engine (--multi-agent)...\n");
+
+  const zoneA = audits.filter(a => a.zone === "Storefront (Public)" || a.relativePath.includes("app/(public)"));
+  const zoneB = audits.filter(a => a.disclosedOverlays.length > 0 || a.relativePath.includes("modal") || a.relativePath.includes("drawer") || a.relativePath.includes("Dock"));
+  const zoneC = audits.filter(a => a.relativePath.includes("components/ui") || a.relativePath.endsWith(".css"));
+  const zoneD = audits.filter(a => a.zone === "Admin Area" || a.zone === "Portal Area" || a.relativePath.includes("portal") || a.relativePath.includes("admin"));
+
+  console.log("┌────────────────────────────────────────────────────────────────────────┐");
+  console.log("│             PARALLEL SUBAGENT PARTITION BRIEFS (Map-Reduce)            │");
+  console.log("├────────────────────────────────────────────────────────────────────────┤");
+  console.log(`│ Subagent 1 (Public Storefront):  ${zoneA.length.toString().padEnd(4)} files -> Home, Terms, Track, Login, Signup │`);
+  console.log(`│ Subagent 2 (Modals & Overlays):  ${zoneB.length.toString().padEnd(4)} files -> Checkout, Connect, Vault Drawer   │`);
+  console.log(`│ Subagent 3 (UI Primitives & CSS):${zoneC.length.toString().padEnd(4)} files -> globals.css, tabs.tsx, buttons    │`);
+  console.log(`│ Subagent 4 (Portals & Admin):    ${zoneD.length.toString().padEnd(4)} files -> /portal/reseller, /admin           │`);
+  console.log("└────────────────────────────────────────────────────────────────────────┘\n");
+
+  console.log("📋 Ready-to-Run Subagent Prompt Templates:");
+  console.log("--------------------------------------------------------------------------");
+  console.log(`Subagent 1 (Storefront): "Audit and normalize ${zoneA.length} files in Zone A. Run --verify --route app/(public) to close."`);
+  console.log(`Subagent 2 (Modals):     "Audit and normalize ${zoneB.length} overlays in Zone B. Ensure dark/light adaptive surfaces."`);
+  console.log(`Subagent 3 (Primitives): "Check globals.css for radial gradients and align shared UI tabs.tsx / buttons."`);
+  console.log(`Subagent 4 (Portals):    "Audit ${zoneD.length} portal & admin routes for standard obsidian/ceramic tokens."`);
+  console.log("--------------------------------------------------------------------------\n");
+  console.log("⚡ All 4 subagents can run concurrently in parallel threads (avg completion: 30s).\n");
+}
+
+function auditGlobalStylesheets(rootDir: string): GlobalStylesheetAudit[] {
+  const candidates = [
+    "app/globals.css", "src/app/globals.css", "src/globals.css", "styles/globals.css",
+    "src/styles/globals.css", "app/main.css", "src/main.css", "src/index.css"
+  ];
+
+  const results: GlobalStylesheetAudit[] = [];
+
+  for (const rel of candidates) {
+    const full = path.join(rootDir, rel);
+    if (!fs.existsSync(full)) continue;
+    const content = fs.readFileSync(full, "utf-8");
+    const lines = content.split("\n");
+    const radialGradients: { line: number; selector: string; snippet: string }[] = [];
+    const hardcodedHexes: { line: number; hex: string; snippet: string }[] = [];
+    const customClasses: { line: number; name: string; snippet: string }[] = [];
+
+    lines.forEach((line, idx) => {
+      const lineNum = idx + 1;
+      const trimmed = line.trim();
+
+      // Check radial gradients
+      if (/radial-gradient/i.test(line)) {
+        radialGradients.push({
+          line: lineNum,
+          selector: trimmed.split("{")[0] || "gradient",
+          snippet: trimmed.slice(0, 80),
+        });
+      }
+
+      // Check custom utility classes
+      const classMatch = line.match(/\.([a-zA-Z0-9_-]+(?:surface|card|spotlight|glow|panel|dock)[a-zA-Z0-9_-]*)/i);
+      if (classMatch && !trimmed.startsWith("/*") && !trimmed.startsWith("//")) {
+        customClasses.push({
+          line: lineNum,
+          name: classMatch[1],
+          snippet: trimmed.slice(0, 80),
+        });
+      }
+
+      // Check hexes
+      let hMatch;
+      HEX_REGEX.lastIndex = 0;
+      while ((hMatch = HEX_REGEX.exec(line)) !== null) {
+        const hex = hMatch[0].toLowerCase();
+        if (!APPROVED_HEXES.has(hex) && !trimmed.startsWith("/*") && !trimmed.startsWith("//")) {
+          hardcodedHexes.push({ line: lineNum, hex, snippet: trimmed.slice(0, 80) });
+        }
+      }
+    });
+
+    results.push({
+      filePath: full,
+      relativePath: rel,
+      radialGradients,
+      hardcodedHexes,
+      customClasses,
+    });
+  }
+
+  return results;
+}
+
 function escapeRegexForCodemod(str: string): string {
   return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
@@ -55,6 +145,8 @@ const DRY_RUN_MODE = ARGS.includes("--dry-run");
 const GATE_CLEAN_MODE = ARGS.includes("--gate-clean");
 const COMPACT_MODE = ARGS.includes("--compact") || ARGS.includes("--json");
 const JSON_MODE = ARGS.includes("--json");
+const SOLO_MODE = ARGS.includes("--solo") || (!ARGS.includes("--multi-agent") && !ARGS.includes("--parallel") && !ARGS.includes("--zones"));
+const MULTI_AGENT_MODE = ARGS.includes("--multi-agent") || ARGS.includes("--parallel") || ARGS.includes("--zones");
 
 export type SupportedFramework =
   | "Next.js (App Router)"
@@ -157,6 +249,15 @@ interface DarkModeAsymmetry {
   classes: string;
 }
 
+
+interface GlobalStylesheetAudit {
+  filePath: string;
+  relativePath: string;
+  radialGradients: { line: number; selector: string; snippet: string }[];
+  hardcodedHexes: { line: number; hex: string; snippet: string }[];
+  customClasses: { line: number; name: string; snippet: string }[];
+}
+
 interface ComponentAudit {
   filePath: string;
   relativePath: string;
@@ -173,6 +274,7 @@ interface ComponentAudit {
   disclosedElements: DisclosedElement[];
   liveStatusDots: LiveStatusDot[];
   capsulePills: CapsulePill[];
+  inlineStyles: { line: number; property: string; value: string; snippet: string }[];
   colorUsages: ColorUsage[];
   darkModeAsymmetries: DarkModeAsymmetry[];
   hardcodedHexes: { line: number; hex: string; snippet: string }[];
@@ -642,6 +744,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const disclosedElements: DisclosedElement[] = [];
   const liveStatusDots: LiveStatusDot[] = [];
   const capsulePills: CapsulePill[] = [];
+  const inlineStyles: { line: number; property: string; value: string; snippet: string }[] = [];
   const colorUsages: ColorUsage[] = [];
   const darkModeAsymmetries: DarkModeAsymmetry[] = [];
   const hardcodedHexes: { line: number; hex: string; snippet: string }[] = [];
@@ -1102,6 +1205,20 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
           opening.attributes.properties.forEach(prop => {
             if (ts.isJsxAttribute(prop)) {
               const attrName = prop.name.getText(sf);
+              if (attrName === "style" && prop.initializer && ts.isJsxExpression(prop.initializer) && prop.initializer.expression && ts.isObjectLiteralExpression(prop.initializer.expression)) {
+                prop.initializer.expression.properties.forEach(p => {
+                  if (ts.isPropertyAssignment(p)) {
+                    const pName = p.name.getText(sf);
+                    const pVal = p.initializer.getText(sf);
+                    if (/background|color|border|fill/i.test(pName)) {
+                      inlineStyles.push({ line: lineNum, property: pName, value: pVal, snippet: snippet.slice(0, 80) });
+                      if (/radial-gradient|rgba\(/i.test(pVal) || (pVal.startsWith("#") && !APPROVED_HEXES.has(pVal.toLowerCase()))) {
+                        hardcodedHexes.push({ line: lineNum, hex: pVal.slice(0, 25), snippet: `style={{${pName}: ${pVal}}}` });
+                      }
+                    }
+                  }
+                });
+              }
               if (attrName === "onClick" || attrName === "onPress" || attrName === "onKeyDown" || attrName === "onSelect") {
                 hasClick = true;
                 if (prop.initializer) {
@@ -1273,6 +1390,7 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     disclosedElements,
     liveStatusDots,
     capsulePills,
+    inlineStyles,
     colorUsages,
     darkModeAsymmetries,
     hardcodedHexes,
@@ -2402,6 +2520,8 @@ function executeThemeCodemod(audits: ComponentAudit[], structure?: ProjectStruct
     const absPath = audit.filePath;
     if (!fs.existsSync(absPath)) continue;
     let content = fs.readFileSync(absPath, "utf-8");
+    const hasCRLF = content.includes("\r\n");
+    content = content.replace(/\r\n/g, "\n");
     let fileReplacements = 0;
 
     for (const rawHex of searchHexes) {
@@ -2438,7 +2558,8 @@ function executeThemeCodemod(audits: ComponentAudit[], structure?: ProjectStruct
       totalReplacements += fileReplacements;
       modifiedFiles.push({ file: audit.relativePath, count: fileReplacements });
       if (!DRY_RUN_MODE) {
-        fs.writeFileSync(absPath, content, "utf-8");
+        const finalContent = hasCRLF ? content.replace(/\n/g, "\r\n") : content;
+        fs.writeFileSync(absPath, finalContent, "utf-8");
       }
     }
   }
@@ -2845,6 +2966,12 @@ export function runUniversalFrontendAudit() {
     return;
   }
 
+  // If --multi-agent or --zones requested
+  if (MULTI_AGENT_MODE && !THEME_MODE) {
+    executeMultiAgentPartition(audits, routeMaps, structure);
+    return;
+  }
+
   // If --migrate-theme requested
   if (MIGRATE_THEME_MODE) {
     executeThemeCodemod(audits, structure);
@@ -2886,7 +3013,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v2.1.0)...");
+  console.log("🌐 Initializing Universal Frontend Atlas Engine (v2.2.0)...");
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (discoveredSkills.length > 0) {
@@ -3626,7 +3753,7 @@ async function main() {
     return;
   }
 
-  if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS || MIGRATE_THEME_MODE) {
+  if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS || MIGRATE_THEME_MODE || MULTI_AGENT_MODE) {
     runUniversalFrontendAudit();
   } else {
     // Default: Fullstack Audit (Runs both Frontend Atlas AND Backend Atlas)

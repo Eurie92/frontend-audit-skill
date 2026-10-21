@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
 description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, buttons, live pulse dots, capsule pills, modals, and design tokens, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth guards, and webhooks.
-version: 2.1.0
+version: 2.2.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -87,7 +87,16 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) **ONLY**:
 8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
 9. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## 🛠️ Available Commands (v2.1.0 Token-Efficient Engine)
+## 🛠️ Available Commands (v2.2.0 Multi-Agent & Zero-Blindspot Engine)
+- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (Default: Solo Mode).
+- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
+- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
+- `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99.8% tokens).
+- `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
+- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Deterministic anti-hallucination gate (fails with exit 1 if rogue hexes remain).
+- `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
+- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
+- `npx fullstack-audit --watch`: Live background file watcher for continuous auto-sync.
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas.
 - `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99% tokens vs reading 6,400 lines).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: Automated AST codemod in 80ms with 0 LLM output tokens.
