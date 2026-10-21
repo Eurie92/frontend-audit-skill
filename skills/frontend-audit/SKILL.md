@@ -1,17 +1,20 @@
 ---
 name: frontend-audit
-description: Runs the automated universal frontend atlas and design system catalog engine into docs/frontend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Used to inspect or refresh routes, components, and design tokens, and to locate exact UI component files from screenshots or page names. DO NOT use for visual design critique, micro-animations, or CSS styling ideas (use impeccable, emil-design-eng, or ui-ux-pro-max instead).
-version: 1.7.0
+description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, interactive triggers, disclosed modals, live pulse dots, capsule pills, and design tokens, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth guards, and webhooks.
+version: 2.0.0
 allowed-tools:
   - run_command
-  - Bash(npx tsx .agent/skills/frontend-audit/scripts/audit.ts)
+  - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
+  - Bash(npm run audit)
   - Bash(npm run audit:frontend)
+  - Bash(npm run audit:backend)
+  - Bash(npm run audit:theme)
 ---
 
-# 🗺️ Universal Frontend Atlas & Design System Audit Skill
+# 🗺️ Universal Fullstack Atlas & Design System Audit Skill
 
-> **Trigger**: `/frontend-audit` or when locating UI components and routes.
-> Run this skill when the user invokes `/frontend-audit`, asks to locate UI components, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/`.
+> **Trigger**: `/fullstack-audit`, `/frontend-audit`, or when locating UI components, routes, database models, APIs, and color themes.
+> Run this skill when the user invokes `/fullstack-audit` or `/frontend-audit`, asks to locate UI components or backend actions, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/` or **Backend Atlas** in `docs/backend-atlas/`.
 
 ---
 

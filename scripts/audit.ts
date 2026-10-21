@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import child_process from "child_process";
+import ts from "typescript";
 import { runUniversalBackendAudit } from "./audit-backend.js";
 
 /**
@@ -101,6 +102,24 @@ interface CapsulePill {
   classes: string;
 }
 
+export interface InteractiveTrigger {
+  line: number;
+  tagName: string;
+  triggerType: "Standard Button" | "Raw Button" | "Clickable Container" | "Component Trigger" | "Navigation Link" | "Form Input";
+  handlerName?: string;
+  disclosesTarget?: string;
+  snippet: string;
+}
+
+export interface DisclosedOverlay {
+  line: number;
+  name: string;
+  type: "Modal / Dialog" | "Drawer / Sheet" | "Dropdown Menu" | "Popover" | "Accordion" | "Tabs";
+  triggerSource?: string;
+  conditionVariable?: string;
+  snippet: string;
+}
+
 interface DisclosedElement {
   line: number;
   name: string;
@@ -135,6 +154,8 @@ interface ComponentAudit {
   imports: string[];
   rawButtons: { line: number; snippet: string; className?: string; missingAria?: boolean; missingType?: boolean }[];
   uiButtons: { line: number; snippet: string; variant?: string }[];
+  interactiveTriggers: InteractiveTrigger[];
+  disclosedOverlays: DisclosedOverlay[];
   cardsAndSurfaces: { line: number; snippet: string; classes: string }[];
   modalsAndDialogs: { line: number; snippet: string }[];
   disclosedElements: DisclosedElement[];
@@ -602,6 +623,8 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
   const imports: string[] = [];
   const rawButtons: { line: number; snippet: string; className?: string; missingAria?: boolean; missingType?: boolean }[] = [];
   const uiButtons: { line: number; snippet: string; variant?: string }[] = [];
+  const interactiveTriggers: InteractiveTrigger[] = [];
+  const disclosedOverlays: DisclosedOverlay[] = [];
   const cardsAndSurfaces: { line: number; snippet: string; classes: string }[] = [];
   const modalsAndDialogs: { line: number; snippet: string }[] = [];
   const disclosedElements: DisclosedElement[] = [];
@@ -993,7 +1016,234 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
         snippet: trimmed.slice(0, 80),
       });
     }
+
+    // SFC Template Interactive Triggers & Overlays (Vue, Svelte, Astro)
+    if (relPath.endsWith(".vue") || relPath.endsWith(".svelte") || relPath.endsWith(".astro")) {
+      const clickMatch = line.match(/(?:@click|v-on:click|on:click)=["'\{]([^"'\}]+)["'\}]/);
+      if (clickMatch) {
+        const handlerName = clickMatch[1].trim();
+        const tagMatch = line.match(/<([a-zA-Z0-9_\.-]+)/);
+        const tagName = tagMatch ? tagMatch[1] : "element";
+        const triggerType: InteractiveTrigger["triggerType"] = tagName.toLowerCase() === "button"
+          ? "Raw Button"
+          : (tagName.toLowerCase().includes("button") ? "Standard Button" : "Clickable Container");
+
+        if (!interactiveTriggers.some(t => t.line === lineNum)) {
+          interactiveTriggers.push({
+            line: lineNum,
+            tagName: `<${tagName}>`,
+            triggerType,
+            handlerName,
+            snippet: trimmed.slice(0, 80),
+          });
+        }
+      }
+
+      const sfcOverlayMatch = line.match(/<(UModal|USlideover|UDropdown|PrimeDialog|VaModal|Dialog|Modal|Sheet|Drawer)\b/i);
+      if (sfcOverlayMatch) {
+        const oName = sfcOverlayMatch[1];
+        let overlayType: DisclosedOverlay["type"] = "Modal / Dialog";
+        if (/Slideover|Drawer|Sheet/i.test(oName)) overlayType = "Drawer / Sheet";
+        else if (/Dropdown|Menu/i.test(oName)) overlayType = "Dropdown Menu";
+
+        const condMatch = line.match(/(?:v-model(?::visible)?|:open|v-if)=["']([^"']+)["']/);
+        if (!disclosedOverlays.some(o => o.line === lineNum && o.name === oName)) {
+          disclosedOverlays.push({
+            line: lineNum,
+            name: oName,
+            type: overlayType,
+            conditionVariable: condMatch ? condMatch[1] : undefined,
+            snippet: trimmed.slice(0, 80),
+          });
+        }
+      }
+    }
   });
+
+  // =========================================================================
+  // AST Engine: Exhaustive Interactive Trigger & Overlay Traversal (TS / JSX / TSX)
+  // =========================================================================
+  const isJsxOrTs = filePath.endsWith(".tsx") || filePath.endsWith(".jsx") || filePath.endsWith(".ts") || filePath.endsWith(".js");
+  if (isJsxOrTs) {
+    try {
+      const isJsx = filePath.endsWith(".tsx") || filePath.endsWith(".jsx");
+      const sf = ts.createSourceFile(
+        filePath,
+        content,
+        ts.ScriptTarget.Latest,
+        /* setParentNodes */ true,
+        isJsx ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+      );
+
+      function walkAst(node: ts.Node) {
+        // 1. Detect JSX Elements & Self Closing Elements
+        if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+          const opening = ts.isJsxElement(node) ? node.openingElement : node;
+          const tagName = opening.tagName.getText(sf);
+          const lineNum = sf.getLineAndCharacterOfPosition(opening.getStart(sf)).line + 1;
+          const snippet = (lines[lineNum - 1] || tagName).trim().slice(0, 80);
+
+          let hasClick = false;
+          let handlerName: string | undefined;
+          let disclosesTarget: string | undefined;
+
+          opening.attributes.properties.forEach(prop => {
+            if (ts.isJsxAttribute(prop)) {
+              const attrName = prop.name.getText(sf);
+              if (attrName === "onClick" || attrName === "onPress" || attrName === "onKeyDown" || attrName === "onSelect") {
+                hasClick = true;
+                if (prop.initializer) {
+                  if (ts.isJsxExpression(prop.initializer) && prop.initializer.expression) {
+                    handlerName = prop.initializer.expression.getText(sf);
+                  } else {
+                    handlerName = prop.initializer.getText(sf);
+                  }
+                }
+              } else if (attrName === "role" && prop.initializer) {
+                const val = prop.initializer.getText(sf).replace(/['"]/g, "");
+                if (val === "button" || val === "tab" || val === "menuitem") {
+                  hasClick = true;
+                }
+              }
+            }
+          });
+
+          // Infer disclosed target from trigger tag name or state setter
+          if (tagName.endsWith("Trigger")) {
+            disclosesTarget = tagName.replace(/Trigger$/, "") + "Content";
+          } else if (handlerName) {
+            const stateMatch = handlerName.match(/set([A-Z][a-zA-Z0-9_]*)\s*\(\s*true\s*\)/);
+            if (stateMatch) {
+              disclosesTarget = `${stateMatch[1]} (State Trigger)`;
+            }
+          }
+
+          // Classify Interactive Triggers
+          if (tagName === "button") {
+            interactiveTriggers.push({
+              line: lineNum,
+              tagName: "<button>",
+              triggerType: "Raw Button",
+              handlerName,
+              disclosesTarget,
+              snippet,
+            });
+          } else if (tagName === "Button" || tagName.endsWith("Button") || tagName === "IconButton") {
+            interactiveTriggers.push({
+              line: lineNum,
+              tagName: `<${tagName}>`,
+              triggerType: "Standard Button",
+              handlerName,
+              disclosesTarget,
+              snippet,
+            });
+          } else if (tagName.endsWith("Trigger")) {
+            interactiveTriggers.push({
+              line: lineNum,
+              tagName: `<${tagName}>`,
+              triggerType: "Component Trigger",
+              handlerName,
+              disclosesTarget,
+              snippet,
+            });
+          } else if (tagName === "a" || tagName === "Link" || tagName === "NavLink") {
+            interactiveTriggers.push({
+              line: lineNum,
+              tagName: `<${tagName}>`,
+              triggerType: "Navigation Link",
+              handlerName,
+              disclosesTarget,
+              snippet,
+            });
+          } else if (hasClick) {
+            interactiveTriggers.push({
+              line: lineNum,
+              tagName: `<${tagName} onClick>`,
+              triggerType: "Clickable Container",
+              handlerName,
+              disclosesTarget,
+              snippet,
+            });
+          } else if (["input", "select", "textarea"].includes(tagName.toLowerCase())) {
+            interactiveTriggers.push({
+              line: lineNum,
+              tagName: `<${tagName}>`,
+              triggerType: "Form Input",
+              handlerName,
+              snippet,
+            });
+          }
+
+          // Classify Disclosed Overlays
+          const lowerTag = tagName.toLowerCase();
+          let overlayType: DisclosedOverlay["type"] | undefined;
+          if (lowerTag.includes("modal") || lowerTag.includes("dialog")) overlayType = "Modal / Dialog";
+          else if (lowerTag.includes("sheet") || lowerTag.includes("drawer") || lowerTag.includes("slideover")) overlayType = "Drawer / Sheet";
+          else if (lowerTag.includes("dropdown") || lowerTag.includes("contextmenu")) overlayType = "Dropdown Menu";
+          else if (lowerTag.includes("popover") || lowerTag.includes("tooltip")) overlayType = "Popover";
+          else if (lowerTag.includes("accordion") || lowerTag.includes("collapsible")) overlayType = "Accordion";
+          else if (lowerTag.includes("tabs") || lowerTag.includes("tablist")) overlayType = "Tabs";
+
+          if (overlayType) {
+            let conditionVariable: string | undefined;
+            opening.attributes.properties.forEach(prop => {
+              if (ts.isJsxAttribute(prop)) {
+                const aName = prop.name.getText(sf);
+                if (["open", "isOpen", "show", "visible", "defaultOpen"].includes(aName)) {
+                  conditionVariable = prop.initializer ? prop.initializer.getText(sf) : aName;
+                }
+              }
+            });
+
+            if (!disclosedOverlays.some(o => o.line === lineNum && o.name === tagName)) {
+              disclosedOverlays.push({
+                line: lineNum,
+                name: tagName,
+                type: overlayType,
+                conditionVariable,
+                snippet,
+              });
+            }
+          }
+        }
+
+        // 2. Conditional Rendering Disclosures: {isOpen && <Modal />}
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+          const leftText = node.left.getText(sf);
+          const right = node.right;
+          if (ts.isJsxElement(right) || ts.isJsxSelfClosingElement(right)) {
+            const rightOpening = ts.isJsxElement(right) ? right.openingElement : right;
+            const targetName = rightOpening.tagName.getText(sf);
+            const lineNum = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+            const snippet = (lines[lineNum - 1] || `${leftText} && <${targetName}>`).trim().slice(0, 80);
+
+            if (/Modal|Dialog|Drawer|Sheet|Popover|Menu|View|Popup|Confirm/i.test(targetName)) {
+              let overlayType: DisclosedOverlay["type"] = "Modal / Dialog";
+              if (/Drawer|Sheet|Slide/i.test(targetName)) overlayType = "Drawer / Sheet";
+              else if (/Dropdown|Menu/i.test(targetName)) overlayType = "Dropdown Menu";
+              else if (/Popover|Tooltip/i.test(targetName)) overlayType = "Popover";
+
+              if (!disclosedOverlays.some(o => o.line === lineNum && o.name === targetName)) {
+                disclosedOverlays.push({
+                  line: lineNum,
+                  name: targetName,
+                  type: overlayType,
+                  conditionVariable: leftText,
+                  snippet,
+                });
+              }
+            }
+          }
+        }
+
+        ts.forEachChild(node, walkAst);
+      }
+
+      walkAst(sf);
+    } catch {
+      // Fallback gracefully if any source file contains non-standard syntax
+    }
+  }
 
   return {
     filePath,
@@ -1004,6 +1254,8 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
     imports,
     rawButtons,
     uiButtons,
+    interactiveTriggers,
+    disclosedOverlays,
     cardsAndSurfaces,
     modalsAndDialogs,
     disclosedElements,
@@ -1823,26 +2075,44 @@ function discoverInstalledSkills(workspaceRoot: string = ROOT_DIR): DiscoveredSk
 // In-place, safe UTF-8 Rule Synchronizer for AGENTS.md / GEMINI.md
 function syncAgentRulesInPlace() {
   const ruleBlock = [
+    "<!-- START_FULLSTACK_AUDIT_RULE -->",
     "<!-- START_FRONTEND_AUDIT_RULE -->",
-    "## 🗺️ Frontend Architecture & Component Lookup Rule",
-    "For all UI, component, route, or color theme tasks (including screenshots and visual bug reports):",
-    "1. **Instant Atlas Lookup**: The FIRST tool call MUST be `view_file` on:",
-    "   - `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md` (by Route or Screen)",
-    "   - `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text in a screenshot)",
-    "   - `docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)",
-    "   It indexes all routes, page files, imported components, labels, and icons with 0ms runtime overhead.",
-    "2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches and do NOT spawn CLI scripts (`npx tsx scripts/audit-frontend.ts`) for simple lookups. The atlas is already written on disk as Markdown—read the file directly.",
-    "3. **Continuous Sync**: At the completion of every frontend modification, execute `npm run audit:frontend` to keep the atlas 100% synchronized for subsequent tasks.",
+    "## 🗺️ Fullstack Architecture & Component Lookup Rule",
+    "For all UI, component, route, color theme, API, database, server action, or backend tasks:",
+    "",
+    "1. **Instant Atlas Lookup (Zero-Grep / Zero-Search)**: The FIRST tool call MUST be `view_file` on:",
+    "   - **Frontend Atlas (`docs/frontend-atlas/`)**:",
+    "     - `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, or Server/Client boundary)",
+    "     - `02_COMPONENT_INVENTORY.md` (by Modals, Drawers, Live Dots `animate-pulse`, Capsule Pills `rounded-full`, Buttons)",
+    "     - `03_DESIGN_TOKENS_AND_COLORS.md` (for all 22+ Tailwind color families, dark mode asymmetries, hexes)",
+    "     - `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot)",
+    "     - `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)",
+    "     - `THEME_MIGRATION_PUNCHLIST.md` (actionable checklist for whole-website color and dark mode rebrands)",
+    "   - **Backend Atlas (`docs/backend-atlas/`)**:",
+    "     - `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method: GET/POST/PUT/DELETE, or auth guard)",
+    "     - `02_DATABASE_MODELS_AND_SCHEMA.md` (by database table, Prisma model, or Drizzle schema)",
+    "     - `03_SERVER_ACTIONS_AND_MUTATIONS.md` (by Next.js Server Action `\"use server\"`)",
+    "     - `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (by route matcher or public vs protected route)",
+    "     - `05_INTEGRATIONS_AND_WEBHOOKS.md` (by third-party service: Stripe, Resend, Supabase, S3)",
+    "     - `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (to trace UI button/modal directly to backend action & database model)",
+    "",
+    "2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—read the files directly.",
+    "",
+    "3. **Continuous Sync**: At the completion of any frontend or backend modification, execute `npm run audit` (or `npx fullstack-audit`) to keep the atlases 100% synchronized for subsequent tasks.",
     "",
     "## 🛠️ Available Commands",
-    "- `/frontend-audit` or `npm run audit:frontend`: Regenerates the entire Frontend Atlas (all 8 documents).",
-    "- `npx tsx scripts/audit-frontend.ts --verify`: Closed-loop verification gate (TypeScript compile + metric deltas).",
-    "- `npx tsx scripts/audit-frontend.ts --manifest <file:line>`: Generates zero-search agent handoff manifest.",
-    "- `npx tsx scripts/audit-frontend.ts --find <query>`: Instant sub-second search across components, text labels, and icons.",
-    "- `npx tsx scripts/audit-frontend.ts --update`: Checks and updates frontend-audit-skill to latest GitHub release.",
-    "- `npx tsx scripts/audit-frontend.ts --watch`: Live file watcher for continuous background sync.",
-    "- `npx tsx scripts/audit-frontend.ts --dead`: Scans for potential orphaned components.",
+    "- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (both `docs/frontend-atlas/` and `docs/backend-atlas/`).",
+    "- `npm run audit:frontend`: Regenerates only the Frontend Atlas (`docs/frontend-atlas/`).",
+    "- `npm run audit:backend`: Regenerates only the Backend Atlas (`docs/backend-atlas/`).",
+    "- `npm run audit:theme` or `npx fullstack-audit --theme`: Generates `THEME_MIGRATION_PUNCHLIST.md` for whole-website rebrands.",
+    "- `npx fullstack-audit --verify`: Closed-loop verification gate (TypeScript compile + metric deltas).",
+    "- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.",
+    "- `npx fullstack-audit --find <query>`: Instant sub-second search across components, text labels, and icons.",
+    "- `npx fullstack-audit --update`: Checks and updates fullstack-audit-skill to latest GitHub release.",
+    "- `npx fullstack-audit --watch`: Live file watcher for continuous background sync.",
+    "- `npx fullstack-audit --dead`: Scans for potential orphaned components.",
     "<!-- END_FRONTEND_AUDIT_RULE -->",
+    "<!-- END_FULLSTACK_AUDIT_RULE -->",
   ].join("\n");
 
   const candidates = ["AGENTS.md", "GEMINI.md", "CLAUDE.md"];
@@ -1851,7 +2121,11 @@ function syncAgentRulesInPlace() {
   for (const f of candidates) {
     if (fs.existsSync(f)) {
       const content = fs.readFileSync(f, "utf8");
-      if (content.includes("<!-- START_FRONTEND_AUDIT_RULE -->") || /Frontend Architecture\s*&(?:amp;)?\s*Component Lookup/.test(content)) {
+      if (
+        content.includes("<!-- START_FULLSTACK_AUDIT_RULE -->") ||
+        content.includes("<!-- START_FRONTEND_AUDIT_RULE -->") ||
+        /(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup/.test(content)
+      ) {
         targetFile = f;
         break;
       }
@@ -1871,46 +2145,46 @@ function syncAgentRulesInPlace() {
     targetFile = "AGENTS.md";
   }
 
-  const markerPattern = /<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->/;
-  const legacyPattern = /##[ \t]*[^\r\n#]*?Frontend Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*[\s\S]*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|$)/;
+  const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
+  const legacyPattern = /##[ \t]*[^\r\n#]*?(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*[\s\S]*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|$)/;
 
   if (fs.existsSync(targetFile)) {
     let content = fs.readFileSync(targetFile, "utf8");
     if (markerPattern.test(content)) {
       content = content.replace(markerPattern, ruleBlock);
       fs.writeFileSync(targetFile, content, "utf8");
-      console.log(`🔄 Cleanly updated Frontend Architecture Rule in ${targetFile}`);
+      console.log(`🔄 Cleanly updated Fullstack Architecture Rule in ${targetFile}`);
     } else if (legacyPattern.test(content)) {
       content = content.replace(legacyPattern, ruleBlock);
       fs.writeFileSync(targetFile, content, "utf8");
-      console.log(`🔄 Upgraded legacy Frontend Architecture Rule in-place in ${targetFile}`);
+      console.log(`🔄 Upgraded legacy Architecture Rule in-place in ${targetFile}`);
     } else {
       content = content.trimEnd() + "\n\n" + ruleBlock + "\n";
       fs.writeFileSync(targetFile, content, "utf8");
-      console.log(`🔗 Injected Frontend Architecture Rule into ${targetFile}`);
+      console.log(`🔗 Injected Fullstack Architecture Rule into ${targetFile}`);
     }
   } else {
     fs.writeFileSync(targetFile, `# AGENTS.md — Workspace Guidelines for AI Assistants\n\n${ruleBlock}\n`, "utf8");
-    console.log(`📄 Created AGENTS.md with 100% Always-Active Frontend Atlas rule!`);
+    console.log(`📄 Created AGENTS.md with 100% Always-Active Fullstack Atlas rule!`);
   }
 }
 
 // Automated Self-Updater (--update)
 async function executeSelfUpdate() {
-  console.log("📥 Checking for frontend-audit-skill updates from GitHub (Eurie92/frontend-audit-skill)...");
+  console.log("📥 Checking for fullstack-audit-skill updates from GitHub (Eurie92/fullstack-audit-skill)...");
   try {
-    const pkgRes = await fetch("https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/package.json");
+    const pkgRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/package.json");
     if (!pkgRes.ok) {
       console.error(`❌ HTTP ${pkgRes.status} fetching remote package.json. Please check your internet connection.`);
       return;
     }
     const remotePkg = (await pkgRes.json()) as { version: string };
 
-    let currentVersion = "1.7.0";
+    let currentVersion = "2.0.0";
     if (fs.existsSync("package.json")) {
       try {
         const localPkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-        if (localPkg.name === "frontend-audit-skill" && localPkg.version) {
+        if ((localPkg.name === "fullstack-audit-skill" || localPkg.name === "frontend-audit-skill") && localPkg.version) {
           currentVersion = localPkg.version;
         }
       } catch {}
@@ -1919,40 +2193,56 @@ async function executeSelfUpdate() {
     console.log(`📦 Installed: v${currentVersion} | Latest Remote: v${remotePkg.version}`);
 
     // In local development repo: don't overwrite local uncommitted source unless remote is strictly newer
-    const isDevelopmentRepo = fs.existsSync(".git") && fs.existsSync("package.json") && !fs.existsSync(".agent/skills/frontend-audit");
+    const isDevelopmentRepo = fs.existsSync(".git") && fs.existsSync("package.json") && !fs.existsSync(".agent/skills/fullstack-audit");
     if (isDevelopmentRepo && remotePkg.version === currentVersion) {
       console.log("💡 Currently in active development repository. Synchronizing rules and atlas without overwriting local source.");
       syncAgentRulesInPlace();
       runUniversalFrontendAudit();
+      await runUniversalBackendAudit();
       console.log("🎉 Local development environment is 100% up to date!");
       return;
     }
 
-    console.log("📥 Downloading latest SKILL.md and scripts/audit.ts...");
-    const skillRes = await fetch("https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/SKILL.md");
+    console.log("📥 Downloading latest SKILL.md, scripts/audit.ts, and scripts/audit-backend.ts...");
+    const skillRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/SKILL.md");
     const skillContent = await skillRes.text();
 
-    const auditRes = await fetch("https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/audit.ts");
+    const auditRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/audit.ts");
     const auditContent = await auditRes.text();
 
-    const skillPath = fs.existsSync(".agent/skills/frontend-audit/SKILL.md")
-      ? ".agent/skills/frontend-audit/SKILL.md"
-      : "SKILL.md";
-    const auditPath = fs.existsSync(".agent/skills/frontend-audit/scripts/audit.ts")
-      ? ".agent/skills/frontend-audit/scripts/audit.ts"
-      : "scripts/audit.ts";
+    const backendRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/audit-backend.ts");
+    const backendContent = await backendRes.text();
 
-    fs.writeFileSync(skillPath, skillContent, "utf8");
-    fs.writeFileSync(auditPath, auditContent, "utf8");
-    console.log(`✅ Successfully updated ${skillPath} and ${auditPath}`);
+    // Target locations: primary is fullstack-audit, legacy mirror is frontend-audit
+    const primaryDir = fs.existsSync(".agent/skills") ? ".agent/skills/fullstack-audit" : "";
+    const legacyDir = fs.existsSync(".agent/skills/frontend-audit") ? ".agent/skills/frontend-audit" : "";
+
+    const writeTarget = (baseDir: string) => {
+      if (!baseDir) return;
+      fs.mkdirSync(path.join(baseDir, "scripts"), { recursive: true });
+      fs.writeFileSync(path.join(baseDir, "SKILL.md"), skillContent, "utf8");
+      fs.writeFileSync(path.join(baseDir, "scripts", "audit.ts"), auditContent, "utf8");
+      fs.writeFileSync(path.join(baseDir, "scripts", "audit-backend.ts"), backendContent, "utf8");
+    };
+
+    if (primaryDir) writeTarget(primaryDir);
+    if (legacyDir) writeTarget(legacyDir);
+    if (!primaryDir && !legacyDir) {
+      fs.writeFileSync("SKILL.md", skillContent, "utf8");
+      fs.writeFileSync("scripts/audit.ts", auditContent, "utf8");
+      fs.writeFileSync("scripts/audit-backend.ts", backendContent, "utf8");
+    }
+
+    console.log(`✅ Successfully updated fullstack-audit-skill engine`);
 
     // Update agent rules in-place
     syncAgentRulesInPlace();
 
-    console.log("\n🔄 Refreshing Frontend Atlas with newly updated skill engine...");
+    console.log("\n🔄 Refreshing Fullstack Atlas with newly updated skill engine...");
     runUniversalFrontendAudit();
+    await runUniversalBackendAudit();
 
-    console.log(`\n🎉 frontend-audit-skill successfully synchronized to v${remotePkg.version}!`);
+    console.log(`\n🎉 fullstack-audit-skill successfully synchronized to v${remotePkg.version}!`);
   } catch (err: any) {
     console.error(`❌ Update failed: ${err.message}`);
   }
@@ -2270,6 +2560,97 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     }
     console.log();
   }
+
+  // Search Interactive Triggers (Buttons, Triggers, Clickable Containers, Links)
+  const matchingTriggers: { file: string; line: number; element: string; type: string; handler?: string; target?: string }[] = [];
+  audits.forEach(a => {
+    a.interactiveTriggers.forEach(t => {
+      if (
+        t.tagName.toLowerCase().includes(q) ||
+        t.triggerType.toLowerCase().includes(q) ||
+        (t.handlerName && t.handlerName.toLowerCase().includes(q)) ||
+        (t.disclosesTarget && t.disclosesTarget.toLowerCase().includes(q))
+      ) {
+        matchingTriggers.push({
+          file: a.relativePath,
+          line: t.line,
+          element: t.tagName,
+          type: t.triggerType,
+          handler: t.handlerName,
+          target: t.disclosesTarget,
+        });
+      }
+    });
+  });
+
+  if (matchingTriggers.length > 0) {
+    console.log(`🔘 Matching Interactive Triggers & Clickable Elements (${matchingTriggers.length}):`);
+    matchingTriggers.slice(0, 10).forEach(t => {
+      const handlerStr = t.handler ? ` [Handler: ${t.handler}]` : "";
+      const targetStr = t.target ? ` [Target: ${t.target}]` : "";
+      console.log(`   - ${t.element} (${t.type})${handlerStr}${targetStr} ➡️ ${t.file}:${t.line}`);
+    });
+    if (matchingTriggers.length > 10) {
+      console.log(`     (+${matchingTriggers.length - 10} more matches in 02_COMPONENT_INVENTORY.md)`);
+    }
+    console.log();
+  }
+
+  // Search Disclosed Overlays & Modal Windows
+  const matchingOverlays: { file: string; line: number; name: string; type: string; condition?: string }[] = [];
+  audits.forEach(a => {
+    a.disclosedOverlays.forEach(o => {
+      if (
+        o.name.toLowerCase().includes(q) ||
+        o.type.toLowerCase().includes(q) ||
+        (o.conditionVariable && o.conditionVariable.toLowerCase().includes(q))
+      ) {
+        matchingOverlays.push({
+          file: a.relativePath,
+          line: o.line,
+          name: o.name,
+          type: o.type,
+          condition: o.conditionVariable,
+        });
+      }
+    });
+  });
+
+  if (matchingOverlays.length > 0) {
+    console.log(`🪟 Matching Disclosed Overlays & Modal Windows (${matchingOverlays.length}):`);
+    matchingOverlays.slice(0, 8).forEach(o => {
+      const condStr = o.condition ? ` [Condition: ${o.condition}]` : "";
+      console.log(`   - <${o.name}> (${o.type})${condStr} ➡️ ${o.file}:${o.line}`);
+    });
+    if (matchingOverlays.length > 8) {
+      console.log(`     (+${matchingOverlays.length - 8} more matches in 02_COMPONENT_INVENTORY.md)`);
+    }
+    console.log();
+  }
+
+  // Search Live Status Dots & Capsule Pills
+  const matchingDots: { file: string; line: number; color: string; isPulsing: boolean }[] = [];
+  audits.forEach(a => {
+    a.liveStatusDots.forEach(d => {
+      if (d.color.toLowerCase().includes(q) || (q.includes("pulse") && d.isPulsing) || q.includes("dot")) {
+        matchingDots.push({
+          file: a.relativePath,
+          line: d.line,
+          color: d.color,
+          isPulsing: d.isPulsing,
+        });
+      }
+    });
+  });
+
+  if (matchingDots.length > 0) {
+    console.log(`🟢 Matching Live Status Dots (${matchingDots.length}):`);
+    matchingDots.slice(0, 8).forEach(d => {
+      const pulseStr = d.isPulsing ? " [animate-pulse ⚡]" : "";
+      console.log(`   - Dot: ${d.color}${pulseStr} ➡️ ${d.file}:${d.line}`);
+    });
+    console.log();
+  }
 }
 
 // 12. Main Runner
@@ -2452,24 +2833,113 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
 function writeComponentInventory(audits: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "02_COMPONENT_INVENTORY.md");
   let md = `# 🧩 Component & Elements Inventory\n\n`;
-  md += `> Comprehensive catalog of UI elements (Buttons, Modals, Live Dots, Capsule Pills, Cards) across all panels.\n\n`;
+  md += `> Comprehensive catalog of UI elements (Interactive Triggers, Disclosed Overlays, Modals, Live Dots, Capsule Pills, Buttons, Cards) across all panels.\n\n`;
 
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
   const totalUiButtons = audits.reduce((acc, a) => acc + a.uiButtons.length, 0);
+  const totalInteractiveTriggers = audits.reduce((acc, a) => acc + a.interactiveTriggers.length, 0);
+  const totalDisclosedOverlays = audits.reduce((acc, a) => acc + a.disclosedOverlays.length, 0);
   const totalA11yIssues = audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0);
   const totalLiveDots = audits.reduce((acc, a) => acc + a.liveStatusDots.length, 0);
   const totalCapsules = audits.reduce((acc, a) => acc + a.capsulePills.length, 0);
   const totalModals = audits.reduce((acc, a) => acc + a.disclosedElements.length, 0);
 
   md += `## 📊 Quick Summary\n\n`;
+  md += `- **Interactive Clickable Triggers (AST Scanned)**: **${totalInteractiveTriggers}** elements (Buttons, Triggers, Clickable Containers, Links)\n`;
+  md += `- **Disclosed Overlays & Windows (AST Scanned)**: **${totalDisclosedOverlays}** overlays (Modals, Sheets, Drawers, Dropdowns, Popovers)\n`;
   md += `- **Standardized UI Buttons**: **${totalUiButtons}** usages\n`;
   md += `- **Raw HTML Button Tags**: **${totalRawButtons}** usages (Potential UI islands)\n`;
   md += `- **Accessibility (a11y) Flags**: **${totalA11yIssues}** buttons missing \`aria-label\` or explicit \`type="button"\`\n`;
   md += `- **🟢 Live Status Indicators & Pulse Dots**: **${totalLiveDots}** occurrences\n`;
-  md += `- **💊 Capsule Pills & Badges**: **${totalCapsules}** occurrences\n`;
-  md += `- **🪟 Modals, Drawers & Disclosed Panels**: **${totalModals}** elements\n\n`;
+  md += `- **💊 Capsule Pills & Badges**: **${totalCapsules}** occurrences\n\n`;
 
-  md += `## 🔘 Button Usage Summary & a11y Fast-Check\n\n`;
+  // Section 1: Interactive Triggers & Clickable Elements (AST Scanned)
+  md += `## 🔘 Interactive Triggers & Clickable Elements (AST Scanned)\n\n`;
+  md += `Exhaustive index of every interactive element with its action handler and disclosed target:\n\n`;
+  md += `| Zone | File | Line | Element | Trigger Type | Action Handler / OnClick | Disclosed Target | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.interactiveTriggers.length > 0) {
+      a.interactiveTriggers.forEach(t => {
+        const fileLink = makeFileLink(a.relativePath, t.line, `${a.relativePath}:${t.line}`);
+        const handlerStr = t.handlerName ? `\`${escapeMarkdownSnippet(t.handlerName, 35)}\`` : `_None_`;
+        const targetStr = t.disclosesTarget ? `🎯 \`${escapeMarkdownSnippet(t.disclosesTarget, 30)}\`` : `_Action / Nav_`;
+        const cleanSnippet = escapeMarkdownSnippet(t.snippet, 40);
+        md += `| ${a.zone} | ${fileLink} | ${t.line} | \`${escapeMarkdownSnippet(t.tagName, 25)}\` | \`${t.triggerType}\` | ${handlerStr} | ${targetStr} | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // Section 2: Disclosed Overlays, Modals & Dynamic Windows (AST Scanned)
+  const modalImporters = new Map<string, string[]>();
+  audits.forEach(a => {
+    a.imports.forEach(imp => {
+      const impBase = path.basename(imp).replace(/\.[^/.]+$/, "");
+      if (!modalImporters.has(impBase)) modalImporters.set(impBase, []);
+      modalImporters.get(impBase)!.push(a.relativePath);
+    });
+  });
+
+  md += `\n## 🪟 Disclosed Overlays, Modals & Dynamic Windows (AST Scanned)\n\n`;
+  md += `Interactive overlay containers with reverse route caller tracking and disclosure state:\n\n`;
+  md += `| Zone | File | Line | Overlay Component | Overlay Type | Condition / Disclose State | Calling Routes / Importers | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.disclosedOverlays.length > 0) {
+      const fileBase = path.basename(a.relativePath).replace(/\.[^/.]+$/, "");
+      const callers = modalImporters.get(fileBase) || [];
+      const callersStr = callers.length > 0
+        ? callers.slice(0, 3).map(c => `\`${path.basename(c)}\``).join(", ")
+        : `_Inline or Root_`;
+
+      a.disclosedOverlays.forEach(m => {
+        const fileLink = makeFileLink(a.relativePath, m.line, `${a.relativePath}:${m.line}`);
+        const condStr = m.conditionVariable ? `\`${escapeMarkdownSnippet(m.conditionVariable, 30)}\`` : `_Always Mounted / Prop Controlled_`;
+        const cleanSnippet = escapeMarkdownSnippet(m.snippet, 40);
+        md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${escapeMarkdownSnippet(m.name, 25)}\` | \`${m.type}\` | ${condStr} | ${callersStr} | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // Section 3: Live Status Indicators & Pulse Dots
+  md += `\n## 🟢 Live Status Indicators & Pulse Dots (${totalLiveDots})\n\n`;
+  md += `Live status indicators, pulsing dots (\`animate-pulse\`), and badge pips:\n\n`;
+  md += `| Zone | File | Line | Dot Type / Color | Pulse State | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.liveStatusDots.length > 0) {
+      a.liveStatusDots.forEach(dot => {
+        const fileLink = makeFileLink(a.relativePath, dot.line, `${a.relativePath}:${dot.line}`);
+        const pulseBadge = dot.isPulsing ? "`animate-pulse ⚡`" : "`Static Dot`";
+        const cleanSnippet = escapeMarkdownSnippet(dot.snippet, 45);
+        md += `| ${a.zone} | ${fileLink} | ${dot.line} | \`${dot.color}\` | ${pulseBadge} | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // Section 4: Capsule Pills & Badges
+  md += `\n## 💊 Capsule Pills, Status Badges & Tags (${totalCapsules})\n\n`;
+  md += `Elements styled with \`rounded-full\` for pills, status chips, and tags:\n\n`;
+  md += `| Zone | File | Line | Label / Badge Text | Classes Found | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  audits.forEach(a => {
+    if (a.capsulePills.length > 0) {
+      a.capsulePills.forEach(pill => {
+        const fileLink = makeFileLink(a.relativePath, pill.line, `${a.relativePath}:${pill.line}`);
+        const labelText = pill.label ? `**${escapeMarkdownSnippet(pill.label, 25)}**` : `_Icon/Tag_`;
+        const cleanClasses = escapeMarkdownSnippet(pill.classes, 30);
+        const cleanSnippet = escapeMarkdownSnippet(pill.snippet, 40);
+        md += `| ${a.zone} | ${fileLink} | ${pill.line} | ${labelText} | \`${cleanClasses}\` | \`${cleanSnippet}\` |\n`;
+      });
+    }
+  });
+
+  // Section 5: Button Usage Summary & a11y Fast-Check
+  md += `\n## 🔘 Raw Button Usage & a11y Fast-Check\n\n`;
   md += `| Zone | File | Line | Snippet Preview | a11y Flags |\n`;
   md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
@@ -2489,73 +2959,7 @@ function writeComponentInventory(audits: ComponentAudit[]) {
     }
   });
 
-  // Section 2: Live Status Indicators & Pulse Dots
-  md += `\n## 🟢 Live Status Indicators & Pulse Dots (${totalLiveDots})\n\n`;
-  md += `Live status indicators, pulsing dots (\`animate-pulse\`), and badge pips:\n\n`;
-  md += `| Zone | File | Line | Dot Type / Color | Pulse State | Snippet Preview |\n`;
-  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
-
-  audits.forEach(a => {
-    if (a.liveStatusDots.length > 0) {
-      a.liveStatusDots.forEach(dot => {
-        const fileLink = makeFileLink(a.relativePath, dot.line, `${a.relativePath}:${dot.line}`);
-        const pulseBadge = dot.isPulsing ? "`animate-pulse ⚡`" : "`Static Dot`";
-        const cleanSnippet = escapeMarkdownSnippet(dot.snippet, 45);
-        md += `| ${a.zone} | ${fileLink} | ${dot.line} | \`${dot.color}\` | ${pulseBadge} | \`${cleanSnippet}\` |\n`;
-      });
-    }
-  });
-
-  // Section 3: Capsule Pills & Badges
-  md += `\n## 💊 Capsule Pills, Status Badges & Tags (${totalCapsules})\n\n`;
-  md += `Elements styled with \`rounded-full\` for pills, status chips, and tags:\n\n`;
-  md += `| Zone | File | Line | Label / Badge Text | Classes Found | Snippet Preview |\n`;
-  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
-
-  audits.forEach(a => {
-    if (a.capsulePills.length > 0) {
-      a.capsulePills.forEach(pill => {
-        const fileLink = makeFileLink(a.relativePath, pill.line, `${a.relativePath}:${pill.line}`);
-        const labelText = pill.label ? `**${escapeMarkdownSnippet(pill.label, 25)}**` : `_Icon/Tag_`;
-        const cleanClasses = escapeMarkdownSnippet(pill.classes, 30);
-        const cleanSnippet = escapeMarkdownSnippet(pill.snippet, 40);
-        md += `| ${a.zone} | ${fileLink} | ${pill.line} | ${labelText} | \`${cleanClasses}\` | \`${cleanSnippet}\` |\n`;
-      });
-    }
-  });
-
-  // Section 4: Disclosed Modals, Drawers & Sheets with Reverse Route Mapping
-  const modalImporters = new Map<string, string[]>();
-  audits.forEach(a => {
-    a.imports.forEach(imp => {
-      const impBase = path.basename(imp).replace(/\.[^/.]+$/, "");
-      if (!modalImporters.has(impBase)) modalImporters.set(impBase, []);
-      modalImporters.get(impBase)!.push(a.relativePath);
-    });
-  });
-
-  md += `\n## 🪟 Disclosed Modals, Drawers & Sheets (${totalModals})\n\n`;
-  md += `Interactive overlay containers with reverse route caller tracking:\n\n`;
-  md += `| Zone | File | Line | Element / Type | Triggering Routes / Importers | Snippet Preview |\n`;
-  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
-
-  audits.forEach(a => {
-    if (a.disclosedElements.length > 0) {
-      const fileBase = path.basename(a.relativePath).replace(/\.[^/.]+$/, "");
-      const callers = modalImporters.get(fileBase) || [];
-      const callersStr = callers.length > 0
-        ? callers.slice(0, 3).map(c => `\`${path.basename(c)}\``).join(", ")
-        : `_Inline or Root_`;
-
-      a.disclosedElements.forEach(m => {
-        const fileLink = makeFileLink(a.relativePath, m.line, `${a.relativePath}:${m.line}`);
-        const cleanSnippet = escapeMarkdownSnippet(m.snippet, 45);
-        md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${m.name}\` (${m.type}) | ${callersStr} | \`${cleanSnippet}\` |\n`;
-      });
-    }
-  });
-
-  // Section 5: Cards & Panels
+  // Section 6: Cards & Panels
   md += `\n## 📦 Cards, Panels & Surface Containers\n\n`;
   md += `| Zone | File | Surface Classes Found |\n`;
   md += `| :--- | :--- | :--- |\n`;
@@ -2758,7 +3162,7 @@ function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: Component
   const filesWithRawButtons = audits.filter(a => a.rawButtons.length > 0 && a.zone !== "Shared UI Primitives");
   md += `## 🔘 Raw Button Islands (${filesWithRawButtons.length} files)\n`;
   md += `Files that implement native button tags instead of standardized button components.\n`;
-  md += `- **Remediation**: Run \`npx frontend-audit --fix-buttons\` to auto-migrate to standardized Button components.\n\n`;
+  md += `- **Remediation**: Run \`npx fullstack-audit --fix-buttons\` to auto-migrate to standardized Button components.\n\n`;
 
   const customModalFiles = audits.filter(a => a.modalsAndDialogs.length > 0 && !a.relativePath.includes("components/ui"));
   md += `## 🪟 Custom Modal Redundancies (${customModalFiles.length} files)\n`;
@@ -2987,7 +3391,7 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
 
   let md = `# 📖 Frontend Atlas & Quick-Reference Catalog\n\n`;
   md += `> Centralized documentation and audit ledger for this project.\n`;
-  md += `> 💡 **Tip**: Type \`/frontend-audit\` in AI chat or run \`npx frontend-audit\` in terminal to refresh.\n\n`;
+  md += `> 💡 **Tip**: Type \`/fullstack-audit\` in AI chat or run \`npx fullstack-audit\` (or \`npm run audit\`) to refresh.\n\n`;
 
   md += `## 📊 Platform Statistics\n\n`;
   md += `- **Framework Architecture**: **${structure.framework}**\n`;
@@ -3001,36 +3405,34 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `- **Indexed Visual Icons**: **${totalIcons}**\n\n`;
 
   md += `## 📑 Atlas Documents Guide\n\n`;
+  md += `### Frontend Atlas (\`docs/frontend-atlas/\`)\n\n`;
   md += `1. **[01_ROUTES_AND_PANELS_MAP.md](./01_ROUTES_AND_PANELS_MAP.md)**\n`;
   md += `   - Instant lookup linking every route directly to its page file, Next.js boundary (\`Client ⚡\` vs \`Server 🖥️\`), layout, and 2-level deep component tree.\n\n`;
-
   md += `2. **[02_COMPONENT_INVENTORY.md](./02_COMPONENT_INVENTORY.md)**\n`;
-  md += `   - Complete inventory of Buttons, Modals, Drawers, and a11y fast-check flags.\n\n`;
-
+  md += `   - Exhaustive catalog of Interactive Triggers (AST scanned), Disclosed Overlays & Modals, Live Status Dots, Capsule Pills, and a11y flags.\n\n`;
   md += `3. **[03_DESIGN_TOKENS_AND_COLORS.md](./03_DESIGN_TOKENS_AND_COLORS.md)**\n`;
-  md += `   - Color palettes, typography tokens, and exact line-by-line list of all rogue colors.\n\n`;
-
+  md += `   - Universal Tailwind Palette Matrix (all 22+ colors), dark mode asymmetries, and hardcoded hex registry.\n\n`;
   md += `4. **[04_UI_ISLANDS_AND_DRIFT.md](./04_UI_ISLANDS_AND_DRIFT.md)**\n`;
   md += `   - High-priority list of discrepancies, UI redundancies, and isolated styling.\n\n`;
-
   md += `5. **[05_DEAD_ORPHANED_COMPONENTS.md](./05_DEAD_ORPHANED_COMPONENTS.md)**\n`;
   md += `   - Dedicated punch-list and safety checklist for unused and orphaned components.\n\n`;
-
   md += `6. **[06_VISIBLE_TEXT_AND_LABELS_MAP.md](./06_VISIBLE_TEXT_AND_LABELS_MAP.md)**\n`;
   md += `   - Master index of buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.\n\n`;
-
   md += `7. **[07_VISUAL_AND_ICON_INDEX.md](./07_VISUAL_AND_ICON_INDEX.md)**\n`;
   md += `   - Master index of Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.\n\n`;
-
   md += `8. **[08_DISPATCH_GATEWAY.md](./08_DISPATCH_GATEWAY.md)**\n`;
   md += `   - Inter-skill handoff matrix routing diagnosed UI findings to specialized peer skills (\`emil-design-eng\`, \`ui-ux-pro-max\`, \`a11y-debugging\`, \`impeccable\`).\n\n`;
+  md += `9. **[THEME_MIGRATION_PUNCHLIST.md](./THEME_MIGRATION_PUNCHLIST.md)**\n`;
+  md += `   - Actionable checklist generated via \`--theme\` for complete website rebrands and dark mode upgrades.\n\n`;
+  md += `### Backend Atlas (\`docs/backend-atlas/\`)\n\n`;
+  md += `- See **[Backend Atlas Overview](../backend-atlas/README.md)** for API routes, database schemas, server actions, auth guards, and bi-directional cross-reference map.\n\n`;
 
   md += `## 📦 How to Install / Update this Skill\n\n`;
   md += `To install or update to the latest version in any project:\n\n`;
-  md += `- **CLI Self-Updater**: \`npx frontend-audit --update\` (or \`npx tsx scripts/audit-frontend.ts --update\`)\n`;
-  md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.ps1 | iex\`\n`;
-  md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/frontend-audit-skill/main/scripts/install.sh | bash\`\n`;
-  md += `- **GitHub Repository**: [Eurie92/frontend-audit-skill](https://github.com/Eurie92/frontend-audit-skill)\n\n`;
+  md += `- **CLI Self-Updater**: \`npx fullstack-audit --update\` (or \`npm run audit\`)\n`;
+  md += `- **Windows (PowerShell)**: \`irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1 | iex\`\n`;
+  md += `- **macOS / Linux**: \`curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash\`\n`;
+  md += `- **GitHub Repository**: [Eurie92/fullstack-audit-skill](https://github.com/Eurie92/fullstack-audit-skill)\n\n`;
 
   fs.writeFileSync(filePath, md);
 }

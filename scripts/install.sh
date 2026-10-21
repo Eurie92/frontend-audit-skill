@@ -61,7 +61,7 @@ CANDIDATES=("AGENTS.md" "GEMINI.md" "CLAUDE.md")
 # 1. If any candidate file ALREADY has the rule or markers, target ONLY that file to prevent duplicate injections
 for f in "${CANDIDATES[@]}"; do
     if [ -f "$f" ]; then
-        if grep -q "<!-- START_FRONTEND_AUDIT_RULE -->" "$f" || grep -qE "Frontend Architecture\s*&((amp;)?\s*)?Component Lookup" "$f"; then
+        if grep -q "<!-- START_FULLSTACK_AUDIT_RULE -->" "$f" || grep -q "<!-- START_FRONTEND_AUDIT_RULE -->" "$f" || grep -qE "(Fullstack|Frontend) Architecture\s*&((amp;)?\s*)?Component Lookup" "$f"; then
             TARGET_FILE="$f"
             break
         fi
@@ -92,33 +92,42 @@ const target = process.argv[1];
 const newRule = process.env.RULE_BLOCK;
 let content = fs.readFileSync(target, "utf8");
 
-const markerPattern = /<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->/;
-const legacyPattern = /##[ \t]*[^\r\n#]*?Frontend Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*[\s\S]*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|$)/;
+const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
+const legacyPattern = /##[ \t]*[^\r\n#]*?(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*[\s\S]*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|$)/;
 
 if (markerPattern.test(content)) {
     content = content.replace(markerPattern, newRule);
-    console.log(`🔄 Cleanly updated Frontend Architecture Rule in ${target}`);
+    console.log(`🔄 Cleanly updated Fullstack Architecture Rule in ${target}`);
 } else if (legacyPattern.test(content)) {
     content = content.replace(legacyPattern, newRule);
-    console.log(`🔄 Upgraded legacy Frontend Architecture Rule in-place in ${target}`);
+    console.log(`🔄 Upgraded legacy Architecture Rule in-place in ${target}`);
 } else {
     content = content.trimEnd() + "\n\n" + newRule + "\n";
-    console.log(`🔗 Injected Frontend Architecture Rule into ${target}`);
+    console.log(`🔗 Injected Fullstack Architecture Rule into ${target}`);
 }
 fs.writeFileSync(target, content, "utf8");
 ' "$TARGET_FILE"
     else
-        if grep -q "<!-- START_FRONTEND_AUDIT_RULE -->" "$TARGET_FILE"; then
+        if grep -q "<!-- START_FULLSTACK_AUDIT_RULE -->" "$TARGET_FILE" || grep -q "<!-- START_FRONTEND_AUDIT_RULE -->" "$TARGET_FILE"; then
             echo "ℹ️ Rule already present in $TARGET_FILE"
         else
             echo -e "\n$RULE_BLOCK" >> "$TARGET_FILE"
-            echo "🔗 Injected Frontend Architecture Rule into $TARGET_FILE"
+            echo "🔗 Injected Fullstack Architecture Rule into $TARGET_FILE"
         fi
     fi
 else
     echo -e "# AGENTS.md — Workspace Guidelines for AI Assistants\n\n$RULE_BLOCK\n" > "AGENTS.md"
-    echo "📄 Created AGENTS.md with 100% Always-Active Frontend Atlas rule!"
+    echo "📄 Created AGENTS.md with 100% Always-Active Fullstack Atlas rule!"
 fi
 
-echo "✅ frontend-audit-skill successfully installed / updated in $TARGET_DIR!"
-echo "💡 You can now type '/frontend-audit' directly in your AI chat."
+# Mirror to .agent/skills/frontend-audit for 100% backward compatibility
+LEGACY_DIR=".agent/skills/frontend-audit"
+if [ -d "$LEGACY_DIR" ]; then
+    mkdir -p "$LEGACY_DIR/scripts"
+    cp -f "$TARGET_DIR/SKILL.md" "$LEGACY_DIR/SKILL.md"
+    cp -f "$TARGET_DIR/scripts/audit.ts" "$LEGACY_DIR/scripts/audit.ts"
+    cp -f "$TARGET_DIR/scripts/audit-backend.ts" "$LEGACY_DIR/scripts/audit-backend.ts"
+fi
+
+echo "✅ fullstack-audit-skill successfully installed / updated in $TARGET_DIR!"
+echo "💡 You can now type '/fullstack-audit' (or '/frontend-audit') directly in your AI chat."

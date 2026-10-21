@@ -75,17 +75,33 @@ async function runTestMatrix() {
     fs.writeFileSync(path.join(nextAppDir, "next.config.js"), "module.exports = {};");
     fs.writeFileSync(path.join(nextAppDir, "app", "layout.tsx"), `export default function RootLayout({ children }: { children: any }) { return <html><body>{children}</body></html>; }`);
     fs.writeFileSync(path.join(nextAppDir, "app", "page.tsx"), `
+      "use client";
+      import { useState } from "react";
       import { Button } from "@/components/ui/button";
       import { UserCard } from "@/components/UserCard";
+      import { GuestCheckoutModal } from "@/components/GuestCheckoutModal";
       export default function HomePage() {
-        return (<div><h1>Home</h1><Button variant="default">Click Me</Button><UserCard /></div>);
+        const [isOpen, setIsOpen] = useState(false);
+        return (
+          <div>
+            <h1>Home</h1>
+            <Button variant="default" onClick={() => setIsOpen(true)}>Open Modal</Button>
+            <UserCard />
+            {isOpen && <GuestCheckoutModal open={isOpen} />}
+          </div>
+        );
       }
     `);
     fs.writeFileSync(path.join(nextAppDir, "app", "dashboard", "page.tsx"), `
       export default function DashboardPage() { return <div>Dashboard</div>; }
     `);
     fs.writeFileSync(path.join(nextAppDir, "components", "ui", "button.tsx"), `
-      export function Button({ variant, children }: any) { return <button className="ui-btn">{children}</button>; }
+      export function Button({ variant, children, onClick }: any) { return <button className="ui-btn" onClick={onClick}>{children}</button>; }
+    `);
+    fs.writeFileSync(path.join(nextAppDir, "components", "GuestCheckoutModal.tsx"), `
+      export function GuestCheckoutModal({ open }: { open: boolean }) {
+        return open ? <div role="dialog">Checkout Modal</div> : null;
+      }
     `);
     fs.writeFileSync(path.join(nextAppDir, "components", "UserCard.tsx"), `
       import { Sparkles } from "lucide-react";
@@ -103,10 +119,16 @@ async function runTestMatrix() {
     const res1 = runAuditInDir(nextAppDir);
     assert(res1.status === 0, "Next.js App Router runs without error");
     assert(res1.stdout.includes("Next.js (App Router)"), "Correctly detects Next.js (App Router)");
-    assert(res1.stdout.includes("Audited 5 frontend files across 2 routes"), "Audits 5 files across 2 routes");
+    assert(res1.stdout.includes("Audited 6 frontend files across 2 routes"), "Audits 6 files across 2 routes");
     const routes1 = fs.readFileSync(path.join(nextAppDir, "docs", "frontend-atlas", "01_ROUTES_AND_PANELS_MAP.md"), "utf-8");
     assert(routes1.includes("`/`") && routes1.includes("`/dashboard`"), "Route map contains `/` and `/dashboard`");
     assert(routes1.includes("layout.tsx"), "Route map resolves layout.tsx");
+
+    const inventory1 = fs.readFileSync(path.join(nextAppDir, "docs", "frontend-atlas", "02_COMPONENT_INVENTORY.md"), "utf-8");
+    assert(inventory1.includes("Interactive Triggers & Clickable Elements (AST Scanned)"), "Includes AST interactive triggers section");
+    assert(inventory1.includes("Disclosed Overlays, Modals & Dynamic Windows (AST Scanned)"), "Includes AST disclosed overlays section");
+    assert(inventory1.includes("GuestCheckoutModal"), "AST indexes GuestCheckoutModal overlay");
+    assert(inventory1.includes("setIsOpen"), "AST indexes onClick handler setIsOpen");
 
     // =========================================================================
     // TEST 2: Next.js (Pages Router)
