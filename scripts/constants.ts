@@ -3,9 +3,9 @@
  * Single source of truth for versioning, engine metadata, and harness definitions.
  */
 
-export const FULLSTACK_AUDIT_VERSION = "2.8.0";
-export const FULLSTACK_AUDIT_ENGINE = "Multi-Harness & Inverted Index v2.8.0";
-export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-22";
+export const FULLSTACK_AUDIT_VERSION = "2.9.0";
+export const FULLSTACK_AUDIT_ENGINE = "4-Phase Synergy Engine v2.9.0";
+export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-23";
 
 export interface VersionInfo {
   version: string;
@@ -43,4 +43,3 @@ export interface AtlasIndex {
   totalEntries: number;
   entries: AtlasIndexEntry[];
 }
-

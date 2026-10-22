@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.9.0] - 2026-10-23
+
+> **Release Tier**: `MEDIUM (Minor Feature & Architecture Release)`  
+> **Summary**: Introduces the **4-Phase Synergy Engine** unifying `fullstack-audit`, `ponytail`, `caveman`, and `superpowers` into an unstoppable, anti-overengineering AI coding pipeline with 1–2 second response times.
+
+### ⚡ Added
+* **The 4-Phase Operational Synergy Engine (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursor/rules/`)**:
+  * **Phase 1: GPS / Locate (`fullstack-audit`)**: Instant 0ms lookup via pre-computed Markdown atlases; zero-grep mandate; immediate relinquishment once target `file:line` is acquired.
+  * **Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)**: Mandatory gatekeeper enforcing KISS, YAGNI, shortest working diff, and native web/Tailwind primitives over custom JavaScript trigonometry, 36-point polygon waves, or unneeded abstractions.
+  * **Phase 3: Communication & Zero-Fluff Receipts (`caveman`)**: Dense result first, zero conversational apologies, zero filler commentary between tool calls, concluded with a compact diff receipt.
+  * **Phase 4: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)**:
+    * ⚡ **Inner-Loop Fast Mode (1–2s responses)**: Direct surgical file edits (`edit_file`). Next.js/Vite HMR refreshes in 50ms. Strictly bans `tsc --noEmit`, `npm run typecheck`, intermediate audits, browser MCPs, and parallel design skill cascades on micro-edits.
+    * 🛡️ **Outer-Loop Milestone Gate**: Rigorous verification gates (`npx fullstack-audit --verify --gate-clean`) run exclusively on milestone checkpoints or explicit user command.
+* **Auto-Injection Upgrade**:
+  * Updated `install.ps1`, `install.sh`, and `npx fullstack-audit --setup-all` to automatically inject the complete 4-Phase Synergy Engine into all harnesses with safe HTML delimiter boundaries.
+
+---
+
 ## [2.8.0] - 2026-10-22
 
 ### 🌐 Added
