@@ -66,17 +66,18 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ---
 
-## 🛠️ CLI Command Matrix (v2.3.0)
+## 🛠️ CLI Command Matrix (v2.4.0)
 
 | Command | Purpose |
 | :--- | :--- |
-| `npx fullstack-audit` | Regenerates both `docs/frontend-atlas/` and `docs/backend-atlas/` (Default: Solo Mode). |
+| `npx fullstack-audit` | Regenerates both `docs/frontend-atlas/` and `docs/backend-atlas/` plus root `llms.txt`. |
 | `npx fullstack-audit --solo` | Enforces strictly Single-Agent execution (zero subagent overhead). |
 | `npx fullstack-audit --multi-agent` | Partitions the codebase into 4 parallel zone briefs for multi-agent swarms. |
+| `npx fullstack-audit --llms` | Generates root `llms.txt` & `llms-full.txt` following the official Answer.AI standard. |
 | `npx fullstack-audit --theme` | Generates `THEME_MIGRATION_PUNCHLIST.md` for whole-website rebrands. |
 | `npx fullstack-audit --theme --route <path> --compact` | Generates an ultra-fast route-scoped micro-punchlist (saves 99.8% tokens). |
 | `npx fullstack-audit --migrate-theme --from "#hex" --to "token"` | CRLF-agnostic AST codemod in 80ms (0 LLM output tokens). |
-| `npx fullstack-audit --verify --gate-clean` | Closed-loop verification gate (TypeScript check + rogue hex exit gate). |
+| `npx fullstack-audit --verify --gate-clean` | Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`). |
 | `npx fullstack-audit --manifest <file:line>` | Generates a zero-search agent handoff manifest. |
 | `npx fullstack-audit --find <query> --compact` | Instant sub-second search across components, text labels, and icons. |
 | `npx fullstack-audit --watch` | Live file watcher for continuous background sync on save. |
@@ -103,7 +104,7 @@ your-project/
     │   └── README.md                         # 📖 Frontend summary statistics dashboard
     └── backend-atlas/
         ├── 01_API_ROUTES_AND_ENDPOINTS.md    # 🌐 Next.js App/Pages API, Express, Hono route handlers
-        ├── 02_DATABASE_MODELS_AND_SCHEMA.md  # 🗄️ Prisma & Drizzle tables, fields, relations
+        ├── 02_DATABASE_MODELS_AND_SCHEMA.md  # 🗄️ Prisma, Drizzle & Raw SQL / Supabase tables, fields, relations
         ├── 03_SERVER_ACTIONS_AND_MUTATIONS.md# ⚡ "use server" actions, signatures, mutations
         ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md  # 🛡️ Middleware matchers, public vs protected routes
         ├── 05_INTEGRATIONS_AND_WEBHOOKS.md   # 🔌 Stripe, Resend, Supabase, S3 & webhook handlers

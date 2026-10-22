@@ -41,7 +41,7 @@ export interface DbField {
 
 export interface DbModel {
   name: string;
-  orm: "Prisma" | "Drizzle" | "TypeORM" | "Mongoose";
+  orm: "Prisma" | "Drizzle" | "TypeORM" | "Mongoose" | "SQL / Supabase";
   filePath: string;
   relativePath: string;
   line: number;
@@ -120,15 +120,31 @@ function getSourceFiles(dir: string, fileList: string[] = []): string[] {
   if (!fs.existsSync(dir)) return fileList;
   const items = fs.readdirSync(dir);
   for (const item of items) {
-    if (item === "node_modules" || item === ".git" || item === ".next" || item === "dist" || item === "build") {
+    if (
+      item === "node_modules" ||
+      item.startsWith(".next") ||
+      item === ".git" ||
+      item === "dist" ||
+      item === "build" ||
+      item === ".turbo" ||
+      item === ".cache" ||
+      item === "coverage" ||
+      item === "docs" ||
+      item === "evidence" ||
+      item === "screenshots"
+    ) {
       continue;
     }
     const fullPath = path.join(dir, item);
-    const stat = fs.statSync(fullPath);
-    if (stat.isDirectory()) {
-      getSourceFiles(fullPath, fileList);
-    } else if (/\.(tsx|jsx|ts|js|mjs|cjs|prisma)$/.test(item)) {
-      fileList.push(fullPath);
+    try {
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        getSourceFiles(fullPath, fileList);
+      } else if (/\.(tsx|jsx|ts|js|mjs|cjs|prisma|sql)$/.test(item)) {
+        fileList.push(fullPath);
+      }
+    } catch {
+      continue;
     }
   }
   return fileList;
@@ -344,6 +360,201 @@ export function parseDatabaseModels(files: string[], rootDir: string = ROOT_DIR)
     });
   });
 
+  // 3. Raw SQL & Supabase Migration Schema Parser (*.sql)
+  const sqlFiles = files.filter(f => f.endsWith(".sql"));
+  const tableMap = new Map<string, DbModel>();
+
+  // Helper to split SQL definitions inside CREATE TABLE (...) respecting nested parentheses and strings
+  function splitSqlDefinitions(body: string): string[] {
+    const defs: string[] = [];
+    let depth = 0;
+    let current = "";
+    let inSingleQuote = false;
+    for (let i = 0; i < body.length; i++) {
+      const char = body[i];
+      if (char === "'" && (i === 0 || body[i - 1] !== "\\")) {
+        inSingleQuote = !inSingleQuote;
+        current += char;
+      } else if (!inSingleQuote && char === "(") {
+        depth++;
+        current += char;
+      } else if (!inSingleQuote && char === ")") {
+        depth--;
+        current += char;
+      } else if (!inSingleQuote && char === "," && depth === 0) {
+        if (current.trim()) defs.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    if (current.trim()) defs.push(current.trim());
+    return defs;
+  }
+
+  sqlFiles.forEach(filePath => {
+    const relPath = path.relative(rootDir, filePath).replace(/\\/g, "/");
+    let rawContent = "";
+    try {
+      rawContent = fs.readFileSync(filePath, "utf-8");
+    } catch {
+      return;
+    }
+
+    // Strip comments
+    const stripped = rawContent
+      .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
+      .replace(/--[^\r\n]*/g, "");       // remove line comments
+
+    // Match CREATE TABLE [IF NOT EXISTS] [schema.]<tableName> ( ... )
+    const createTableRegex = /CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_"]+)\s*\(([\s\S]*?)\);/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = createTableRegex.exec(stripped)) !== null) {
+      const rawTableName = match[2].replace(/"/g, "");
+      const tableBody = match[3];
+      const modelKey = rawTableName.toLowerCase();
+
+      // Estimate line number in original file
+      const offset = match.index;
+      const lineNum = rawContent.slice(0, offset).split("\n").length;
+
+      let model = tableMap.get(modelKey);
+      if (!model) {
+        model = {
+          name: rawTableName,
+          tableName: rawTableName,
+          orm: "SQL / Supabase",
+          filePath,
+          relativePath: relPath,
+          line: lineNum,
+          fields: [],
+        };
+        tableMap.set(modelKey, model);
+      }
+
+      const definitions = splitSqlDefinitions(tableBody);
+      definitions.forEach(def => {
+        const trimmed = def.trim();
+        if (!trimmed) return;
+
+        // Check if table-level PRIMARY KEY constraint
+        const pkMatch = trimmed.match(/^(?:CONSTRAINT\s+[a-zA-Z0-9_]+\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+        if (pkMatch) {
+          const pkCols = pkMatch[1].split(",").map(c => c.trim().replace(/"/g, "").toLowerCase());
+          model!.fields.forEach(f => {
+            if (pkCols.includes(f.name.toLowerCase())) f.isId = true;
+          });
+          return;
+        }
+
+        // Check if table-level FOREIGN KEY constraint
+        const fkMatch = trimmed.match(/^(?:CONSTRAINT\s+[a-zA-Z0-9_]+\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)/i);
+        if (fkMatch) {
+          const fkCols = fkMatch[1].split(",").map(c => c.trim().replace(/"/g, "").toLowerCase());
+          const targetTable = fkMatch[2].replace(/"/g, "");
+          model!.fields.forEach(f => {
+            if (fkCols.includes(f.name.toLowerCase())) f.relationTarget = targetTable;
+          });
+          return;
+        }
+
+        if (/^(?:CONSTRAINT\s+[a-zA-Z0-9_]+\s+)?(?:CHECK|UNIQUE)\b/i.test(trimmed)) {
+          return;
+        }
+
+        // Standard column definition: <name> <type> [modifiers...]
+        const colMatch = trimmed.match(/^"?([a-zA-Z0-9_]+)"?\s+([a-zA-Z0-9_]+(?:\s*\([^)]*\))?(?:\[\])?)([\s\S]*)$/i);
+        if (colMatch) {
+          const colName = colMatch[1];
+          const colType = colMatch[2].trim();
+          const rest = colMatch[3] || "";
+
+          // Skip if reserved SQL keyword as column (e.g. PARTITION BY)
+          if (/^(?:PARTITION|CONSTRAINT|INHERITS|PRIMARY|FOREIGN)\b/i.test(colName)) return;
+
+          const isId = /\bPRIMARY\s+KEY\b/i.test(rest);
+          const isUnique = /\bUNIQUE\b/i.test(rest);
+          const isOptional = !/\bNOT\s+NULL\b/i.test(rest) && !isId;
+          const isArray = colType.endsWith("[]") || /\bARRAY\b/i.test(rest);
+
+          let relationTarget: string | undefined;
+          const inlineRef = rest.match(/\bREFERENCES\s+(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)/i);
+          if (inlineRef) {
+            relationTarget = inlineRef[1].replace(/"/g, "");
+          }
+
+          const existingField = model!.fields.find(f => f.name.toLowerCase() === colName.toLowerCase());
+          if (!existingField) {
+            model!.fields.push({
+              name: colName,
+              type: colType,
+              isId,
+              isUnique,
+              isOptional,
+              isArray,
+              relationTarget,
+            });
+          }
+        }
+      });
+    }
+
+    // Also parse ALTER TABLE ... ADD COLUMN ...
+    const alterTableRegex = /ALTER\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_"]+)\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"?([a-zA-Z0-9_]+)"?\s+([a-zA-Z0-9_]+(?:\s*\([^)]*\))?(?:\[\])?)([\s\S]*?);/gi;
+    let alterMatch: RegExpExecArray | null;
+
+    while ((alterMatch = alterTableRegex.exec(stripped)) !== null) {
+      const rawTableName = alterMatch[2].replace(/"/g, "");
+      const colName = alterMatch[3];
+      const colType = alterMatch[4].trim();
+      const rest = alterMatch[5] || "";
+      const modelKey = rawTableName.toLowerCase();
+
+      let model = tableMap.get(modelKey);
+      if (!model) {
+        const offset = alterMatch.index;
+        const lineNum = rawContent.slice(0, offset).split("\n").length;
+        model = {
+          name: rawTableName,
+          tableName: rawTableName,
+          orm: "SQL / Supabase",
+          filePath,
+          relativePath: relPath,
+          line: lineNum,
+          fields: [],
+        };
+        tableMap.set(modelKey, model);
+      }
+
+      const existingField = model.fields.find(f => f.name.toLowerCase() === colName.toLowerCase());
+      if (!existingField) {
+        const isId = /\bPRIMARY\s+KEY\b/i.test(rest);
+        const isUnique = /\bUNIQUE\b/i.test(rest);
+        const isOptional = !/\bNOT\s+NULL\b/i.test(rest) && !isId;
+        const isArray = colType.endsWith("[]") || /\bARRAY\b/i.test(rest);
+
+        let relationTarget: string | undefined;
+        const inlineRef = rest.match(/\bREFERENCES\s+(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)/i);
+        if (inlineRef) {
+          relationTarget = inlineRef[1].replace(/"/g, "");
+        }
+
+        model.fields.push({
+          name: colName,
+          type: colType,
+          isId,
+          isUnique,
+          isOptional,
+          isArray,
+          relationTarget,
+        });
+      }
+    }
+  });
+
+  tableMap.forEach(m => models.push(m));
+
   return models;
 }
 
@@ -509,6 +720,19 @@ export function buildFullstackBridge(
   rootDir: string = ROOT_DIR
 ): FullstackBridgeItem[] {
   const bridgeItems: FullstackBridgeItem[] = [];
+  const endpointContentCache = new Map<string, string>();
+
+  function getEndpointContent(epPath: string): string {
+    if (endpointContentCache.has(epPath)) return endpointContentCache.get(epPath)!;
+    try {
+      const c = fs.readFileSync(epPath, "utf-8");
+      endpointContentCache.set(epPath, c);
+      return c;
+    } catch {
+      endpointContentCache.set(epPath, "");
+      return "";
+    }
+  }
 
   files.forEach(filePath => {
     // Only inspect UI components
@@ -517,7 +741,13 @@ export function buildFullstackBridge(
       return;
     }
 
-    const content = fs.readFileSync(filePath, "utf-8");
+    let content = "";
+    try {
+      content = fs.readFileSync(filePath, "utf-8");
+    } catch {
+      return;
+    }
+
     const lines = content.split("\n");
 
     lines.forEach((line, idx) => {
@@ -533,6 +763,17 @@ export function buildFullstackBridge(
           trimmed.match(/axios\.(get|post|put|delete|patch)/i)?.[1]?.toUpperCase() ||
           (matchingEndpoint?.methods[0] || "GET");
 
+        let connectedModels: string[] = [];
+        if (matchingEndpoint) {
+          const epContent = getEndpointContent(matchingEndpoint.filePath);
+          connectedModels = models
+            .filter(m => {
+              const nameRegex = new RegExp(`\\b${m.name}\\b|\\b${m.tableName}\\b`, "i");
+              return matchingEndpoint.filePath.toLowerCase().includes(m.name.toLowerCase()) || nameRegex.test(epContent);
+            })
+            .map(m => m.name);
+        }
+
         bridgeItems.push({
           frontendFile: relPath,
           frontendLine: lineNum,
@@ -540,7 +781,7 @@ export function buildFullstackBridge(
           backendTarget: rawTarget,
           targetType: "API Route",
           httpMethod: method,
-          connectedModels: matchingEndpoint ? models.filter(m => matchingEndpoint.filePath.includes(m.name.toLowerCase())).map(m => m.name) : [],
+          connectedModels,
           externalService: rawTarget.includes("stripe") ? "Stripe" : rawTarget.includes("resend") ? "Resend" : undefined,
         });
       }
@@ -569,8 +810,9 @@ export function buildFullstackBridge(
 
 // Writers for docs/backend-atlas/
 export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = ROOT_DIR) {
-  if (!fs.existsSync(BACKEND_OUTPUT_DIR)) {
-    fs.mkdirSync(BACKEND_OUTPUT_DIR, { recursive: true });
+  const outputDir = path.join(rootDir, "docs", "backend-atlas");
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
   }
 
   // 1. 01_API_ROUTES_AND_ENDPOINTS.md
@@ -590,15 +832,15 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       md01 += `| \`${e.urlPath}\` | ${methodsBadge} | ${e.framework} | ${authBadge} | ${fileLink} |\n`;
     });
   }
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "01_API_ROUTES_AND_ENDPOINTS.md"), md01);
+  fs.writeFileSync(path.join(outputDir, "01_API_ROUTES_AND_ENDPOINTS.md"), md01);
 
   // 2. 02_DATABASE_MODELS_AND_SCHEMA.md
-  let md02 = `# 🗄️ Database Models & ORM Schema\n\n`;
-  md02 += `> Statically cataloged tables, fields, types, and foreign key relations from Prisma and Drizzle.\n\n`;
+  let md02 = `# 🗄️ Database Models & Schema Registry\n\n`;
+  md02 += `> Statically cataloged tables, fields, types, and foreign key relations from Prisma, Drizzle, and Raw SQL / Supabase Migrations.\n\n`;
   md02 += `## 📊 Models Summary: **${result.models.length}** Database Models Detected\n\n`;
 
   if (result.models.length === 0) {
-    md02 += `_No database schema files detected (Prisma schema.prisma or Drizzle schema.ts)._\n`;
+    md02 += `_No database schema files detected (Prisma schema.prisma, Drizzle schema.ts, or SQL migrations)._\n`;
   } else {
     result.models.forEach(model => {
       const fileLink = makeFileLink(model.relativePath, model.line, `${model.relativePath}:${model.line}`);
@@ -624,7 +866,7 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       }
     });
   }
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "02_DATABASE_MODELS_AND_SCHEMA.md"), md02);
+  fs.writeFileSync(path.join(outputDir, "02_DATABASE_MODELS_AND_SCHEMA.md"), md02);
 
   // 3. 03_SERVER_ACTIONS_AND_MUTATIONS.md
   let md03 = `# ⚡ Server Actions & Mutations Map\n\n`;
@@ -643,7 +885,7 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       md03 += `| \`${a.name}()\` | \`${a.params}\` | ${dbStr} | ${srvStr} | ${fileLink} |\n`;
     });
   }
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "03_SERVER_ACTIONS_AND_MUTATIONS.md"), md03);
+  fs.writeFileSync(path.join(outputDir, "03_SERVER_ACTIONS_AND_MUTATIONS.md"), md03);
 
   // 4. 04_AUTH_AND_MIDDLEWARE_GUARDS.md
   let md04 = `# 🛡️ Auth & Middleware Route Guards\n\n`;
@@ -666,7 +908,7 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       }
     });
   }
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "04_AUTH_AND_MIDDLEWARE_GUARDS.md"), md04);
+  fs.writeFileSync(path.join(outputDir, "04_AUTH_AND_MIDDLEWARE_GUARDS.md"), md04);
 
   // 5. 05_INTEGRATIONS_AND_WEBHOOKS.md
   let md05 = `# 🔌 External Integrations & Webhooks\n\n`;
@@ -691,7 +933,7 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       md05 += `\n`;
     });
   }
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "05_INTEGRATIONS_AND_WEBHOOKS.md"), md05);
+  fs.writeFileSync(path.join(outputDir, "05_INTEGRATIONS_AND_WEBHOOKS.md"), md05);
 
   // 6. 06_FULLSTACK_CROSS_REFERENCE_MAP.md
   let md06 = `# 🌉 Fullstack Cross-Reference Bridge\n\n`;
@@ -710,7 +952,7 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       md06 += `| ${fileLink} | \`${b.backendTarget}\` | \`${b.targetType}\` | \`${b.httpMethod || "POST"}\` | ${modelsStr} | ${serviceStr} |\n`;
     });
   }
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), md06);
+  fs.writeFileSync(path.join(outputDir, "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), md06);
 
   // 7. README.md
   let mdReadme = `# 📖 Backend Atlas & Architecture Catalog\n\n`;
@@ -732,9 +974,9 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   mdReadme += `5. **[05_INTEGRATIONS_AND_WEBHOOKS.md](./05_INTEGRATIONS_AND_WEBHOOKS.md)**: Stripe, Resend, Supabase, and S3 clients.\n`;
   mdReadme += `6. **[06_FULLSTACK_CROSS_REFERENCE_MAP.md](./06_FULLSTACK_CROSS_REFERENCE_MAP.md)**: Cross-boundary link from UI button to backend database.\n\n`;
 
-  fs.writeFileSync(path.join(BACKEND_OUTPUT_DIR, "README.md"), mdReadme);
+  fs.writeFileSync(path.join(outputDir, "README.md"), mdReadme);
 
-  console.log(`✨ Backend Atlas written to: ${path.relative(ROOT_DIR, BACKEND_OUTPUT_DIR)}`);
+  console.log(`✨ Backend Atlas written to: ${path.relative(rootDir, outputDir)}`);
 }
 
 // Main execution function

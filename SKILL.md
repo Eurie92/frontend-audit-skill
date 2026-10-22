@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
-description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, buttons, live pulse dots, capsule pills, modals, and design tokens, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth guards, and webhooks.
-version: 2.3.0
+description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, and audits backend API routes, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
+version: 2.4.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -58,7 +58,7 @@ allowed-tools:
 1. **If looking up an API Route**:
    - Open `docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md` directly via `view_file` to find the handler file, HTTP method, and auth requirements.
 2. **If looking up a Database Table or Model**:
-   - Open `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md` to see Prisma/Drizzle models, field definitions, and foreign keys.
+   - Open `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md` to see Prisma, Drizzle, and Raw SQL / Supabase models, field definitions, and foreign keys.
 3. **If looking up a Server Action or Mutation**:
    - Open `docs/backend-atlas/03_SERVER_ACTIONS_AND_MUTATIONS.md` to see exported action functions and database operations.
 4. **If tracing a UI button to its backend database call**:
@@ -87,7 +87,7 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 ## 🧭 The Atlas Documents Guide
 
 ### `docs/frontend-atlas/` (Frontend & UI)
-1. **`01_ROUTES_AND_PANELS_MAP.md`**: Route-to-page link, Next.js boundary (`Client ⚡` vs `Server 🖥️`), layout, and 2-level deep component tree.
+1. **`01_ROUTES_AND_PANELS_MAP.md`**: Route-to-page link, ghost/redirect alias indicators (`🔀 Redirect ➔ /...`), Next.js boundary (`Client ⚡` vs `Server 🖥️`), layout, and 2-level deep component tree.
 2. **`02_COMPONENT_INVENTORY.md`**: Buttons, Live Dots (`animate-pulse`), Capsule Pills (`rounded-full`), and Disclosed Modals with reverse route mapping.
 3. **`03_DESIGN_TOKENS_AND_COLORS.md`**: Universal Tailwind Color Matrix (all 22+ colors) and Dark Mode Asymmetry scanner.
 4. **`04_UI_ISLANDS_AND_DRIFT.md`**: Raw HTML elements, inline style tags, and custom modal redundancies.
@@ -97,13 +97,14 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
 9. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## 🛠️ Available Commands (v2.3.0 Dual-Speed & Zero-Blindspot Engine)
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (Default: Solo Mode).
+## 🛠️ Available Commands (v2.4.0 Dual-Speed & Schema-Complete Engine)
+- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
+- `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
 - `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
-- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Deterministic anti-hallucination gate (fails with exit 1 if rogue hexes remain).
+- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`).
 - `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
 - `npx fullstack-audit --watch`: Live background file watcher for continuous auto-sync.
@@ -111,7 +112,7 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 
 ### `docs/backend-atlas/` (Backend & Fullstack)
 1. **`01_API_ROUTES_AND_ENDPOINTS.md`**: HTTP API endpoints, methods (`GET`, `POST`, `PUT`, `DELETE`), params, and auth guards.
-2. **`02_DATABASE_MODELS_AND_SCHEMA.md`**: Prisma and Drizzle models, fields, types, and relations.
+2. **`02_DATABASE_MODELS_AND_SCHEMA.md`**: Prisma, Drizzle, and Raw SQL / Supabase models, fields, types, and relations.
 3. **`03_SERVER_ACTIONS_AND_MUTATIONS.md`**: Next.js Server Actions (`"use server"`), parameters, and DB mutations.
 4. **`04_AUTH_AND_MIDDLEWARE_GUARDS.md`**: Middleware matchers, protected routes, and authentication providers.
 5. **`05_INTEGRATIONS_AND_WEBHOOKS.md`**: Third-party SDK clients (Stripe, Resend, Supabase, S3) and webhooks.

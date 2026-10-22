@@ -145,6 +145,7 @@ const DRY_RUN_MODE = ARGS.includes("--dry-run");
 const GATE_CLEAN_MODE = ARGS.includes("--gate-clean");
 const COMPACT_MODE = ARGS.includes("--compact") || ARGS.includes("--json");
 const JSON_MODE = ARGS.includes("--json");
+const LLMS_MODE = ARGS.includes("--llms");
 const SOLO_MODE = ARGS.includes("--solo") || (!ARGS.includes("--multi-agent") && !ARGS.includes("--parallel") && !ARGS.includes("--zones"));
 const MULTI_AGENT_MODE = ARGS.includes("--multi-agent") || ARGS.includes("--parallel") || ARGS.includes("--zones");
 
@@ -300,6 +301,7 @@ interface RouteMapItem {
   isClientComponent: boolean;
   importedComponents: string[];
   componentTree: RouteComponentNode[];
+  redirectTarget?: string;
 }
 
 interface SkillDispatch {
@@ -437,15 +439,21 @@ function detectProjectStructure(rootDir: string = ROOT_DIR): ProjectStructure {
   const nextConfigs = ["next.config.js", "next.config.mjs", "next.config.ts"];
   const hasNextConfig = nextConfigs.some(cf => fs.existsSync(path.join(rootDir, cf))) || Boolean(pkgDeps["next"]);
 
-  const appRouterCand = structure.srcDir ? path.join(structure.srcDir, "app") : path.join(rootDir, "app");
-  if (fs.existsSync(appRouterCand)) {
+  const rootAppDir = path.join(rootDir, "app");
+  const srcAppDir = structure.srcDir ? path.join(structure.srcDir, "app") : "";
+  const appRouterCand = fs.existsSync(rootAppDir) ? rootAppDir : (srcAppDir && fs.existsSync(srcAppDir) ? srcAppDir : null);
+
+  if (appRouterCand) {
     structure.hasAppRouter = true;
     structure.appDir = appRouterCand;
     structure.framework = "Next.js (App Router)";
   }
 
-  const pagesRouterCand = structure.srcDir ? path.join(structure.srcDir, "pages") : path.join(rootDir, "pages");
-  if (fs.existsSync(pagesRouterCand)) {
+  const rootPagesDir = path.join(rootDir, "pages");
+  const srcPagesDir = structure.srcDir ? path.join(structure.srcDir, "pages") : "";
+  const pagesRouterCand = fs.existsSync(rootPagesDir) ? rootPagesDir : (srcPagesDir && fs.existsSync(srcPagesDir) ? srcPagesDir : null);
+
+  if (pagesRouterCand) {
     structure.hasPagesRouter = true;
     structure.pagesDir = pagesRouterCand;
     if (!structure.hasAppRouter && hasNextConfig) {
@@ -1587,6 +1595,20 @@ function transformAstroRoute(relPath: string): { route: string; layoutFile?: str
   return { route: route === "" ? "/" : route };
 }
 
+// Helper to detect ghost/redirect alias route shims (e.g. redirect("/admin/offers"))
+function detectRedirectTarget(filePath: string): string | undefined {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const match = content.match(/\bredirect\s*\(\s*["']([^"']+)["']\s*\)/) ||
+      content.match(/NextResponse\.redirect\s*\(\s*new\s+URL\s*\(\s*["']([^"']+)["']/i) ||
+      content.match(/\bnavigateTo\s*\(\s*["']([^"']+)["']\s*\)/);
+    if (match) {
+      return match[1];
+    }
+  } catch {}
+  return undefined;
+}
+
 // 6. Dynamic Route Builder with Multi-Framework Adapters
 function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): RouteMapItem[] {
   const routes: RouteMapItem[] = [];
@@ -1619,6 +1641,7 @@ function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): 
         isClientComponent: true,
         importedComponents: page.imports,
         componentTree: buildComponentTree(page, audits),
+        redirectTarget: detectRedirectTarget(page.filePath),
       });
     }
   }
@@ -1643,6 +1666,7 @@ function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): 
         isClientComponent: page.isClientComponent,
         importedComponents: page.imports,
         componentTree: buildComponentTree(page, audits),
+        redirectTarget: detectRedirectTarget(page.filePath),
       });
     }
   }
@@ -1672,6 +1696,7 @@ function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): 
         isClientComponent: page.isClientComponent,
         importedComponents: page.imports,
         componentTree: buildComponentTree(page, audits),
+        redirectTarget: detectRedirectTarget(page.filePath),
       });
     }
 
@@ -1715,6 +1740,7 @@ function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): 
         isClientComponent: page.isClientComponent,
         importedComponents: page.imports,
         componentTree: buildComponentTree(page, audits),
+        redirectTarget: detectRedirectTarget(page.filePath),
       });
     }
   }
@@ -1769,6 +1795,7 @@ function buildRouteMap(audits: ComponentAudit[], structure?: ProjectStructure): 
         isClientComponent: page.isClientComponent,
         importedComponents: page.imports,
         componentTree: buildComponentTree(page, audits),
+        redirectTarget: detectRedirectTarget(page.filePath),
       });
     }
   }
@@ -2595,58 +2622,86 @@ function executeVerificationGate(
     }
   }
 
-  // Framework-Aware TypeCheck Verification
+  // Framework & Script-Aware TypeCheck Verification Gate
   let tsStatus: "PASS" | "FAIL" | "SKIPPED" = "SKIPPED";
   try {
     const isWin = process.platform === "win32";
     const npxCmd = isWin ? "npx.cmd" : "npx";
+    const npmCmd = isWin ? "npm.cmd" : "npm";
+    let pkg: any = null;
+    try {
+      pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"));
+    } catch {}
+
+    let runnerCmd = npxCmd;
     let cmd = "tsc";
     let args = ["--noEmit"];
 
+    // 1. Framework-specific check runners
     if (structure?.framework === "Astro") {
       cmd = "astro";
       args = ["check"];
     } else if (structure?.framework === "Nuxt 3" || structure?.framework === "Vite / Vue SPA") {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"));
-        if (pkg.devDependencies?.["vue-tsc"] || pkg.dependencies?.["vue-tsc"]) {
-          cmd = "vue-tsc";
-        }
-      } catch {}
+      if (pkg?.devDependencies?.["vue-tsc"] || pkg?.dependencies?.["vue-tsc"]) {
+        cmd = "vue-tsc";
+      }
     } else if (structure?.framework === "SvelteKit") {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"));
-        if (pkg.devDependencies?.["svelte-check"] || pkg.dependencies?.["svelte-check"]) {
-          cmd = "svelte-check";
-          args = ["--tsconfig", "./tsconfig.json"];
+      if (pkg?.devDependencies?.["svelte-check"] || pkg?.dependencies?.["svelte-check"]) {
+        cmd = "svelte-check";
+        args = ["--tsconfig", "./tsconfig.json"];
+      }
+    } else {
+      // 2. Smart tsconfig auto-selection: check for check/app/web targets
+      if (fs.existsSync(path.join(ROOT_DIR, "tsconfig.check.json"))) {
+        args = ["--project", "tsconfig.check.json", "--noEmit"];
+      } else if (fs.existsSync(path.join(ROOT_DIR, "tsconfig.app.json"))) {
+        args = ["--project", "tsconfig.app.json", "--noEmit"];
+      } else if (fs.existsSync(path.join(ROOT_DIR, "tsconfig.web.json"))) {
+        args = ["--project", "tsconfig.web.json", "--noEmit"];
+      } else if (pkg?.scripts?.typecheck && pkg.scripts.typecheck.includes("--project")) {
+        const match = pkg.scripts.typecheck.match(/--project\s+([^\s]+)/);
+        if (match) {
+          args = ["--project", match[1], "--noEmit"];
         }
-      } catch {}
+      }
     }
 
     const tsCheck = child_process.spawnSync(npxCmd, [cmd, ...args], {
       cwd: ROOT_DIR,
       encoding: "utf-8",
       shell: true,
+      stdio: ["ignore", "pipe", "pipe"],
     });
     if (tsCheck.status === 0) {
       tsStatus = "PASS";
+      console.log(`  ✅ TypeCheck Passed: ${cmd} ${args.join(" ")}`);
     } else {
       tsStatus = "FAIL";
+      console.log(`  ❌ TypeCheck Failed: ${cmd} ${args.join(" ")}`);
+      if (tsCheck.stdout || tsCheck.stderr) {
+        const outSample = (tsCheck.stderr || tsCheck.stdout || "").trim().split("\n").slice(0, 8).join("\n");
+        console.log("     " + outSample.replace(/\n/g, "\n     "));
+      }
     }
   } catch {
     tsStatus = "SKIPPED";
   }
 
+  const rawHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
+  const rawRogues = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
+
   const currentReceipt: VerificationReceipt = {
-    timestamp: new Date().toISOString(),
-    version: "1.7.0",
+    timestamp: prevReceipt && prevReceipt.hardcodedHexesCount === rawHexes && prevReceipt.rogueColorsCount === rawRogues && prevReceipt.typeCheckStatus === tsStatus
+      ? prevReceipt.timestamp
+      : new Date().toISOString(),
+    version: "2.4.0",
     totalFiles: audits.length,
     routesCount: routes.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
     uiButtonsCount: audits.reduce((acc, a) => acc + a.uiButtons.length, 0),
     a11yFlagsCount: audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0),
-    hardcodedHexesCount: audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0),
-    rogueColorsCount: audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0),
+    hardcodedHexesCount: rawHexes,
+    rogueColorsCount: rawRogues,
     orphanedComponentsCount: deadComponents.length,
     visualIconsCount: audits.reduce((acc, a) => acc + a.visualIcons.length, 0),
     typeCheckStatus: tsStatus,
@@ -3040,16 +3095,29 @@ export function runUniversalFrontendAudit() {
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
+  let prevReceipt: VerificationReceipt | null = null;
+  if (fs.existsSync(receiptPath)) {
+    try {
+      prevReceipt = JSON.parse(fs.readFileSync(receiptPath, "utf-8"));
+    } catch {
+      prevReceipt = null;
+    }
+  }
+  const rawHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
+  const rawRogues = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
+
   const baselineReceipt: VerificationReceipt = {
-    timestamp: new Date().toISOString(),
-    version: "2.0.0",
+    timestamp: prevReceipt && prevReceipt.hardcodedHexesCount === rawHexes && prevReceipt.rogueColorsCount === rawRogues
+      ? prevReceipt.timestamp
+      : new Date().toISOString(),
+    version: "2.4.0",
     totalFiles: audits.length,
     routesCount: routeMaps.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
     uiButtonsCount: audits.reduce((acc, a) => acc + a.uiButtons.length, 0),
     a11yFlagsCount: audits.reduce((acc, a) => acc + a.rawButtons.filter(b => b.missingAria || b.missingType).length, 0),
-    hardcodedHexesCount: audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0),
-    rogueColorsCount: audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0),
+    hardcodedHexesCount: rawHexes,
+    rogueColorsCount: rawRogues,
     orphanedComponentsCount: deadComponents.length,
     visualIconsCount: audits.reduce((acc, a) => acc + a.visualIcons.length, 0),
     typeCheckStatus: "PASS",
@@ -3057,6 +3125,7 @@ export function runUniversalFrontendAudit() {
   fs.writeFileSync(receiptPath, JSON.stringify(baselineReceipt, null, 2), "utf-8");
 
   console.log(`✨ Universal Frontend Atlas written to: ${path.relative(ROOT_DIR, OUTPUT_DIR)}`);
+  return { audits, routeMaps, structure, deadComponents };
 }
 
 function escapeMarkdownSnippet(text: string, maxLen = 50): string {
@@ -3096,7 +3165,9 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
     zoneRoutes.forEach(r => {
       const layoutStr = r.layoutFile ? makeFileLink(r.layoutFile) : `_Inherited / N/A_`;
       const pageLink = makeFileLink(r.pageFile);
-      const boundaryStr = r.isClientComponent ? `\`Client ⚡\`` : `\`Server 🖥️\``;
+      const boundaryStr = r.redirectTarget
+        ? `🔀 \`Redirect ➔ ${r.redirectTarget}\``
+        : (r.isClientComponent ? `\`Client ⚡\`` : `\`Server 🖥️\``);
       const importsStr = r.componentTree && r.componentTree.length > 0
         ? r.componentTree.map(node => {
             const clientBadge = node.isClientComponent ? " `[⚡]`" : "";
@@ -3742,6 +3813,71 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   fs.writeFileSync(filePath, md);
 }
 
+// 13. Answer.AI Standard llms.txt & llms-full.txt Generator
+function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectStructure) {
+  console.log("📝 Generating Answer.AI Standard llms.txt & llms-full.txt...");
+
+  let projectName = "Project";
+  let projectDesc = "Fullstack application architecture and design system catalog.";
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8"));
+    if (pkg.name) projectName = pkg.name;
+    if (pkg.description) projectDesc = pkg.description;
+  } catch {}
+
+  // 1. llms.txt (Answer.AI specification)
+  let llmsTxt = `# ${projectName}\n\n`;
+  llmsTxt += `> ${projectDesc}\n\n`;
+  llmsTxt += `## Architecture Overview\n`;
+  llmsTxt += `- **Framework**: \`${structure?.framework || "Multi-Framework"}\`\n`;
+  llmsTxt += `- **Frontend Atlas**: \`docs/frontend-atlas/\`\n`;
+  llmsTxt += `- **Backend Atlas**: \`docs/backend-atlas/\`\n\n`;
+
+  llmsTxt += `## Frontend Architecture\n`;
+  llmsTxt += `- [01_ROUTES_AND_PANELS_MAP.md](docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md): Complete route registry (${routes.length} routes), layouts, and component hierarchy.\n`;
+  llmsTxt += `- [02_COMPONENT_INVENTORY.md](docs/frontend-atlas/02_COMPONENT_INVENTORY.md): Interactive triggers, modals, live status indicators, capsule pills, and a11y flags.\n`;
+  llmsTxt += `- [03_DESIGN_TOKENS_AND_COLORS.md](docs/frontend-atlas/03_DESIGN_TOKENS_AND_COLORS.md): Tailwind color palette matrix, dark mode tokens, and hardcoded hex registry.\n`;
+  llmsTxt += `- [06_VISIBLE_TEXT_AND_LABELS_MAP.md](docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md): Screenshot-to-code button labels and headings index.\n`;
+  llmsTxt += `- [07_VISUAL_AND_ICON_INDEX.md](docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md): Lucide/Radix/SVG visual action icon index.\n`;
+  llmsTxt += `- [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.\n\n`;
+
+  llmsTxt += `## Backend Architecture\n`;
+  llmsTxt += `- [01_API_ROUTES_AND_ENDPOINTS.md](docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md): HTTP API routes, methods, and auth protection guards.\n`;
+  llmsTxt += `- [02_DATABASE_MODELS_AND_SCHEMA.md](docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md): Database models, raw SQL tables, and foreign key relations.\n`;
+  llmsTxt += `- [03_SERVER_ACTIONS_AND_MUTATIONS.md](docs/backend-atlas/03_SERVER_ACTIONS_AND_MUTATIONS.md): Server Actions ("use server") and DB mutations.\n`;
+  llmsTxt += `- [04_AUTH_AND_MIDDLEWARE_GUARDS.md](docs/backend-atlas/04_AUTH_AND_MIDDLEWARE_GUARDS.md): Middleware route matchers and public vs protected rules.\n`;
+  llmsTxt += `- [05_INTEGRATIONS_AND_WEBHOOKS.md](docs/backend-atlas/05_INTEGRATIONS_AND_WEBHOOKS.md): Third-party services (Stripe, Resend, Supabase, S3) and webhooks.\n`;
+  llmsTxt += `- [06_FULLSTACK_CROSS_REFERENCE_MAP.md](docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md): Bi-directional link from UI buttons to backend API and database tables.\n\n`;
+
+  llmsTxt += `## Optional\n`;
+  llmsTxt += `- [llms-full.txt](llms-full.txt): Comprehensive concatenated fullstack architecture reference for LLM agents.\n`;
+
+  fs.writeFileSync(path.join(ROOT_DIR, "llms.txt"), llmsTxt, "utf-8");
+
+  // 2. llms-full.txt (High-density concatenated context)
+  let llmsFull = `# ${projectName} — Complete Fullstack Architecture Reference\n\n`;
+  llmsFull += `> Generated by fullstack-audit-skill. Comprehensive single-file architecture snapshot for LLMs.\n\n`;
+
+  const filesToConcatenate = [
+    path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md"),
+    path.join(ROOT_DIR, "docs", "backend-atlas", "01_API_ROUTES_AND_ENDPOINTS.md"),
+    path.join(ROOT_DIR, "docs", "backend-atlas", "02_DATABASE_MODELS_AND_SCHEMA.md"),
+    path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"),
+  ];
+
+  filesToConcatenate.forEach(fPath => {
+    if (fs.existsSync(fPath)) {
+      try {
+        const c = fs.readFileSync(fPath, "utf-8");
+        llmsFull += `\n---\n\n${c}\n\n`;
+      } catch {}
+    }
+  });
+
+  fs.writeFileSync(path.join(ROOT_DIR, "llms-full.txt"), llmsFull, "utf-8");
+  console.log("✨ Answer.AI standard llms.txt & llms-full.txt written to project root!");
+}
+
 async function main() {
   if (UPDATE_MODE) {
     await executeSelfUpdate();
@@ -3753,12 +3889,24 @@ async function main() {
     return;
   }
 
+  if (LLMS_MODE) {
+    const res = runUniversalFrontendAudit();
+    await runUniversalBackendAudit();
+    if (res) {
+      generateLlmsStandardFiles(res.routeMaps, res.structure);
+    }
+    return;
+  }
+
   if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS || MIGRATE_THEME_MODE || MULTI_AGENT_MODE) {
     runUniversalFrontendAudit();
   } else {
     // Default: Fullstack Audit (Runs both Frontend Atlas AND Backend Atlas)
-    runUniversalFrontendAudit();
+    const res = runUniversalFrontendAudit();
     await runUniversalBackendAudit();
+    if (res) {
+      generateLlmsStandardFiles(res.routeMaps, res.structure);
+    }
   }
 
   if (WATCH_MODE) {

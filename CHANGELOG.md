@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.4.0] - 2026-10-22
+
+### 🗄️ Added
+* **Raw SQL Migrations & Supabase DDL Parser**:
+  * Statically analyzes `.sql` migration files across `migrations/`, `db/migrations/`, and `supabase/migrations/` when Prisma or Drizzle are absent or used alongside them.
+  * Robust AST/paren-aware tokenizer catalogs `CREATE TABLE`, `ALTER TABLE ... ADD COLUMN`, column types (`UUID`, `SERIAL`, `TEXT`, `NUMERIC`, `JSONB`, `TIMESTAMPTZ`), primary keys, nullability, and foreign key relationships (`REFERENCES`).
+  * Tested on production SaaS `xnight` (`C:\Users\EURIE\Dev\SaaS\xnight`), successfully detecting **79 database models** and resolving 179 cross-reference triggers.
+* **Ghost & Redirect Alias Route Resolver**:
+  * Statically analyzes single-line redirect shims (e.g. `import { redirect } from "next/navigation"; redirect("/admin/...")` or `NextResponse.redirect(...)`).
+  * In `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md`, marks the boundary clearly as `🔀 Redirect ➔ /destination`, preventing AI assistants from editing dummy redirect shims.
+* **Smart Multi-Target `tsconfig` & Script-Aware Verification Gate**:
+  * Upgrades `npx fullstack-audit --verify` to automatically honor `package.json` `"typecheck"` scripts and auto-select multi-target configs (`tsconfig.check.json`, `tsconfig.app.json`, `tsconfig.web.json`) before falling back to `tsconfig.json`.
+  * Solves multi-target projects (e.g. Telegram bot worker vs Next.js web application).
+* **Answer.AI `llms.txt` Standard & `llms-full.txt` Generator (`--llms`)**:
+  * Implemented `npx fullstack-audit --llms` and automatic generation during fullstack audits.
+  * Outputs standardized root `llms.txt` (following the official Answer.AI specification) with project overview, key routes, design tokens, and API endpoints.
+  * Generates `llms-full.txt` combining high-density summaries of all frontend and backend atlas documents into a single consolidated file for external LLMs and agent harnesses.
+* **Deterministic LLM Prompt-Cache Stability**:
+  * Preserves verification receipt timestamps across runs when metrics have not changed, eliminating unnecessary git diffs and ensuring 100% LLM KV prompt-cache prefix hit rates.
+* **Next.js Root `app/` Discovery**:
+  * Fixed framework auto-discovery in projects with both a `src/` directory (for backend services or bot workers) and a root `app/` directory (for Next.js App Router).
+
+---
+
 ## [2.3.0] - 2026-10-21
 
 ### ⚡ Added

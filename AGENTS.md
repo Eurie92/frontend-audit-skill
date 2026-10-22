@@ -31,13 +31,14 @@ Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, 
    - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:
      - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.
 
-## 🛠️ Available Commands (v2.3.0 Dual-Speed & Zero-Blindspot Engine)
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas (Default: Solo Mode).
+## 🛠️ Available Commands (v2.4.0 Dual-Speed & Schema-Complete Engine)
+- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
+- `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
 - `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
-- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Deterministic anti-hallucination gate (fails with exit 1 if rogue hexes remain).
+- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`).
 - `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
 - `npx fullstack-audit --watch`: Live background file watcher for continuous background sync.
