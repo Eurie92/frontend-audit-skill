@@ -9,11 +9,13 @@
 
 ## Frontend Architecture
 - [01_ROUTES_AND_PANELS_MAP.md](docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md): Complete route registry (0 routes), layouts, and component hierarchy.
-- [02_COMPONENT_INVENTORY.md](docs/frontend-atlas/02_COMPONENT_INVENTORY.md): Interactive triggers, modals, live status indicators, capsule pills, and a11y flags.
+- [02_COMPONENT_INVENTORY.md](docs/frontend-audit/02_COMPONENT_INVENTORY.md): Interactive triggers, modals, live status indicators, capsule pills, and a11y flags.
 - [03_DESIGN_TOKENS_AND_COLORS.md](docs/frontend-atlas/03_DESIGN_TOKENS_AND_COLORS.md): Tailwind color palette matrix, dark mode tokens, and hardcoded hex registry.
 - [06_VISIBLE_TEXT_AND_LABELS_MAP.md](docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md): Screenshot-to-code button labels and headings index.
 - [07_VISUAL_AND_ICON_INDEX.md](docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md): Lucide/Radix/SVG visual action icon index.
 - [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.
+- [09_QUERY_AND_CACHE_MAP.md](docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md): TanStack React Query cache keys, mutations, and reactive invalidation topology.
+- [10_GOD_FILES_SURGICAL_MAP.md](docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md): Monolithic God-File Complexity Radar & Surgical Slicer (exact line ranges for LLMs).
 
 ## Backend Architecture
 - [01_API_ROUTES_AND_ENDPOINTS.md](docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md): HTTP API routes, methods, and auth protection guards.
@@ -21,7 +23,8 @@
 - [03_SERVER_ACTIONS_AND_MUTATIONS.md](docs/backend-atlas/03_SERVER_ACTIONS_AND_MUTATIONS.md): Server Actions ("use server") and DB mutations.
 - [04_AUTH_AND_MIDDLEWARE_GUARDS.md](docs/backend-atlas/04_AUTH_AND_MIDDLEWARE_GUARDS.md): Middleware route matchers and public vs protected rules.
 - [05_INTEGRATIONS_AND_WEBHOOKS.md](docs/backend-atlas/05_INTEGRATIONS_AND_WEBHOOKS.md): Third-party services (Stripe, Resend, Supabase, S3) and webhooks.
-- [06_FULLSTACK_CROSS_REFERENCE_MAP.md](docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md): Bi-directional link from UI buttons to backend API and database tables.
+- [06_FULLSTACK_CROSS_REFERENCE_MAP.md](docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md): Bi-directional link from UI buttons to backend API, database tables & API Contract Drift Radar.
+- [07_ENV_AND_SECRETS_MAP.md](docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md): Environment variable registry, client secret leaks & undocumented shadow keys.
 
 ## Optional
 - [llms-full.txt](llms-full.txt): Comprehensive concatenated fullstack architecture reference for LLM agents.

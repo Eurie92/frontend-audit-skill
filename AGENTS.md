@@ -32,7 +32,7 @@ Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, 
    - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:
      - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.
 
-## 🛠️ Available Commands (v2.5.0 Reactive State & API Call-Graph Engine)
+## 🛠️ Available Commands (v2.6.0 Reactive State & API Call-Graph Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.

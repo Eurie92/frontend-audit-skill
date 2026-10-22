@@ -82,6 +82,50 @@ export interface IntegrationService {
   detectedFiles: { file: string; line: number; snippet: string }[];
 }
 
+export type EnvSensitivity = "CRITICAL_SECRET" | "AUTH_KEY" | "DATABASE" | "CONFIG" | "PUBLIC";
+
+export interface EnvVariableOccurrence {
+  filePath: string;
+  relativePath: string;
+  line: number;
+  snippet: string;
+  isClientScope: boolean;
+}
+
+export interface EnvAuditItem {
+  name: string;
+  scope: "Client ⚡" | "Server 🖥️" | "Hybrid (Client & Server)";
+  sensitivity: EnvSensitivity;
+  isPublicVar: boolean;
+  isDocumented: boolean;
+  occurrences: EnvVariableOccurrence[];
+  hasLeakRisk: boolean;
+  leakMessage?: string;
+}
+
+export interface EnvAuditReport {
+  totalUniqueVars: number;
+  documentedVarsCount: number;
+  shadowVarsCount: number;
+  leakWarningsCount: number;
+  documentedKeys: string[];
+  items: EnvAuditItem[];
+}
+
+export interface ContractDriftWarning {
+  backendTarget: string,
+  targetType: "API Route" | "Server Action";
+  frontendFile: string;
+  frontendLine: number;
+  backendFile: string;
+  backendLine: number;
+  driftType: "CASING_MISMATCH" | "MISSING_KEY" | "UNUSED_PAYLOAD_KEY";
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  clientKey?: string;
+  serverKey?: string;
+  message: string;
+}
+
 export interface FullstackBridgeItem {
   frontendFile: string;
   frontendLine: number;
@@ -102,6 +146,8 @@ export interface BackendAuditResult {
   authGuards: AuthGuard[];
   integrations: IntegrationService[];
   bridgeItems: FullstackBridgeItem[];
+  contractDriftWarnings?: ContractDriftWarning[];
+  envAudit?: EnvAuditReport;
 }
 
 function escapeMarkdownSnippet(text: string, maxLen = 50): string {
@@ -717,13 +763,124 @@ export function parseIntegrations(files: string[], rootDir: string = ROOT_DIR): 
   return results;
 }
 
+// Payload and Contract Drift Extraction Helpers
+function extractClientPayloadKeys(lines: string[], startIdx: number): string[] {
+  const keys: string[] = [];
+  const snippet = lines.slice(startIdx, Math.min(lines.length, startIdx + 15)).join("\n");
+
+  const jsonMatch = snippet.match(/JSON\.stringify\s*\(\s*\{([^}]+)\}/);
+  if (jsonMatch) {
+    const bodyStr = jsonMatch[1];
+    const keyMatches = bodyStr.matchAll(/([a-zA-Z0-9_]+)\s*:/g);
+    for (const km of keyMatches) {
+      if (!keys.includes(km[1])) keys.push(km[1]);
+    }
+    const shorthandMatches = bodyStr.split(",").map(s => s.trim().split(/\s*:/)[0].trim());
+    shorthandMatches.forEach(k => {
+      if (/^[a-zA-Z0-9_]+$/.test(k) && !keys.includes(k) && !["method", "headers", "body", "cache"].includes(k)) {
+        keys.push(k);
+      }
+    });
+  }
+
+  const directObjMatch = snippet.match(/(?:\.post|\.put|\.patch|\b[A-Za-z0-9_]+\s*)\s*\([^,]+,\s*\{([^}]+)\}/);
+  if (directObjMatch) {
+    const bodyStr = directObjMatch[1];
+    const keyMatches = bodyStr.matchAll(/([a-zA-Z0-9_]+)\s*:/g);
+    for (const km of keyMatches) {
+      if (!keys.includes(km[1])) keys.push(km[1]);
+    }
+  }
+
+  return keys;
+}
+
+function extractBackendExpectedKeys(epContent: string): { keys: string[]; lines: Map<string, number> } {
+  const keys: string[] = [];
+  const linesMap = new Map<string, number>();
+  const epLines = epContent.split("\n");
+
+  epLines.forEach((line, idx) => {
+    const lineNum = idx + 1;
+    const destructureMatch = line.match(/(?:const|let|var)\s+\{([^}]+)\}\s*=\s*(?:await\s+[^.]+\.json\(\)|body|data|payload)/);
+    if (destructureMatch) {
+      const parts = destructureMatch[1].split(",");
+      parts.forEach(p => {
+        const k = p.trim().split(/\s*:\s*/)[0].split(/\s*=/)[0].trim();
+        if (/^[a-zA-Z0-9_]+$/.test(k) && !keys.includes(k)) {
+          keys.push(k);
+          linesMap.set(k, lineNum);
+        }
+      });
+    }
+
+    const propMatches = line.matchAll(/\b(?:body|data|payload|json)\.([a-zA-Z0-9_]+)\b/g);
+    for (const pm of propMatches) {
+      const k = pm[1];
+      if (!keys.includes(k) && !["catch", "then", "length", "toString", "slice"].includes(k)) {
+        keys.push(k);
+        if (!linesMap.has(k)) linesMap.set(k, lineNum);
+      }
+    }
+
+    const zodMatch = line.match(/([a-zA-Z0-9_]+)\s*:\s*z\./);
+    if (zodMatch) {
+      const k = zodMatch[1];
+      if (!keys.includes(k)) {
+        keys.push(k);
+        if (!linesMap.has(k)) linesMap.set(k, lineNum);
+      }
+    }
+  });
+
+  return { keys, lines: linesMap };
+}
+
+function detectContractDrift(
+  clientKeys: string[],
+  serverKeysInfo: { keys: string[]; lines: Map<string, number> },
+  frontendFile: string, frontendLine: number, backendFile: string, backendTarget: string,
+  targetType: "API Route" | "Server Action"
+): ContractDriftWarning[] {
+  const warnings: ContractDriftWarning[] = [];
+  const serverKeys = serverKeysInfo.keys;
+
+  function normalize(k: string) {
+    return k.toLowerCase().replace(/[-_]/g, "");
+  }
+
+  clientKeys.forEach(ck => {
+    const normCk = normalize(ck);
+    const matchedSk = serverKeys.find(sk => normalize(sk) === normCk);
+    if (matchedSk && matchedSk !== ck) {
+      const backendLine = serverKeysInfo.lines.get(matchedSk) || 1;
+      warnings.push({
+        backendTarget,
+        targetType,
+        frontendFile,
+        frontendLine,
+        backendFile,
+        backendLine,
+        driftType: "CASING_MISMATCH",
+        severity: "HIGH",
+        clientKey: ck,
+        serverKey: matchedSk,
+        message: "Casing mismatch: Client sends '" + ck + "' but Server expects '" + matchedSk + "'!",
+      });
+    }
+  });
+
+  return warnings;
+}
+
 // 6. Fullstack Cross-Reference Bridge (Frontend UI ➔ Backend Actions / APIs)
 export function buildFullstackBridge(
   files: string[],
   endpoints: ApiEndpoint[],
   actions: ServerAction[],
   models: DbModel[],
-  rootDir: string = ROOT_DIR
+  rootDir: string = ROOT_DIR,
+  driftCollector?: ContractDriftWarning[]
 ): FullstackBridgeItem[] {
   const bridgeItems: FullstackBridgeItem[] = [];
   const contentCache = new Map<string, string>();
@@ -862,6 +1019,23 @@ export function buildFullstackBridge(
           serviceCalls = svcInfo.serviceCalls;
           const combinedContent = [epContent, ...svcInfo.extraContents].join("\n");
 
+          if (driftCollector && matchingEndpoint.filePath) {
+            const clientKeys = extractClientPayloadKeys(lines, idx);
+            if (clientKeys.length > 0) {
+              const serverKeysInfo = extractBackendExpectedKeys(epContent);
+              const drifts = detectContractDrift(
+                clientKeys,
+                serverKeysInfo,
+                relPath,
+                lineNum,
+                matchingEndpoint.relativePath,
+                rawTarget,
+                "API Route"
+              );
+              drifts.forEach(d => driftCollector.push(d));
+            }
+          }
+
           connectedModels = models
             .filter(m => {
               const nameRegex = new RegExp(`\\b${m.name}\\b|\\b${m.tableName}\\b`, "i");
@@ -919,6 +1093,141 @@ export function buildFullstackBridge(
   });
 
   return bridgeItems;
+}
+
+// 7. Environment Variables & Secret Leak Radar
+export function auditEnvAndSecrets(
+  files: string[],
+  rootDir: string = ROOT_DIR
+): EnvAuditReport {
+  const documentedKeys = new Set<string>();
+  const envExampleCandidates = [
+    ".env.example",
+    ".env.sample",
+    ".env.template",
+    ".env.local.example",
+    ".env.staging.example"
+  ];
+  for (const cand of envExampleCandidates) {
+    const full = path.join(rootDir, cand);
+    if (fs.existsSync(full)) {
+      try {
+        const lines = fs.readFileSync(full, "utf-8").split("\n");
+        lines.forEach(l => {
+          const m = l.trim().match(/^#?\s*([A-Za-z0-9_]+)=/);
+          if (m) documentedKeys.add(m[1]);
+        });
+      } catch {}
+    }
+  }
+
+  const varMap = new Map<string, EnvVariableOccurrence[]>();
+  const envRegex = /\b(?:process\.env(?:\.([A-Za-z0-9_]+)|\[["']([A-Za-z0-9_]+)["']\])|import\.meta\.env(?:\.([A-Za-z0-9_]+)|\[["']([A-Za-z0-9_]+)["']\]))/g;
+
+  files.forEach(filePath => {
+    const rel = path.relative(rootDir, filePath).replace(/\\/g, "/");
+    let content = "";
+    try {
+      content = fs.readFileSync(filePath, "utf-8");
+    } catch {
+      return;
+    }
+
+    const lines = content.split("\n");
+    const isScriptOrTool = rel.startsWith("scripts/") || rel.startsWith("bin/") || rel.includes("test/") || rel.includes("tests/") || rel.startsWith("scratch/");
+    const hasClientDirective = lines.slice(0, 10).some(l => /^\s*["']use client["']/.test(l.trim()));
+    const isClientScope = !isScriptOrTool && (
+      hasClientDirective ||
+      rel.includes("components/ui/") ||
+      rel.includes("components/public/") ||
+      (rel.includes("app/") && !rel.includes("app/api/") && hasClientDirective)
+    );
+    lines.forEach((line, idx) => {
+      const lineNum = idx + 1;
+      let match;
+      envRegex.lastIndex = 0;
+      while ((match = envRegex.exec(line)) !== null) {
+        const varName = match[1] || match[2] || match[3] || match[4];
+        if (!varName) continue;
+        if (!varMap.has(varName)) varMap.set(varName, []);
+        varMap.get(varName)!.push({
+          filePath,
+          relativePath: rel,
+          line: lineNum,
+          snippet: line.trim().slice(0, 70),
+          isClientScope,
+        });
+      }
+    });
+  });
+
+  const SYSTEM_VARS = new Set([
+    "NODE_ENV", "PORT", "VERCEL", "VERCEL_URL", "VERCEL_ENV", "NEXT_RUNTIME", "CI", "DEBUG", "HOME", "USERPROFILE", "PATH", "PWD", "HOSTNAME", "SHELL", "TEMP", "TMP"
+  ]);
+
+  const items: EnvAuditItem[] = [];
+  let shadowCount = 0;
+  let leakWarningsCount = 0;
+
+  varMap.forEach((occurrences, varName) => {
+    const hasClient = occurrences.some(o => o.isClientScope);
+    const hasServer = occurrences.some(o => !o.isClientScope);
+    const scope = hasClient && hasServer ? "Hybrid (Client & Server)" : hasClient ? "Client ⚡" : "Server 🖥️";
+
+    const isPublicVar = varName.startsWith("NEXT_PUBLIC_") || varName.startsWith("VITE_") || varName.startsWith("PUBLIC_");
+    const isDoc = documentedKeys.has(varName) || SYSTEM_VARS.has(varName);
+    if (!isDoc) shadowCount++;
+
+    let sensitivity: EnvSensitivity = "CONFIG";
+    if (isPublicVar) {
+      sensitivity = "PUBLIC";
+    } else if (/(?:SECRET|PASSWORD|PRIVATE|CREDENTIAL|SIGNING|ENCRYPTION|SERVICE_ROLE)/i.test(varName)) {
+      sensitivity = "CRITICAL_SECRET";
+    } else if (/(?:KEY|TOKEN|AUTH|BEARER)/i.test(varName)) {
+      sensitivity = "AUTH_KEY";
+    } else if (/(?:DATABASE|DB_|SUPABASE|REDIS|POSTGRES|PRISMA)/i.test(varName)) {
+      sensitivity = "DATABASE";
+    }
+
+    let hasLeakRisk = false;
+    let leakMessage: string | undefined = undefined;
+
+    if (hasClient && !isPublicVar && !SYSTEM_VARS.has(varName)) {
+      hasLeakRisk = true;
+      leakWarningsCount++;
+      if (sensitivity === "CRITICAL_SECRET" || sensitivity === "AUTH_KEY" || sensitivity === "DATABASE") {
+        leakMessage = "🚨 CRITICAL: Sensitive secret '" + varName + "' accessed in Client Component! High risk of credential exposure.";
+      } else {
+        leakMessage = "⚠️ WARNING: Private environment variable '" + varName + "' accessed in Client Component (evaluates to undefined in client bundle).";
+      }
+    }
+
+    items.push({
+      name: varName,
+      scope,
+      sensitivity,
+      isPublicVar,
+      isDocumented: isDoc,
+      occurrences,
+      hasLeakRisk,
+      leakMessage,
+    });
+  });
+
+  items.sort((a, b) => {
+    if (a.hasLeakRisk !== b.hasLeakRisk) return a.hasLeakRisk ? -1 : 1;
+    if (a.isDocumented !== b.isDocumented) return a.isDocumented ? 1 : -1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    totalUniqueVars: items.length,
+    documentedVarsCount: documentedKeys.size,
+    shadowVarsCount: shadowCount,
+    leakWarningsCount,
+    documentedKeys: Array.from(documentedKeys),
+    items,
+  };
 }
 
 // Writers for docs/backend-atlas/
@@ -1071,7 +1380,78 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       md06 += `| ${fileLink} | \`${b.backendTarget}\` | ${serviceCallsStr} | \`${b.targetType}\` | \`${b.httpMethod || "POST"}\` | ${modelsStr} | ${serviceStr} |\n`;
     });
   }
+    // Append API Contract & Payload Drift Radar to 06
+  md06 += "\n## ⚠️ API Contract & Payload Drift Radar\n\n";
+  md06 += "> Detects casing mismatches (e.g. `order_id` vs `orderId`) between Frontend request bodies and Backend route handlers.\n\n";
+
+  const drifts = result.contractDriftWarnings || [];
+  if (drifts.length === 0) {
+    md06 += "_✅ No API contract or casing drift detected across verified triggers._\n\n";
+  } else {
+    md06 += "### 🚨 Detected Contract Drifts (**" + drifts.length + "** issues)\n\n";
+    md06 += "| Target API / Action | Frontend Caller | Backend Endpoint | Drift Type | Severity | Details |\n";
+    md06 += "| :--- | :--- | :--- | :--- | :--- | :--- |\n";
+    drifts.forEach(d => {
+      const frontLink = makeFileLink(d.frontendFile, d.frontendLine, path.basename(d.frontendFile) + ":" + d.frontendLine);
+      const backLink = makeFileLink(d.backendFile, d.backendLine, path.basename(d.backendFile) + ":" + d.backendLine);
+      md06 += "| `" + d.backendTarget + "` | " + frontLink + " | " + backLink + " | `" + d.driftType + "` | " + (d.severity === "HIGH" ? "🚨 High" : "⚠️ Medium") + " | " + d.message + " |\n";
+    });
+    md06 += "\n";
+  }
   fs.writeFileSync(path.join(outputDir, "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), md06);
+
+  // 7. 07_ENV_AND_SECRETS_MAP.md
+  const envReport = result.envAudit || { totalUniqueVars: 0, documentedVarsCount: 0, shadowVarsCount: 0, leakWarningsCount: 0, documentedKeys: [], items: [] };
+  let md07 = "# 🔐 Environment Variables & Secret Leak Radar\n\n";
+  md07 += "> Static analysis of environment variables, client-side exposure risks, and undocumented shadow keys.\n\n";
+
+  if (envReport.leakWarningsCount > 0) {
+    md07 += "> [!CAUTION]\n> 🚨 **" + envReport.leakWarningsCount + " POTENTIAL CLIENT LEAKS DETECTED**: Sensitive environment variables referenced inside Client Components!\n\n";
+  } else {
+    md07 += "> [!NOTE]\n> 🛡️ **0 CLIENT SECRET LEAKS DETECTED**: All client-side environment variable accesses use public prefixes or runtime defaults.\n\n";
+  }
+
+  md07 += "## 📊 Environment Summary\n\n";
+  md07 += "- **Total Unique Variables Referenced**: **" + envReport.totalUniqueVars + "**\n";
+  md07 += "- **Documented in .env.example**: **" + envReport.documentedVarsCount + "**\n";
+  md07 += "- **Shadow (Undocumented) Variables**: **" + envReport.shadowVarsCount + "**\n";
+  md07 += "- **Client Component Exposure Warnings**: **" + envReport.leakWarningsCount + "**\n\n";
+
+  if (envReport.leakWarningsCount > 0) {
+    md07 += "### 🚨 Critical Client Leaks & Warnings\n\n";
+    md07 += "| Variable Name | Sensitivity | Scope | Source File | Risk Notice |\n";
+    md07 += "| :--- | :--- | :--- | :--- | :--- |\n";
+    envReport.items.filter(i => i.hasLeakRisk).forEach(i => {
+      const firstOcc = i.occurrences[0];
+      const link = firstOcc ? makeFileLink(firstOcc.relativePath, firstOcc.line, firstOcc.relativePath + ":" + firstOcc.line) : "—";
+      md07 += "| `" + i.name + "` | `" + i.sensitivity + "` | `" + i.scope + "` | " + link + " | " + (i.leakMessage || "Exposure Risk") + " |\n";
+    });
+    md07 += "\n";
+  }
+
+  if (envReport.shadowVarsCount > 0) {
+    md07 += "### 👻 Shadow (Undocumented) Variables\n\n";
+    md07 += "> Variables used in code but missing from `.env.example`. Add these to prevent missing variable crashes in deployment!\n\n";
+    md07 += "| Variable Name | Scope | Sensitivity | Primary Usage File |\n";
+    md07 += "| :--- | :--- | :--- | :--- |\n";
+    envReport.items.filter(i => !i.isDocumented).forEach(i => {
+      const firstOcc = i.occurrences[0];
+      const link = firstOcc ? makeFileLink(firstOcc.relativePath, firstOcc.line, firstOcc.relativePath + ":" + firstOcc.line) : "—";
+      md07 += "| `" + i.name + "` | `" + i.scope + "` | `" + i.sensitivity + "` | " + link + " |\n";
+    });
+    md07 += "\n";
+  }
+
+  md07 += "### 📋 Master Environment Variable Registry\n\n";
+  md07 += "| Variable Name | Scope | Sensitivity | Documented? | Total References |\n";
+  md07 += "| :--- | :--- | :--- | :--- | :--- |\n";
+  envReport.items.forEach(i => {
+    const docBadge = i.isDocumented ? "✅ Documented" : "👻 Shadow";
+    md07 += "| `" + i.name + "` | " + i.scope + " | `" + i.sensitivity + "` | " + docBadge + " | **" + i.occurrences.length + "** usages |\n";
+  });
+  md07 += "\n";
+
+  fs.writeFileSync(path.join(outputDir, "07_ENV_AND_SECRETS_MAP.md"), md07);
 
   // 7. README.md
   let mdReadme = `# 📖 Backend Atlas & Architecture Catalog\n\n`;
@@ -1085,13 +1465,18 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   mdReadme += `- **External Integrations**: **${result.integrations.length}** services\n`;
   mdReadme += `- **Fullstack Cross-Reference Links**: **${result.bridgeItems.length}** connected triggers\n\n`;
 
-  mdReadme += `## 📑 Backend Atlas Documents\n\n`;
-  mdReadme += `1. **[01_API_ROUTES_AND_ENDPOINTS.md](./01_API_ROUTES_AND_ENDPOINTS.md)**: HTTP API routes, methods, and parameters.\n`;
-  mdReadme += `2. **[02_DATABASE_MODELS_AND_SCHEMA.md](./02_DATABASE_MODELS_AND_SCHEMA.md)**: Prisma and Drizzle models, fields, and relations.\n`;
-  mdReadme += `3. **[03_SERVER_ACTIONS_AND_MUTATIONS.md](./03_SERVER_ACTIONS_AND_MUTATIONS.md)**: Server Actions, parameters, and mutations.\n`;
-  mdReadme += `4. **[04_AUTH_AND_MIDDLEWARE_GUARDS.md](./04_AUTH_AND_MIDDLEWARE_GUARDS.md)**: Middleware matchers and route protection.\n`;
-  mdReadme += `5. **[05_INTEGRATIONS_AND_WEBHOOKS.md](./05_INTEGRATIONS_AND_WEBHOOKS.md)**: Stripe, Resend, Supabase, and S3 clients.\n`;
-  mdReadme += `6. **[06_FULLSTACK_CROSS_REFERENCE_MAP.md](./06_FULLSTACK_CROSS_REFERENCE_MAP.md)**: Cross-boundary link from UI button to backend database.\n\n`;
+  if (result.envAudit) {
+    mdReadme += "- **Client Secret Leaks**: **" + result.envAudit.leakWarningsCount + "**\n";
+    mdReadme += "- **Shadow (Undocumented) Env Vars**: **" + result.envAudit.shadowVarsCount + "**\n";
+  }
+  mdReadme += "\n## 📑 Backend Atlas Documents\n\n";
+  mdReadme += "1. **[01_API_ROUTES_AND_ENDPOINTS.md](./01_API_ROUTES_AND_ENDPOINTS.md)**: HTTP API routes, methods, and parameters.\n";
+  mdReadme += "2. **[02_DATABASE_MODELS_AND_SCHEMA.md](./02_DATABASE_MODELS_AND_SCHEMA.md)**: Prisma and Drizzle models, fields, and relations.\n";
+  mdReadme += "3. **[03_SERVER_ACTIONS_AND_MUTATIONS.md](./03_SERVER_ACTIONS_AND_MUTATIONS.md)**: Server Actions, parameters, and mutations.\n";
+  mdReadme += "4. **[04_AUTH_AND_MIDDLEWARE_GUARDS.md](./04_AUTH_AND_MIDDLEWARE_GUARDS.md)**: Middleware matchers and route protection.\n";
+  mdReadme += "5. **[05_INTEGRATIONS_AND_WEBHOOKS.md](./05_INTEGRATIONS_AND_WEBHOOKS.md)**: Stripe, Resend, Supabase, and S3 clients.\n";
+  mdReadme += "6. **[06_FULLSTACK_CROSS_REFERENCE_MAP.md](./06_FULLSTACK_CROSS_REFERENCE_MAP.md)**: Cross-boundary link from UI button to backend database & Contract Drift Radar.\n";
+  mdReadme += "7. **[07_ENV_AND_SECRETS_MAP.md](./07_ENV_AND_SECRETS_MAP.md)**: Environment variable registry, client secret leaks, and undocumented shadow keys.\n\n";
 
   fs.writeFileSync(path.join(outputDir, "README.md"), mdReadme);
 
@@ -1110,7 +1495,9 @@ export async function runUniversalBackendAudit(rootDir: string = ROOT_DIR): Prom
   const serverActions = parseServerActions(uniqueFiles, rootDir);
   const authGuards = parseAuthGuards(uniqueFiles, rootDir);
   const integrations = parseIntegrations(uniqueFiles, rootDir);
-  const bridgeItems = buildFullstackBridge(uniqueFiles, endpoints, serverActions, models, rootDir);
+  const contractDriftWarnings: ContractDriftWarning[] = [];
+  const bridgeItems = buildFullstackBridge(uniqueFiles, endpoints, serverActions, models, rootDir, contractDriftWarnings);
+  const envAudit = auditEnvAndSecrets(uniqueFiles, rootDir);
 
   // Symbol Centrality PageRank Calculation
   // 1. Calculate Endpoint Centrality (caller count + in-code mentions)
@@ -1163,6 +1550,8 @@ export async function runUniversalBackendAudit(rootDir: string = ROOT_DIR): Prom
     authGuards,
     integrations,
     bridgeItems,
+    contractDriftWarnings,
+    envAudit,
   };
 
   writeBackendAtlas(result, rootDir);

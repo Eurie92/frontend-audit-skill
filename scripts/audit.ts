@@ -325,6 +325,29 @@ export interface EventInvalidationDef {
   invalidatedKeys: string[];
 }
 
+export interface FileSlice {
+  name: string;
+  type: "Component" | "Sub-Component" | "Hook" | "Function" | "Service Class" | "Type / Interface" | "Event Handler";
+  startLine: number;
+  endLine: number;
+  lineCount: number;
+  approxTokens: number;
+  savingsPercentage: string;
+  preview: string;
+}
+
+export interface GodFileAudit {
+  filePath: string;
+  relativePath: string;
+  totalLines: number;
+  totalTokens: number;
+  fileSizeBytes: number;
+  slices: FileSlice[];
+  averageSliceLines: number;
+  averageSliceTokens: number;
+  maxSavingsPercentage: string;
+}
+
 export interface QueryCacheTopology {
   queries: QueryDefinition[];
   mutations: MutationDefinition[];
@@ -2451,7 +2474,7 @@ async function executeSelfUpdate() {
 }
 
 // 10. Zero-Search Agent Handoff Manifest Generator (--manifest <target>)
-function executeManifestLookup(audits: ComponentAudit[], target: string, discoveredSkills: DiscoveredSkill[] = []) {
+function executeManifestLookup(audits: ComponentAudit[], target: string, discoveredSkills: DiscoveredSkill[] = [], godFiles: GodFileAudit[] = []) {
   console.log(`🎫 Generating Agent Handoff Manifest for: "${target}"...\n`);
   const [filePathQuery, lineStr] = target.split(":");
   const targetLine = lineStr ? parseInt(lineStr, 10) : undefined;
@@ -2553,6 +2576,31 @@ function executeManifestLookup(audits: ComponentAudit[], target: string, discove
     ...(discoveredSkills.some(s => s.name === "design-taste-frontend")
       ? [`  taste_and_art_direction: "design-taste-frontend"`]
       : []),
+        (() => {
+      const matchingGod = godFiles.find(g => g.filePath === matchingAudit.filePath || g.relativePath === matchingAudit.relativePath);
+      if (!matchingGod) return `surgical_slicing:
+  monolithic_god_file: false`;
+      if (targetLine) {
+        const slice = matchingGod.slices.find(s => s.startLine <= targetLine && s.endLine >= targetLine);
+        if (slice) {
+          return `surgical_slicing:
+  monolithic_god_file: true
+  total_file_lines: ${matchingGod.totalLines}
+  total_file_tokens: ~${matchingGod.totalTokens}
+  containing_slice: "${slice.name}"
+  slice_type: "${slice.type}"
+  slice_lines: "L${slice.startLine}-L${slice.endLine} (${slice.lineCount} lines / ~${slice.approxTokens} tokens)"
+  context_savings: "${slice.savingsPercentage} context tokens saved"
+  recommended_read_scope: "read_file StartLine: ${slice.startLine} EndLine: ${slice.endLine}"`;
+        }
+      }
+      return `surgical_slicing:
+  monolithic_god_file: true
+  total_file_lines: ${matchingGod.totalLines}
+  total_slices_indexed: ${matchingGod.slices.length}
+  surgical_map: "docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md"
+  guidance: "Do not read full file; pick a target slice from 10_GOD_FILES_SURGICAL_MAP.md"`;
+    })(),
     `# === END MANIFEST ===`,
   ].join("\n");
 
@@ -2777,6 +2825,20 @@ function executeVerificationGate(
       process.exit(1);
     } else {
       console.log(`   ✅ PASS: 0 rogue hardcoded hexes detected in scope.\n`);
+    }
+
+        // Check Client Secret Leaks from Backend Atlas
+    const backendEnvPath = path.join(ROOT_DIR, "docs", "backend-atlas", "07_ENV_AND_SECRETS_MAP.md");
+    if (fs.existsSync(backendEnvPath)) {
+      const envContent = fs.readFileSync(backendEnvPath, "utf-8");
+      if (envContent.includes("POTENTIAL CLIENT LEAKS DETECTED")) {
+        console.error(`\n❌ VERIFICATION GATE FAILED (--gate-clean):`);
+        console.error(`   Critical secret leak detected inside Client Components!`);
+        console.error(`   Check docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md for leaked keys and files.\n`);
+        process.exit(1);
+      } else {
+        console.log(`   ✅ PASS: 0 client secret leaks detected in docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md.\n`);
+      }
     }
 
     if (tsStatus === "FAIL") {
@@ -3135,7 +3197,7 @@ export function auditQueryCacheTopology(files: string[], rootDir: string = ROOT_
 }
 
 // 11. Interactive Query Filter (--find / --route)
-function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string, topology?: QueryCacheTopology) {
+function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string, topology?: QueryCacheTopology, godFiles: GodFileAudit[] = []) {
   const q = query.toLowerCase();
 
   if (JSON_MODE) {
@@ -3168,6 +3230,12 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
         console.log(`[mutation] ${mi.triggerName} ➔ ${mi.filePath}:${mi.line}`);
       });
     }
+        // Search God File Slices in Compact Mode
+    godFiles.forEach(g => {
+      g.slices.filter(s => s.name.toLowerCase().includes(q)).forEach(s => {
+        console.log(`[slice] ${s.name} (${s.type}, L${s.startLine}-L${s.endLine}) ➔ ${g.relativePath} (${s.savingsPercentage} saved)`);
+      });
+    });
     return;
   }
 
@@ -3430,6 +3498,7 @@ export function runUniversalFrontendAudit() {
   const deadComponents = findDeadComponents(audits, structure);
   const skillDispatches = generateSkillDispatches(audits);
   const discoveredSkills = discoverInstalledSkills();
+  const godFiles = auditGodFiles(uniqueFiles, ROOT_DIR);
 
   // If --fix-buttons requested
   if (SHOULD_FIX_BUTTONS) {
@@ -3439,7 +3508,7 @@ export function runUniversalFrontendAudit() {
 
   // If --manifest requested
   if (MANIFEST_TARGET) {
-    executeManifestLookup(audits, MANIFEST_TARGET, discoveredSkills);
+    executeManifestLookup(audits, MANIFEST_TARGET, discoveredSkills, godFiles);
     return;
   }
 
@@ -3472,13 +3541,13 @@ export function runUniversalFrontendAudit() {
 
   // If query requested
   if (FIND_QUERY) {
-    executeInteractiveQuery(audits, routeMaps, FIND_QUERY, queryTopology);
+    executeInteractiveQuery(audits, routeMaps, FIND_QUERY, queryTopology, godFiles);
     return;
   }
 
   // If route query requested
   if (ROUTE_QUERY) {
-    executeInteractiveQuery(audits, routeMaps, ROUTE_QUERY, queryTopology);
+    executeInteractiveQuery(audits, routeMaps, ROUTE_QUERY, queryTopology, godFiles);
     return;
   }
 
@@ -3514,7 +3583,8 @@ export function runUniversalFrontendAudit() {
   writeDispatchGateway(skillDispatches, discoveredSkills);
   writeThemePunchlist(audits);
   writeQueryAndCacheMap(queryTopology);
-  writeAtlasSummary(audits, routeMaps, structure, deadComponents, queryTopology);
+  writeGodFilesMap(godFiles, OUTPUT_DIR);
+  writeAtlasSummary(audits, routeMaps, structure, deadComponents, queryTopology, godFiles);
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
@@ -3567,6 +3637,170 @@ function makeFileLink(relativePath: string, line?: number, displayText?: string)
   const relHref = `../../${cleanPath}${line ? `#L${line}` : ""}`;
   const label = displayText || (line ? `${cleanPath}:${line}` : cleanPath);
   return `[${label}](${relHref})`;
+}
+
+// 10. Monolithic God-File Complexity Radar & Surgical Slicer
+function auditGodFiles(allFiles: string[], rootDir: string = ROOT_DIR): GodFileAudit[] {
+  const godFiles: GodFileAudit[] = [];
+  const declRegex = /^(?:export\s+(?:default\s+)?)?(?:(?:async\s+)?function\s+([a-zA-Z0-9_]+)|const\s+([a-zA-Z0-9_]+)\s*=\s*(?:React\.(?:forwardRef|memo)|(?:async\s*)?\([^)]*\)\s*=>|async\s*\(|z\.object|\{|\[)|class\s+([a-zA-Z0-9_]+)|(?:interface|type)\s+([a-zA-Z0-9_]+))/;
+
+  allFiles.forEach(filePath => {
+    const rel = path.relative(rootDir, filePath).replace(/\\/g, "/");
+    if (
+      rel.startsWith("node_modules/") ||
+      rel.startsWith(".next/") ||
+      rel.startsWith("dist/") ||
+      rel.startsWith("build/") ||
+      rel.startsWith("docs/") ||
+      rel.startsWith("evidence/") ||
+      rel.includes("test-fixture")
+    ) {
+      return;
+    }
+
+    let content = "";
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(filePath);
+      if (stat.size < 20 * 1024) {
+        content = fs.readFileSync(filePath, "utf-8");
+        const lc = (content.match(/\n/g) || []).length + 1;
+        if (lc < 500) return;
+      } else {
+        content = fs.readFileSync(filePath, "utf-8");
+      }
+    } catch {
+      return;
+    }
+
+    const lines = content.split("\n");
+    const totalLines = lines.length;
+    if (totalLines < 500 && stat.size < 25 * 1024) return;
+
+    const totalTokens = Math.round(content.length / 4);
+    const rawMatches: { name: string; type: FileSlice["type"]; line: number; preview: string }[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      const lineNum = i + 1;
+      if (!trimmed.startsWith("export ") && /^[ \t]{2,}/.test(line)) continue;
+
+      const m = trimmed.match(declRegex);
+      if (m) {
+        const name = m[1] || m[2] || m[3] || m[4];
+        if (name && !name.startsWith("set") && !["e", "event", "res", "req", "props"].includes(name)) {
+          let type: FileSlice["type"] = "Function";
+          if (m[3]) type = "Service Class";
+          else if (m[4]) type = "Type / Interface";
+          else if (/^use[A-Z]/.test(name)) type = "Hook";
+          else if (/^[A-Z]/.test(name)) type = trimmed.includes("export") ? "Component" : "Sub-Component";
+          else if (/^handle[A-Z]|^on[A-Z]/.test(name)) type = "Event Handler";
+
+          rawMatches.push({ name, type, line: lineNum, preview: trimmed.slice(0, 60) });
+        }
+      }
+    }
+
+    const slices: FileSlice[] = [];
+    for (let j = 0; j < rawMatches.length; j++) {
+      const curr = rawMatches[j];
+      const next = rawMatches[j + 1];
+      const startLine = curr.line;
+      const endLine = next ? (next.line - 1) : totalLines;
+      const lineCount = endLine - startLine + 1;
+      const sliceText = lines.slice(startLine - 1, endLine).join("\n");
+      const approxTokens = Math.round(sliceText.length / 4);
+      const savings = Math.max(0, ((1 - approxTokens / totalTokens) * 100)).toFixed(1) + "%";
+
+      if (lineCount >= 3) {
+        slices.push({
+          name: curr.name,
+          type: curr.type,
+          startLine,
+          endLine,
+          lineCount,
+          approxTokens,
+          savingsPercentage: savings,
+          preview: curr.preview,
+        });
+      }
+    }
+
+    const avgLines = slices.length > 0 ? Math.round(slices.reduce((a, s) => a + s.lineCount, 0) / slices.length) : totalLines;
+    const avgTokens = slices.length > 0 ? Math.round(slices.reduce((a, s) => a + s.approxTokens, 0) / slices.length) : totalTokens;
+    const maxSavings = slices.length > 0 ? slices[0].savingsPercentage : "0%";
+
+    godFiles.push({
+      filePath,
+      relativePath: rel,
+      totalLines,
+      totalTokens,
+      fileSizeBytes: stat.size,
+      slices,
+      averageSliceLines: avgLines,
+      averageSliceTokens: avgTokens,
+      maxSavingsPercentage: maxSavings,
+    });
+  });
+
+  godFiles.sort((a, b) => b.totalLines - a.totalLines);
+  return godFiles;
+}
+
+function writeGodFilesMap(godFiles: GodFileAudit[], outputDir: string) {
+  let md = "# ✂️ Monolithic God-File Complexity Radar & Surgical Slicer\n\n";
+  md += "> High-complexity monolithic source files (≥500 lines or ≥25KB) parsed into discrete surgical functional slices.\n";
+  md += "> **Context Token Optimization**: AI agents should read targeted functional slices instead of entire 2,000+ line monolithic files to prevent attention degradation and save up to 99% of input context tokens.\n\n";
+
+  if (godFiles.length === 0) {
+    md += "_✅ Clean architecture: No monolithic god files (≥500 lines) detected in project scope._\n";
+    fs.writeFileSync(path.join(outputDir, "10_GOD_FILES_SURGICAL_MAP.md"), md, "utf-8");
+    return;
+  }
+
+  const totalGodLines = godFiles.reduce((acc, g) => acc + g.totalLines, 0);
+  const totalGodTokens = godFiles.reduce((acc, g) => acc + g.totalTokens, 0);
+  const totalSlices = godFiles.reduce((acc, g) => acc + g.slices.length, 0);
+  const overallAvgTokens = totalSlices > 0 ? Math.round(godFiles.reduce((acc, g) => acc + (g.averageSliceTokens * g.slices.length), 0) / totalSlices) : 0;
+  const overallSavings = totalGodTokens > 0 ? (((1 - overallAvgTokens / (totalGodTokens / godFiles.length)) * 100).toFixed(1) + "%") : "0%";
+
+  md += "## 📊 God Files Summary: **" + godFiles.length + "** Monolithic Files Indexed\n\n";
+  md += "- **Combined Monolithic Code**: **" + totalGodLines.toLocaleString() + "** lines (~**" + totalGodTokens.toLocaleString() + "** tokens)\n";
+  md += "- **Surgically Mapped Slices**: **" + totalSlices + "** functional units\n";
+  md += "- **Average Slice Size**: **" + overallAvgTokens + "** tokens (vs ~" + Math.round(totalGodTokens / godFiles.length) + " tokens per full-file read)\n";
+  md += "- **Average Context Token Savings**: **" + overallSavings + "** saved per surgical read!\n\n";
+
+  md += "### 📋 Monolithic Files Ranked by Complexity\n\n";
+  md += "| File Path | Total Lines | Total Tokens | Slices | Avg Slice Lines | Max Context Savings |\n";
+  md += "| :--- | :--- | :--- | :--- | :--- | :--- |\n";
+
+  godFiles.forEach(g => {
+    const fileLink = "[" + path.basename(g.relativePath) + "](../../" + g.relativePath.replace(/\\/g, "/") + ")";
+    md += "| " + fileLink + " | **" + g.totalLines.toLocaleString() + "** | ~" + g.totalTokens.toLocaleString() + " | **" + g.slices.length + "** | " + g.averageSliceLines + " lines | **" + g.maxSavingsPercentage + "** |\n";
+  });
+  md += "\n---\n\n";
+
+  md += "## 🔪 Surgical Slice Directory\n\n";
+  godFiles.forEach(g => {
+    const fileLink = "[" + g.relativePath + "](../../" + g.relativePath.replace(/\\/g, "/") + ")";
+    md += "### 📄 " + fileLink + " (**" + g.totalLines.toLocaleString() + "** lines / ~**" + g.totalTokens.toLocaleString() + "** tokens)\n\n";
+    md += "> **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.\n\n";
+
+    if (g.slices.length === 0) {
+      md += "_No individual slices parsed (monolithic procedural block).\n\n";
+    } else {
+      md += "| Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |\n";
+      md += "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n";
+      g.slices.forEach(s => {
+        const sliceLink = "[" + s.name + "](../../" + g.relativePath.replace(/\\/g, "/") + "#L" + s.startLine + "-L" + s.endLine + ")";
+        md += "| `" + s.name + "` | `" + s.type + "` | " + s.lineCount + " | `L" + s.startLine + "-L" + s.endLine + "` | ~" + s.approxTokens + " | **" + s.savingsPercentage + "** | " + sliceLink + " |\n";
+      });
+      md += "\n";
+    }
+  });
+
+  fs.writeFileSync(path.join(outputDir, "10_GOD_FILES_SURGICAL_MAP.md"), md, "utf-8");
 }
 
 function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
@@ -4282,7 +4516,7 @@ function writeQueryAndCacheMap(topology: QueryCacheTopology) {
   fs.writeFileSync(filePath, md);
 }
 
-function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[], topology?: QueryCacheTopology) {
+function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[], topology?: QueryCacheTopology, godFiles: GodFileAudit[] = []) {
   const filePath = path.join(OUTPUT_DIR, "README.md");
   const totalFiles = audits.length;
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
@@ -4308,6 +4542,9 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `- **Indexed Visual Icons**: **${totalIcons}**\n`;
   if (totalQueries > 0) {
     md += `- **Active TanStack React Queries**: **${totalQueries}** queries indexed\n`;
+  }
+  if (godFiles.length > 0) {
+    md += `- **Monolithic God Files Mapped**: **${godFiles.length}** files sliced for context savings\n`;
   }
   md += `\n`;
 
@@ -4373,7 +4610,8 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
   llmsTxt += `- [06_VISIBLE_TEXT_AND_LABELS_MAP.md](docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md): Screenshot-to-code button labels and headings index.\n`;
   llmsTxt += `- [07_VISUAL_AND_ICON_INDEX.md](docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md): Lucide/Radix/SVG visual action icon index.\n`;
   llmsTxt += `- [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.\n`;
-  llmsTxt += `- [09_QUERY_AND_CACHE_MAP.md](docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md): TanStack React Query cache keys, mutations, and reactive invalidation topology.\n\n`;
+  llmsTxt += `- [09_QUERY_AND_CACHE_MAP.md](docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md): TanStack React Query cache keys, mutations, and reactive invalidation topology.
+- [10_GOD_FILES_SURGICAL_MAP.md](docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md): Monolithic God-File Complexity Radar & Surgical Slicer (exact line ranges for LLMs).\n\n`;
 
   llmsTxt += `## Backend Architecture\n`;
   llmsTxt += `- [01_API_ROUTES_AND_ENDPOINTS.md](docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md): HTTP API routes, methods, and auth protection guards.\n`;
@@ -4381,7 +4619,8 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
   llmsTxt += `- [03_SERVER_ACTIONS_AND_MUTATIONS.md](docs/backend-atlas/03_SERVER_ACTIONS_AND_MUTATIONS.md): Server Actions ("use server") and DB mutations.\n`;
   llmsTxt += `- [04_AUTH_AND_MIDDLEWARE_GUARDS.md](docs/backend-atlas/04_AUTH_AND_MIDDLEWARE_GUARDS.md): Middleware route matchers and public vs protected rules.\n`;
   llmsTxt += `- [05_INTEGRATIONS_AND_WEBHOOKS.md](docs/backend-atlas/05_INTEGRATIONS_AND_WEBHOOKS.md): Third-party services (Stripe, Resend, Supabase, S3) and webhooks.\n`;
-  llmsTxt += `- [06_FULLSTACK_CROSS_REFERENCE_MAP.md](docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md): Bi-directional link from UI buttons to backend API and database tables.\n\n`;
+  llmsTxt += `- [06_FULLSTACK_CROSS_REFERENCE_MAP.md](docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md): Bi-directional link from UI buttons to backend API, database tables & API Contract Drift Radar.
+- [07_ENV_AND_SECRETS_MAP.md](docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md): Environment variable registry, client secret leaks & undocumented shadow keys.\n\n`;
 
   llmsTxt += `## Optional\n`;
   llmsTxt += `- [llms-full.txt](llms-full.txt): Comprehensive concatenated fullstack architecture reference for LLM agents.\n`;
@@ -4395,9 +4634,11 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
   const filesToConcatenate = [
     path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md"),
     path.join(OUTPUT_DIR, "09_QUERY_AND_CACHE_MAP.md"),
+    path.join(OUTPUT_DIR, "10_GOD_FILES_SURGICAL_MAP.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "01_API_ROUTES_AND_ENDPOINTS.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "02_DATABASE_MODELS_AND_SCHEMA.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"),
+    path.join(ROOT_DIR, "docs", "backend-atlas", "07_ENV_AND_SECRETS_MAP.md"),
   ];
 
   filesToConcatenate.forEach(fPath => {

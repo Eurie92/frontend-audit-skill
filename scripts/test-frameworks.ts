@@ -505,6 +505,101 @@ async function runTestMatrix() {
     const bridge9Md = fs.readFileSync(path.join(queryAppDir, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), "utf-8");
     assert(bridge9Md.includes("CatalogService.getItems()"), "Deep cross-reference bridge traces API route to `CatalogService.getItems()`");
 
+    // ============================================================
+    // Test 10: Secret Leak & Client Env Radar, God-File Slicer, and API Contract Drift (v2.6.0)
+    // ============================================================
+    console.log("\n▶️ Test 10: Secret Leak & Client Env Radar, God-File Slicer, and API Contract Drift (v2.6.0)");
+    const batch3AppDir = path.join(TEST_DIR, "batch3-app");
+    fs.mkdirSync(path.join(batch3AppDir, "app", "api", "orders"), { recursive: true });
+    fs.mkdirSync(path.join(batch3AppDir, "components"), { recursive: true });
+
+    fs.writeFileSync(path.join(batch3AppDir, "package.json"), JSON.stringify({
+      name: "batch3-app",
+      dependencies: { "next": "14.0.0", "react": "18.2.0" }
+    }, null, 2));
+
+    // .env.example with only 1 documented var
+    fs.writeFileSync(path.join(batch3AppDir, ".env.example"), "NEXT_PUBLIC_APP_URL=https://example.com\n");
+
+    // Monolithic God-File (> 550 lines) with distinct functional slices
+    let godFileContent = "// Monolithic Checkout & Vault Management Component\n";
+    godFileContent += "export interface VaultItemProps {\n  id: string;\n  name: string;\n  price: number;\n}\n\n";
+    godFileContent += "export function VaultItemCard({ id, name, price }: VaultItemProps) {\n  return <div>{name} - ${price}</div>;\n}\n\n";
+    godFileContent += "export async function calculateTax(price: number): Promise<number> {\n  return price * 0.12;\n}\n\n";
+    godFileContent += "export class VaultManager {\n  private items: any[] = [];\n  addItem(item: any) { this.items.push(item); }\n}\n\n";
+    godFileContent += "export function MonolithicVaultDrawer() {\n";
+    godFileContent += "  const handleCheckout = async () => {\n    console.log(\"Checking out...\");\n  };\n";
+    for (let i = 0; i < 520; i++) {
+      godFileContent += "  // Line padding block " + (i + 1) + ": processing logic and state binding\n";
+    }
+    godFileContent += "  return <button onClick={handleCheckout}>Checkout</button>;\n}\n";
+    fs.writeFileSync(path.join(batch3AppDir, "components", "monolithic-vault-drawer.tsx"), godFileContent);
+
+    // Client component with secret leak + contract drift
+    fs.writeFileSync(path.join(batch3AppDir, "app", "page.tsx"), `
+      "use client";
+      import { useState } from "react";
+
+      export default function CheckoutPage() {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+        const secretKey = process.env.STRIPE_SECRET_KEY;
+
+        const submitOrder = async () => {
+          await fetch("/api/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              order_id: "ORD-999",
+              user_name: "John Doe"
+            })
+          });
+        };
+
+        return <button onClick={submitOrder}>Place Order</button>;
+      }
+    `);
+
+    // Backend route with shadow secret and camelCase expected keys
+    fs.writeFileSync(path.join(batch3AppDir, "app", "api", "orders", "route.ts"), `
+      import { NextResponse } from "next/server";
+
+      export async function POST(request: Request) {
+        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+        const { orderId, userName } = await request.json();
+
+        return NextResponse.json({ success: true, orderId, userName });
+      }
+    `);
+
+    const res10 = runAuditInDir(batch3AppDir);
+    assert(res10.status === 0, "Batch 3 fullstack audit runs without error");
+
+    // 1. Verify Secret Leak & Client Env Radar
+    const envMdPath = path.join(batch3AppDir, "docs", "backend-atlas", "07_ENV_AND_SECRETS_MAP.md");
+    assert(fs.existsSync(envMdPath), "Generates docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md");
+    const envMd = fs.readFileSync(envMdPath, "utf-8");
+    assert(envMd.includes("POTENTIAL CLIENT LEAKS DETECTED"), "Flags potential client secret leaks");
+    assert(envMd.includes("`STRIPE_SECRET_KEY`"), "Identifies leaked STRIPE_SECRET_KEY in client component");
+    assert(envMd.includes("`STRIPE_WEBHOOK_SECRET`"), "Indexes STRIPE_WEBHOOK_SECRET");
+    assert(envMd.includes("Shadow"), "Detects STRIPE_WEBHOOK_SECRET as a shadow undocumented variable");
+
+    // 2. Verify Monolithic God-File Surgical Slicer
+    const godMdPath = path.join(batch3AppDir, "docs", "frontend-atlas", "10_GOD_FILES_SURGICAL_MAP.md");
+    assert(fs.existsSync(godMdPath), "Generates docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md");
+    const godMd = fs.readFileSync(godMdPath, "utf-8");
+    assert(godMd.includes("monolithic-vault-drawer.tsx"), "Indexes monolithic-vault-drawer.tsx god file");
+    assert(godMd.includes("`VaultItemCard`"), "Surgically slices VaultItemCard component");
+    assert(godMd.includes("`calculateTax`"), "Surgically slices calculateTax function");
+    assert(godMd.includes("`VaultManager`"), "Surgically slices VaultManager service class");
+    assert(godMd.includes("`MonolithicVaultDrawer`"), "Surgically slices MonolithicVaultDrawer component");
+
+    // 3. Verify API Contract & Payload Drift Detector
+    const bridge10Path = path.join(batch3AppDir, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md");
+    const bridge10Md = fs.readFileSync(bridge10Path, "utf-8");
+    assert(bridge10Md.includes("API Contract & Payload Drift Radar"), "Includes API Contract & Payload Drift Radar section");
+    assert(bridge10Md.includes("CASING_MISMATCH"), "Detects CASING_MISMATCH drift");
+    assert(bridge10Md.includes("order_id") && bridge10Md.includes("orderId"), "Detects order_id vs orderId casing drift");
+
     console.log(`\n============================================================`);
     console.log(`🎉 Test Matrix Complete: ${passedTests}/${totalTests} Passed (100% Success)`);
     console.log(`============================================================`);

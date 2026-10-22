@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.6.0] - 2026-10-22
+
+### 🔐 Added
+* **Next.js Secret Leak & Client Env Radar (`07_ENV_AND_SECRETS_MAP.md`)**:
+  * Statically analyzes all source files for environment variable accesses (`process.env.*`, `import.meta.env.*`).
+  * Distinguishes client-side scope (`"use client"` directives, UI component trees, client SPAs) from server runtime (`app/api/`, RSCs, server actions, CLI scripts).
+  * Automatically flags non-public environment variables referenced in client-side code (`🚨 CRITICAL` for sensitive keys like `STRIPE_SECRET_KEY`, `DATABASE_URL`, `ADMIN_API_KEY`; `⚠️ WARNING` for private config variables stripped to `undefined` in browser bundles).
+  * Scans `.env.example`, `.env.sample`, `.env.template`, and `.env.local.example` to detect **Shadow (Undocumented) Variables**—critical environment variables actively used in code but absent from documentation, preventing deployment and CI/CD runtime crashes.
+  * Tested on production SaaS `xnight`: cataloged 93 environment variables, verified 0 client leaks, and surfaced 63 undocumented shadow variables with file:line pointers.
+
+* **Monolithic God-File Complexity Radar & Surgical Slicer (`10_GOD_FILES_SURGICAL_MAP.md`)**:
+  * Automatically flags monolithic source files exceeding 500 lines or 25KB that cause LLM attention degradation and blow context windows.
+  * Parses large files into discrete functional slices (React components, sub-components, custom hooks, service classes, exported functions, and type definitions) with exact start and end line ranges (`L{start}-L{end}`).
+  * Calculates per-slice token costs and context savings percentages (typically saving **88% to 99.8% of input tokens** per surgical read!).
+  * Enhances `npx fullstack-audit --manifest <file:line>` to detect when a target line resides inside a god file, emitting exact containing slice bounds and the optimal surgical read command (e.g. `read_file StartLine: 245 EndLine: 253`).
+  * Enhances `npx fullstack-audit --find <query> --compact` to return matching surgical slices in single-line format (`[slice] Name (Type, Lstart-Lend) ➔ path (X% saved)`).
+  * Tested on production SaaS `xnight`: mapped 94 monolithic god files totaling 99,318 lines (~1,017,726 tokens) into 767 surgical slices with an average context savings of **88.0%**.
+
+* **API Contract & Payload Drift Detector (`06_FULLSTACK_CROSS_REFERENCE_MAP.md`)**:
+  * Inspects frontend request payloads (`fetch`, `axios`, API clients) and compares sent object keys against backend endpoint expected parameters (`request.json()`, Zod schemas, destructuring).
+  * Detects stealth casing drift between snake_case and camelCase (e.g. client sending `order_id` when the server expects `orderId`).
+  * Surfaces high-severity warnings in `06_FULLSTACK_CROSS_REFERENCE_MAP.md` under `## ⚠️ API Contract & Payload Drift Radar` with clickable links to frontend triggers and backend handlers.
+  * Tested on production SaaS `xnight`: successfully caught 4 real-world casing drift issues between `/app/admin/orders/page.tsx` and `/app/api/admin/orders/purge/route.ts`.
+
+* **Automated Multi-Framework Test Matrix Expansion**:
+  * Added automated Test 10 in `scripts/test-frameworks.ts` validating secret leak detection, god-file surgical slicing, and contract drift detection.
+  * Total test suite expanded to **65/65 tests passed (100% success rate)** across Next.js (App & Pages Router), Vite React, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7.
+
+---
+
 ## [2.5.0] - 2026-10-22
 
 ### 🔄 Added

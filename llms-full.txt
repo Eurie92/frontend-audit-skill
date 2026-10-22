@@ -16,15 +16,338 @@
 
 ---
 
+# 🔄 TanStack React Query & Cache Invalidation Topology
+
+> Reactive state and caching topology linking `useQuery` hooks, `useMutation` invalidations, centralized query keys, and affected UI queries.
+
+## 📊 Quick Summary
+
+- **Active Queries (`useQuery`)**: **1** queries detected
+- **Mutation & Invalidation Emitters**: **3** triggers
+- **Centralized Query Key Definitions**: **2** keys registered
+- **Reactive Invalidation Links**: **2** active connections
+
+## ⚡ Active React Queries Catalog
+
+Catalog of `useQuery` hooks, evaluated query keys, and invalidation triggers:
+
+| Query Key / Identifier | Hook Type | Component / File | Line | API Endpoint Target | Scoped | Invalidated By (Triggers) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `["user", {id}, "vault"]` | `useQuery` | [test-frameworks.ts:448](../../scripts/test-frameworks.ts#L448) | 448 | `/api/catalog` | 🔒 `Scoped` | `test-frameworks.ts (Event: USER_VAULT_MUTATED)`, `test-frameworks.ts (useMutation)` |
+
+## 💥 Mutation Triggers & Cache Invalidation Map
+
+Mutations and events that invalidate cached queries on mutation completion:
+
+| Emitter / Trigger Source | Line | Trigger Type | Invalidation Type | Invalidated Query Keys | Stale Queries Refetched |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| [test-frameworks.ts:414](../../scripts/test-frameworks.ts#L414) | 414 | `Event: INVENTORY_CHANGED` | `invalidateQueriesForEvent` | `["catalog"]` | _No Matching Queries_ |
+| [test-frameworks.ts:417](../../scripts/test-frameworks.ts#L417) | 417 | `Event: USER_VAULT_MUTATED` | `invalidateQueriesForEvent` | `["user"]` | 🎯 `["user", {id}, "vault"]` |
+| [test-frameworks.ts:465](../../scripts/test-frameworks.ts#L465) | 465 | `useMutation` | `useMutation.onSuccess` | `["user"]` | 🎯 `["user", {id}, "vault"]` |
+
+## 🔑 Centralized Query Keys Registry (Authoritative Keys)
+
+Centralized query key builder functions (e.g. `src/lib/query-keys.ts`):
+
+| Key Helper Function | Evaluated Structure | Source File | Line |
+| :--- | :--- | :--- | :--- |
+| `queryKeys.catalog()` | `["catalog"]` | [test-frameworks.ts:407](../../scripts/test-frameworks.ts#L407) | 407 |
+| `queryKeys.userVault(userId?)` | `["user", {userId}, "vault"]` | [test-frameworks.ts:408](../../scripts/test-frameworks.ts#L408) | 408 |
+
+## 📈 Reactive Invalidation Dependency Graph
+
+```mermaid
+flowchart LR
+  M1["Event: USER_VAULT_MUTATED"] -->|invalidates| Q2["["user", {id}, "vault"]"]
+  M3["useMutation"] -->|invalidates| Q4["["user", {id}, "vault"]"]
+```
+
+## 🛡️ Cache Invalidation Safety & Stale State Radar
+
+> [!NOTE]
+> **Cache Hygiene Healthy**: All detected mutation emitters have configured query invalidation targets.
+
+
+
+
+---
+
+# ✂️ Monolithic God-File Complexity Radar & Surgical Slicer
+
+> High-complexity monolithic source files (≥500 lines or ≥25KB) parsed into discrete surgical functional slices.
+> **Context Token Optimization**: AI agents should read targeted functional slices instead of entire 2,000+ line monolithic files to prevent attention degradation and save up to 99% of input context tokens.
+
+## 📊 God Files Summary: **5** Monolithic Files Indexed
+
+- **Combined Monolithic Code**: **11,856** lines (~**124,987** tokens)
+- **Surgically Mapped Slices**: **201** functional units
+- **Average Slice Size**: **619** tokens (vs ~24997 tokens per full-file read)
+- **Average Context Token Savings**: **97.5%** saved per surgical read!
+
+### 📋 Monolithic Files Ranked by Complexity
+
+| File Path | Total Lines | Total Tokens | Slices | Avg Slice Lines | Max Context Savings |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| [audit.ts](../../scripts/audit.ts) | **4,719** | ~50,342 | **73** | 65 lines | **98.7%** |
+| [audit.ts](../../.agent/skills/fullstack-audit/scripts/audit.ts) | **3,943** | ~42,045 | **61** | 65 lines | **98.5%** |
+| [audit-backend.ts](../../scripts/audit-backend.ts) | **1,565** | ~15,097 | **27** | 57 lines | **99.5%** |
+| [audit-backend.ts](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts) | **1,013** | ~9,629 | **19** | 52 lines | **99.4%** |
+| [test-frameworks.ts](../../scripts/test-frameworks.ts) | **616** | ~7,874 | **21** | 28 lines | **99.6%** |
+
+---
+
+## 🔪 Surgical Slice Directory
+
+### 📄 [scripts/audit.ts](../../scripts/audit.ts) (**4,719** lines / ~**50,342** tokens)
+
+> **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
+
+| Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `executeMultiAgentPartition` | `Function` | 27 | `L2-L28` | ~644 | **98.7%** | [executeMultiAgentPartition](../../scripts/audit.ts#L2-L28) |
+| `auditGlobalStylesheets` | `Function` | 63 | `L29-L91` | ~515 | **99.0%** | [auditGlobalStylesheets](../../scripts/audit.ts#L29-L91) |
+| `escapeRegexForCodemod` | `Function` | 60 | `L92-L151` | ~860 | **98.3%** | [escapeRegexForCodemod](../../scripts/audit.ts#L92-L151) |
+| `SupportedFramework` | `Type / Interface` | 14 | `L152-L165` | ~69 | **99.9%** | [SupportedFramework](../../scripts/audit.ts#L152-L165) |
+| `ProjectStructure` | `Type / Interface` | 14 | `L166-L179` | ~78 | **99.8%** | [ProjectStructure](../../scripts/audit.ts#L166-L179) |
+| `VisibleLabel` | `Type / Interface` | 7 | `L180-L186` | ~40 | **99.9%** | [VisibleLabel](../../scripts/audit.ts#L180-L186) |
+| `VisualIconUsage` | `Type / Interface` | 8 | `L187-L194` | ~55 | **99.9%** | [VisualIconUsage](../../scripts/audit.ts#L187-L194) |
+| `LiveStatusDot` | `Type / Interface` | 8 | `L195-L202` | ~30 | **99.9%** | [LiveStatusDot](../../scripts/audit.ts#L195-L202) |
+| `CapsulePill` | `Type / Interface` | 7 | `L203-L209` | ~25 | **100.0%** | [CapsulePill](../../scripts/audit.ts#L203-L209) |
+| `InteractiveTrigger` | `Type / Interface` | 9 | `L210-L218` | ~69 | **99.9%** | [InteractiveTrigger](../../scripts/audit.ts#L210-L218) |
+| `DisclosedOverlay` | `Type / Interface` | 9 | `L219-L227` | ~61 | **99.9%** | [DisclosedOverlay](../../scripts/audit.ts#L219-L227) |
+| `DisclosedElement` | `Type / Interface` | 7 | `L228-L234` | ~36 | **99.9%** | [DisclosedElement](../../scripts/audit.ts#L228-L234) |
+| `ColorUsage` | `Type / Interface` | 10 | `L235-L244` | ~38 | **99.9%** | [ColorUsage](../../scripts/audit.ts#L235-L244) |
+| `DarkModeAsymmetry` | `Type / Interface` | 9 | `L245-L253` | ~32 | **99.9%** | [DarkModeAsymmetry](../../scripts/audit.ts#L245-L253) |
+| `GlobalStylesheetAudit` | `Type / Interface` | 8 | `L254-L261` | ~73 | **99.9%** | [GlobalStylesheetAudit](../../scripts/audit.ts#L254-L261) |
+| `ComponentAudit` | `Type / Interface` | 30 | `L262-L291` | ~310 | **99.4%** | [ComponentAudit](../../scripts/audit.ts#L262-L291) |
+| `QueryDefinition` | `Type / Interface` | 12 | `L292-L303` | ~56 | **99.9%** | [QueryDefinition](../../scripts/audit.ts#L292-L303) |
+| `MutationDefinition` | `Type / Interface` | 10 | `L304-L313` | ~51 | **99.9%** | [MutationDefinition](../../scripts/audit.ts#L304-L313) |
+| `CentralizedKeyDef` | `Type / Interface` | 7 | `L314-L320` | ~29 | **99.9%** | [CentralizedKeyDef](../../scripts/audit.ts#L314-L320) |
+| `EventInvalidationDef` | `Type / Interface` | 7 | `L321-L327` | ~32 | **99.9%** | [EventInvalidationDef](../../scripts/audit.ts#L321-L327) |
+| `FileSlice` | `Type / Interface` | 11 | `L328-L338` | ~75 | **99.9%** | [FileSlice](../../scripts/audit.ts#L328-L338) |
+| `GodFileAudit` | `Type / Interface` | 12 | `L339-L350` | ~66 | **99.9%** | [GodFileAudit](../../scripts/audit.ts#L339-L350) |
+| `QueryCacheTopology` | `Type / Interface` | 7 | `L351-L357` | ~46 | **99.9%** | [QueryCacheTopology](../../scripts/audit.ts#L351-L357) |
+| `RouteComponentNode` | `Type / Interface` | 6 | `L358-L363` | ~25 | **100.0%** | [RouteComponentNode](../../scripts/audit.ts#L358-L363) |
+| `RouteMapItem` | `Type / Interface` | 11 | `L364-L374` | ~58 | **99.9%** | [RouteMapItem](../../scripts/audit.ts#L364-L374) |
+| `SkillDispatch` | `Type / Interface` | 8 | `L375-L382` | ~48 | **99.9%** | [SkillDispatch](../../scripts/audit.ts#L375-L382) |
+| `DiscoveredSkill` | `Type / Interface` | 10 | `L383-L392` | ~46 | **99.9%** | [DiscoveredSkill](../../scripts/audit.ts#L383-L392) |
+| `VerificationReceipt` | `Type / Interface` | 16 | `L393-L408` | ~100 | **99.8%** | [VerificationReceipt](../../scripts/audit.ts#L393-L408) |
+| `detectProjectStructure` | `Function` | 165 | `L409-L573` | ~1872 | **96.3%** | [detectProjectStructure](../../scripts/audit.ts#L409-L573) |
+| `finishProjectStructure` | `Function` | 42 | `L574-L615` | ~362 | **99.3%** | [finishProjectStructure](../../scripts/audit.ts#L574-L615) |
+| `determineZone` | `Function` | 104 | `L616-L719` | ~1077 | **97.9%** | [determineZone](../../scripts/audit.ts#L616-L719) |
+| `getFiles` | `Function` | 48 | `L720-L767` | ~430 | **99.1%** | [getFiles](../../scripts/audit.ts#L720-L767) |
+| `TAILWIND_COLOR_FAMILIES` | `Sub-Component` | 27 | `L768-L794` | ~461 | **99.1%** | [TAILWIND_COLOR_FAMILIES](../../scripts/audit.ts#L768-L794) |
+| `auditFile` | `Function` | 688 | `L795-L1482` | ~7235 | **85.6%** | [auditFile](../../scripts/audit.ts#L795-L1482) |
+| `findDeadComponents` | `Function` | 60 | `L1483-L1542` | ~492 | **99.0%** | [findDeadComponents](../../scripts/audit.ts#L1483-L1542) |
+| `transformSvelteKitRoute` | `Function` | 24 | `L1543-L1566` | ~239 | **99.5%** | [transformSvelteKitRoute](../../scripts/audit.ts#L1543-L1566) |
+| `transformRemixFlatRoute` | `Function` | 61 | `L1567-L1627` | ~424 | **99.2%** | [transformRemixFlatRoute](../../scripts/audit.ts#L1567-L1627) |
+| `transformNuxtRoute` | `Function` | 20 | `L1628-L1647` | ~162 | **99.7%** | [transformNuxtRoute](../../scripts/audit.ts#L1628-L1647) |
+| `transformAstroRoute` | `Function` | 19 | `L1648-L1666` | ~165 | **99.7%** | [transformAstroRoute](../../scripts/audit.ts#L1648-L1666) |
+| `detectRedirectTarget` | `Function` | 14 | `L1667-L1680` | ~127 | **99.7%** | [detectRedirectTarget](../../scripts/audit.ts#L1667-L1680) |
+| `buildRouteMap` | `Function` | 219 | `L1681-L1899` | ~1934 | **96.2%** | [buildRouteMap](../../scripts/audit.ts#L1681-L1899) |
+| `buildComponentTree` | `Function` | 50 | `L1900-L1949` | ~481 | **99.0%** | [buildComponentTree](../../scripts/audit.ts#L1900-L1949) |
+| `executeButtonCodemod` | `Function` | 61 | `L1950-L2010` | ~601 | **98.8%** | [executeButtonCodemod](../../scripts/audit.ts#L1950-L2010) |
+| `generateSkillDispatches` | `Function` | 127 | `L2011-L2137` | ~1078 | **97.9%** | [generateSkillDispatches](../../scripts/audit.ts#L2011-L2137) |
+| `parseSkillFrontmatter` | `Function` | 18 | `L2138-L2155` | ~197 | **99.6%** | [parseSkillFrontmatter](../../scripts/audit.ts#L2138-L2155) |
+| `classifySkillDomain` | `Function` | 53 | `L2156-L2208` | ~703 | **98.6%** | [classifySkillDomain](../../scripts/audit.ts#L2156-L2208) |
+| `discoverInstalledSkills` | `Function` | 92 | `L2209-L2300` | ~934 | **98.1%** | [discoverInstalledSkills](../../scripts/audit.ts#L2209-L2300) |
+| `syncAgentRulesInPlace` | `Function` | 97 | `L2301-L2397` | ~1409 | **97.2%** | [syncAgentRulesInPlace](../../scripts/audit.ts#L2301-L2397) |
+| `executeSelfUpdate` | `Function` | 79 | `L2398-L2476` | ~957 | **98.1%** | [executeSelfUpdate](../../scripts/audit.ts#L2398-L2476) |
+| `executeManifestLookup` | `Function` | 135 | `L2477-L2611` | ~1347 | **97.3%** | [executeManifestLookup](../../scripts/audit.ts#L2477-L2611) |
+| `executeThemeCodemod` | `Function` | 87 | `L2612-L2698` | ~906 | **98.2%** | [executeThemeCodemod](../../scripts/audit.ts#L2612-L2698) |
+| `executeVerificationGate` | `Function` | 175 | `L2699-L2873` | ~2024 | **96.0%** | [executeVerificationGate](../../scripts/audit.ts#L2699-L2873) |
+| `computeComponentCentrality` | `Function` | 53 | `L2874-L2926` | ~477 | **99.1%** | [computeComponentCentrality](../../scripts/audit.ts#L2874-L2926) |
+| `auditQueryCacheTopology` | `Function` | 273 | `L2927-L3199` | ~2466 | **95.1%** | [auditQueryCacheTopology](../../scripts/audit.ts#L2927-L3199) |
+| `executeInteractiveQuery` | `Function` | 274 | `L3200-L3473` | ~3052 | **93.9%** | [executeInteractiveQuery](../../scripts/audit.ts#L3200-L3473) |
+| `runUniversalFrontendAudit` | `Function` | 150 | `L3474-L3623` | ~1296 | **97.4%** | [runUniversalFrontendAudit](../../scripts/audit.ts#L3474-L3623) |
+| `escapeMarkdownSnippet` | `Function` | 11 | `L3624-L3634` | ~63 | **99.9%** | [escapeMarkdownSnippet](../../scripts/audit.ts#L3624-L3634) |
+| `makeFileLink` | `Function` | 8 | `L3635-L3642` | ~97 | **99.8%** | [makeFileLink](../../scripts/audit.ts#L3635-L3642) |
+| `auditGodFiles` | `Function` | 108 | `L3643-L3750` | ~978 | **98.1%** | [auditGodFiles](../../scripts/audit.ts#L3643-L3750) |
+| `writeGodFilesMap` | `Function` | 55 | `L3751-L3805` | ~943 | **98.1%** | [writeGodFilesMap](../../scripts/audit.ts#L3751-L3805) |
+| `writeRoutesMap` | `Function` | 41 | `L3806-L3846` | ~437 | **99.1%** | [writeRoutesMap](../../scripts/audit.ts#L3806-L3846) |
+| `writeComponentInventory` | `Function` | 147 | `L3847-L3993` | ~2069 | **95.9%** | [writeComponentInventory](../../scripts/audit.ts#L3847-L3993) |
+| `writeDesignTokensAudit` | `Function` | 112 | `L3994-L4105` | ~1292 | **97.4%** | [writeDesignTokensAudit](../../scripts/audit.ts#L3994-L4105) |
+| `writeThemePunchlist` | `Function` | 81 | `L4106-L4186` | ~842 | **98.3%** | [writeThemePunchlist](../../scripts/audit.ts#L4106-L4186) |
+| `writeUIIslandsAudit` | `Function` | 32 | `L4187-L4218` | ~480 | **99.0%** | [writeUIIslandsAudit](../../scripts/audit.ts#L4187-L4218) |
+| `writeDeadComponentsLedger` | `Function` | 29 | `L4219-L4247` | ~412 | **99.2%** | [writeDeadComponentsLedger](../../scripts/audit.ts#L4219-L4247) |
+| `writeVisibleLabelsMap` | `Function` | 36 | `L4248-L4283` | ~367 | **99.3%** | [writeVisibleLabelsMap](../../scripts/audit.ts#L4248-L4283) |
+| `writeVisualIconIndex` | `Function` | 41 | `L4284-L4324` | ~452 | **99.1%** | [writeVisualIconIndex](../../scripts/audit.ts#L4284-L4324) |
+| `writeDispatchGateway` | `Function` | 93 | `L4325-L4417` | ~1154 | **97.7%** | [writeDispatchGateway](../../scripts/audit.ts#L4325-L4417) |
+| `writeQueryAndCacheMap` | `Function` | 101 | `L4418-L4518` | ~1288 | **97.4%** | [writeQueryAndCacheMap](../../scripts/audit.ts#L4418-L4518) |
+| `writeAtlasSummary` | `Function` | 68 | `L4519-L4586` | ~1281 | **97.5%** | [writeAtlasSummary](../../scripts/audit.ts#L4519-L4586) |
+| `generateLlmsStandardFiles` | `Function` | 70 | `L4587-L4656` | ~1228 | **97.6%** | [generateLlmsStandardFiles](../../scripts/audit.ts#L4587-L4656) |
+| `main` | `Function` | 63 | `L4657-L4719` | ~476 | **99.1%** | [main](../../scripts/audit.ts#L4657-L4719) |
+
+### 📄 [.agent/skills/fullstack-audit/scripts/audit.ts](../../.agent/skills/fullstack-audit/scripts/audit.ts) (**3,943** lines / ~**42,045** tokens)
+
+> **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
+
+| Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `executeMultiAgentPartition` | `Function` | 27 | `L2-L28` | ~644 | **98.5%** | [executeMultiAgentPartition](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2-L28) |
+| `auditGlobalStylesheets` | `Function` | 63 | `L29-L91` | ~515 | **98.8%** | [auditGlobalStylesheets](../../.agent/skills/fullstack-audit/scripts/audit.ts#L29-L91) |
+| `escapeRegexForCodemod` | `Function` | 60 | `L92-L151` | ~860 | **98.0%** | [escapeRegexForCodemod](../../.agent/skills/fullstack-audit/scripts/audit.ts#L92-L151) |
+| `SupportedFramework` | `Type / Interface` | 14 | `L152-L165` | ~69 | **99.8%** | [SupportedFramework](../../.agent/skills/fullstack-audit/scripts/audit.ts#L152-L165) |
+| `ProjectStructure` | `Type / Interface` | 14 | `L166-L179` | ~78 | **99.8%** | [ProjectStructure](../../.agent/skills/fullstack-audit/scripts/audit.ts#L166-L179) |
+| `VisibleLabel` | `Type / Interface` | 7 | `L180-L186` | ~40 | **99.9%** | [VisibleLabel](../../.agent/skills/fullstack-audit/scripts/audit.ts#L180-L186) |
+| `VisualIconUsage` | `Type / Interface` | 8 | `L187-L194` | ~55 | **99.9%** | [VisualIconUsage](../../.agent/skills/fullstack-audit/scripts/audit.ts#L187-L194) |
+| `LiveStatusDot` | `Type / Interface` | 8 | `L195-L202` | ~30 | **99.9%** | [LiveStatusDot](../../.agent/skills/fullstack-audit/scripts/audit.ts#L195-L202) |
+| `CapsulePill` | `Type / Interface` | 7 | `L203-L209` | ~25 | **99.9%** | [CapsulePill](../../.agent/skills/fullstack-audit/scripts/audit.ts#L203-L209) |
+| `InteractiveTrigger` | `Type / Interface` | 9 | `L210-L218` | ~69 | **99.8%** | [InteractiveTrigger](../../.agent/skills/fullstack-audit/scripts/audit.ts#L210-L218) |
+| `DisclosedOverlay` | `Type / Interface` | 9 | `L219-L227` | ~61 | **99.9%** | [DisclosedOverlay](../../.agent/skills/fullstack-audit/scripts/audit.ts#L219-L227) |
+| `DisclosedElement` | `Type / Interface` | 7 | `L228-L234` | ~36 | **99.9%** | [DisclosedElement](../../.agent/skills/fullstack-audit/scripts/audit.ts#L228-L234) |
+| `ColorUsage` | `Type / Interface` | 10 | `L235-L244` | ~38 | **99.9%** | [ColorUsage](../../.agent/skills/fullstack-audit/scripts/audit.ts#L235-L244) |
+| `DarkModeAsymmetry` | `Type / Interface` | 9 | `L245-L253` | ~32 | **99.9%** | [DarkModeAsymmetry](../../.agent/skills/fullstack-audit/scripts/audit.ts#L245-L253) |
+| `GlobalStylesheetAudit` | `Type / Interface` | 8 | `L254-L261` | ~73 | **99.8%** | [GlobalStylesheetAudit](../../.agent/skills/fullstack-audit/scripts/audit.ts#L254-L261) |
+| `ComponentAudit` | `Type / Interface` | 28 | `L262-L289` | ~296 | **99.3%** | [ComponentAudit](../../.agent/skills/fullstack-audit/scripts/audit.ts#L262-L289) |
+| `RouteComponentNode` | `Type / Interface` | 6 | `L290-L295` | ~25 | **99.9%** | [RouteComponentNode](../../.agent/skills/fullstack-audit/scripts/audit.ts#L290-L295) |
+| `RouteMapItem` | `Type / Interface` | 11 | `L296-L306` | ~58 | **99.9%** | [RouteMapItem](../../.agent/skills/fullstack-audit/scripts/audit.ts#L296-L306) |
+| `SkillDispatch` | `Type / Interface` | 8 | `L307-L314` | ~48 | **99.9%** | [SkillDispatch](../../.agent/skills/fullstack-audit/scripts/audit.ts#L307-L314) |
+| `DiscoveredSkill` | `Type / Interface` | 10 | `L315-L324` | ~46 | **99.9%** | [DiscoveredSkill](../../.agent/skills/fullstack-audit/scripts/audit.ts#L315-L324) |
+| `VerificationReceipt` | `Type / Interface` | 16 | `L325-L340` | ~100 | **99.8%** | [VerificationReceipt](../../.agent/skills/fullstack-audit/scripts/audit.ts#L325-L340) |
+| `detectProjectStructure` | `Function` | 165 | `L341-L505` | ~1872 | **95.5%** | [detectProjectStructure](../../.agent/skills/fullstack-audit/scripts/audit.ts#L341-L505) |
+| `finishProjectStructure` | `Function` | 42 | `L506-L547` | ~362 | **99.1%** | [finishProjectStructure](../../.agent/skills/fullstack-audit/scripts/audit.ts#L506-L547) |
+| `determineZone` | `Function` | 104 | `L548-L651` | ~1077 | **97.4%** | [determineZone](../../.agent/skills/fullstack-audit/scripts/audit.ts#L548-L651) |
+| `getFiles` | `Function` | 48 | `L652-L699` | ~430 | **99.0%** | [getFiles](../../.agent/skills/fullstack-audit/scripts/audit.ts#L652-L699) |
+| `TAILWIND_COLOR_FAMILIES` | `Sub-Component` | 27 | `L700-L726` | ~461 | **98.9%** | [TAILWIND_COLOR_FAMILIES](../../.agent/skills/fullstack-audit/scripts/audit.ts#L700-L726) |
+| `auditFile` | `Function` | 688 | `L727-L1414` | ~7235 | **82.8%** | [auditFile](../../.agent/skills/fullstack-audit/scripts/audit.ts#L727-L1414) |
+| `findDeadComponents` | `Function` | 60 | `L1415-L1474` | ~492 | **98.8%** | [findDeadComponents](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1415-L1474) |
+| `transformSvelteKitRoute` | `Function` | 24 | `L1475-L1498` | ~239 | **99.4%** | [transformSvelteKitRoute](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1475-L1498) |
+| `transformRemixFlatRoute` | `Function` | 61 | `L1499-L1559` | ~424 | **99.0%** | [transformRemixFlatRoute](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1499-L1559) |
+| `transformNuxtRoute` | `Function` | 20 | `L1560-L1579` | ~162 | **99.6%** | [transformNuxtRoute](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1560-L1579) |
+| `transformAstroRoute` | `Function` | 19 | `L1580-L1598` | ~165 | **99.6%** | [transformAstroRoute](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1580-L1598) |
+| `detectRedirectTarget` | `Function` | 14 | `L1599-L1612` | ~127 | **99.7%** | [detectRedirectTarget](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1599-L1612) |
+| `buildRouteMap` | `Function` | 219 | `L1613-L1831` | ~1934 | **95.4%** | [buildRouteMap](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1613-L1831) |
+| `buildComponentTree` | `Function` | 50 | `L1832-L1881` | ~481 | **98.9%** | [buildComponentTree](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1832-L1881) |
+| `executeButtonCodemod` | `Function` | 61 | `L1882-L1942` | ~601 | **98.6%** | [executeButtonCodemod](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1882-L1942) |
+| `generateSkillDispatches` | `Function` | 127 | `L1943-L2069` | ~1078 | **97.4%** | [generateSkillDispatches](../../.agent/skills/fullstack-audit/scripts/audit.ts#L1943-L2069) |
+| `parseSkillFrontmatter` | `Function` | 18 | `L2070-L2087` | ~197 | **99.5%** | [parseSkillFrontmatter](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2070-L2087) |
+| `classifySkillDomain` | `Function` | 53 | `L2088-L2140` | ~703 | **98.3%** | [classifySkillDomain](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2088-L2140) |
+| `discoverInstalledSkills` | `Function` | 92 | `L2141-L2232` | ~934 | **97.8%** | [discoverInstalledSkills](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2141-L2232) |
+| `syncAgentRulesInPlace` | `Function` | 97 | `L2233-L2329` | ~1409 | **96.6%** | [syncAgentRulesInPlace](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2233-L2329) |
+| `executeSelfUpdate` | `Function` | 79 | `L2330-L2408` | ~957 | **97.7%** | [executeSelfUpdate](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2330-L2408) |
+| `executeManifestLookup` | `Function` | 110 | `L2409-L2518` | ~1030 | **97.6%** | [executeManifestLookup](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2409-L2518) |
+| `executeThemeCodemod` | `Function` | 87 | `L2519-L2605` | ~906 | **97.8%** | [executeThemeCodemod](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2519-L2605) |
+| `executeVerificationGate` | `Function` | 161 | `L2606-L2766` | ~1834 | **95.6%** | [executeVerificationGate](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2606-L2766) |
+| `executeInteractiveQuery` | `Function` | 219 | `L2767-L2985` | ~2263 | **94.6%** | [executeInteractiveQuery](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2767-L2985) |
+| `runUniversalFrontendAudit` | `Function` | 145 | `L2986-L3130` | ~1212 | **97.1%** | [runUniversalFrontendAudit](../../.agent/skills/fullstack-audit/scripts/audit.ts#L2986-L3130) |
+| `escapeMarkdownSnippet` | `Function` | 11 | `L3131-L3141` | ~63 | **99.9%** | [escapeMarkdownSnippet](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3131-L3141) |
+| `makeFileLink` | `Function` | 7 | `L3142-L3148` | ~81 | **99.8%** | [makeFileLink](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3142-L3148) |
+| `writeRoutesMap` | `Function` | 41 | `L3149-L3189` | ~437 | **99.0%** | [writeRoutesMap](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3149-L3189) |
+| `writeComponentInventory` | `Function` | 145 | `L3190-L3334` | ~2012 | **95.2%** | [writeComponentInventory](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3190-L3334) |
+| `writeDesignTokensAudit` | `Function` | 112 | `L3335-L3446` | ~1292 | **96.9%** | [writeDesignTokensAudit](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3335-L3446) |
+| `writeThemePunchlist` | `Function` | 81 | `L3447-L3527` | ~842 | **98.0%** | [writeThemePunchlist](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3447-L3527) |
+| `writeUIIslandsAudit` | `Function` | 32 | `L3528-L3559` | ~480 | **98.9%** | [writeUIIslandsAudit](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3528-L3559) |
+| `writeDeadComponentsLedger` | `Function` | 29 | `L3560-L3588` | ~412 | **99.0%** | [writeDeadComponentsLedger](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3560-L3588) |
+| `writeVisibleLabelsMap` | `Function` | 36 | `L3589-L3624` | ~367 | **99.1%** | [writeVisibleLabelsMap](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3589-L3624) |
+| `writeVisualIconIndex` | `Function` | 41 | `L3625-L3665` | ~452 | **98.9%** | [writeVisualIconIndex](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3625-L3665) |
+| `writeDispatchGateway` | `Function` | 93 | `L3666-L3758` | ~1154 | **97.3%** | [writeDispatchGateway](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3666-L3758) |
+| `writeAtlasSummary` | `Function` | 58 | `L3759-L3816` | ~1138 | **97.3%** | [writeAtlasSummary](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3759-L3816) |
+| `generateLlmsStandardFiles` | `Function` | 64 | `L3817-L3880` | ~1048 | **97.5%** | [generateLlmsStandardFiles](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3817-L3880) |
+| `main` | `Function` | 63 | `L3881-L3943` | ~476 | **98.9%** | [main](../../.agent/skills/fullstack-audit/scripts/audit.ts#L3881-L3943) |
+
+### 📄 [scripts/audit-backend.ts](../../scripts/audit-backend.ts) (**1,565** lines / ~**15,097** tokens)
+
+> **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
+
+| Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `ApiEndpoint` | `Type / Interface` | 14 | `L20-L33` | ~70 | **99.5%** | [ApiEndpoint](../../scripts/audit-backend.ts#L20-L33) |
+| `DbField` | `Type / Interface` | 10 | `L34-L43` | ~43 | **99.7%** | [DbField](../../scripts/audit-backend.ts#L34-L43) |
+| `DbModel` | `Type / Interface` | 12 | `L44-L55` | ~69 | **99.5%** | [DbModel](../../scripts/audit-backend.ts#L44-L55) |
+| `ServerAction` | `Type / Interface` | 11 | `L56-L66` | ~51 | **99.7%** | [ServerAction](../../scripts/audit-backend.ts#L56-L66) |
+| `AuthGuard` | `Type / Interface` | 10 | `L67-L76` | ~50 | **99.7%** | [AuthGuard](../../scripts/audit-backend.ts#L67-L76) |
+| `IntegrationService` | `Type / Interface` | 8 | `L77-L84` | ~68 | **99.5%** | [IntegrationService](../../scripts/audit-backend.ts#L77-L84) |
+| `EnvVariableOccurrence` | `Type / Interface` | 8 | `L87-L94` | ~37 | **99.8%** | [EnvVariableOccurrence](../../scripts/audit-backend.ts#L87-L94) |
+| `EnvAuditItem` | `Type / Interface` | 11 | `L95-L105` | ~71 | **99.5%** | [EnvAuditItem](../../scripts/audit-backend.ts#L95-L105) |
+| `EnvAuditReport` | `Type / Interface` | 9 | `L106-L114` | ~51 | **99.7%** | [EnvAuditReport](../../scripts/audit-backend.ts#L106-L114) |
+| `ContractDriftWarning` | `Type / Interface` | 14 | `L115-L128` | ~95 | **99.4%** | [ContractDriftWarning](../../scripts/audit-backend.ts#L115-L128) |
+| `FullstackBridgeItem` | `Type / Interface` | 13 | `L129-L141` | ~94 | **99.4%** | [FullstackBridgeItem](../../scripts/audit-backend.ts#L129-L141) |
+| `BackendAuditResult` | `Type / Interface` | 11 | `L142-L152` | ~76 | **99.5%** | [BackendAuditResult](../../scripts/audit-backend.ts#L142-L152) |
+| `escapeMarkdownSnippet` | `Function` | 11 | `L153-L163` | ~63 | **99.6%** | [escapeMarkdownSnippet](../../scripts/audit-backend.ts#L153-L163) |
+| `makeFileLink` | `Function` | 7 | `L164-L170` | ~81 | **99.5%** | [makeFileLink](../../scripts/audit-backend.ts#L164-L170) |
+| `getSourceFiles` | `Function` | 35 | `L171-L205` | ~227 | **98.5%** | [getSourceFiles](../../scripts/audit-backend.ts#L171-L205) |
+| `parseApiRoutes` | `Function` | 110 | `L206-L315` | ~1012 | **93.3%** | [parseApiRoutes](../../scripts/audit-backend.ts#L206-L315) |
+| `parseDatabaseModels` | `Function` | 298 | `L316-L613` | ~2572 | **83.0%** | [parseDatabaseModels](../../scripts/audit-backend.ts#L316-L613) |
+| `parseServerActions` | `Function` | 56 | `L614-L669` | ~538 | **96.4%** | [parseServerActions](../../scripts/audit-backend.ts#L614-L669) |
+| `parseAuthGuards` | `Function` | 44 | `L670-L713` | ~399 | **97.4%** | [parseAuthGuards](../../scripts/audit-backend.ts#L670-L713) |
+| `parseIntegrations` | `Function` | 53 | `L714-L766` | ~529 | **96.5%** | [parseIntegrations](../../scripts/audit-backend.ts#L714-L766) |
+| `extractClientPayloadKeys` | `Function` | 31 | `L767-L797` | ~281 | **98.1%** | [extractClientPayloadKeys](../../scripts/audit-backend.ts#L767-L797) |
+| `extractBackendExpectedKeys` | `Function` | 41 | `L798-L838` | ~340 | **97.7%** | [extractBackendExpectedKeys](../../scripts/audit-backend.ts#L798-L838) |
+| `detectContractDrift` | `Function` | 38 | `L839-L876` | ~299 | **98.0%** | [detectContractDrift](../../scripts/audit-backend.ts#L839-L876) |
+| `buildFullstackBridge` | `Function` | 222 | `L877-L1098` | ~2059 | **86.4%** | [buildFullstackBridge](../../scripts/audit-backend.ts#L877-L1098) |
+| `auditEnvAndSecrets` | `Function` | 135 | `L1099-L1233` | ~1190 | **92.1%** | [auditEnvAndSecrets](../../scripts/audit-backend.ts#L1099-L1233) |
+| `writeBackendAtlas` | `Function` | 253 | `L1234-L1486` | ~3725 | **75.3%** | [writeBackendAtlas](../../scripts/audit-backend.ts#L1234-L1486) |
+| `runUniversalBackendAudit` | `Function` | 79 | `L1487-L1565` | ~776 | **94.9%** | [runUniversalBackendAudit](../../scripts/audit-backend.ts#L1487-L1565) |
+
+### 📄 [.agent/skills/fullstack-audit/scripts/audit-backend.ts](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts) (**1,013** lines / ~**9,629** tokens)
+
+> **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
+
+| Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `ApiEndpoint` | `Type / Interface` | 12 | `L20-L31` | ~56 | **99.4%** | [ApiEndpoint](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L20-L31) |
+| `DbField` | `Type / Interface` | 10 | `L32-L41` | ~43 | **99.6%** | [DbField](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L32-L41) |
+| `DbModel` | `Type / Interface` | 10 | `L42-L51` | ~55 | **99.4%** | [DbModel](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L42-L51) |
+| `ServerAction` | `Type / Interface` | 11 | `L52-L62` | ~51 | **99.5%** | [ServerAction](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L52-L62) |
+| `AuthGuard` | `Type / Interface` | 10 | `L63-L72` | ~50 | **99.5%** | [AuthGuard](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L63-L72) |
+| `IntegrationService` | `Type / Interface` | 8 | `L73-L80` | ~68 | **99.3%** | [IntegrationService](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L73-L80) |
+| `FullstackBridgeItem` | `Type / Interface` | 11 | `L81-L91` | ~80 | **99.2%** | [FullstackBridgeItem](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L81-L91) |
+| `BackendAuditResult` | `Type / Interface` | 9 | `L92-L100` | ~56 | **99.4%** | [BackendAuditResult](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L92-L100) |
+| `escapeMarkdownSnippet` | `Function` | 11 | `L101-L111` | ~63 | **99.3%** | [escapeMarkdownSnippet](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L101-L111) |
+| `makeFileLink` | `Function` | 7 | `L112-L118` | ~81 | **99.2%** | [makeFileLink](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L112-L118) |
+| `getSourceFiles` | `Function` | 35 | `L119-L153` | ~227 | **97.6%** | [getSourceFiles](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L119-L153) |
+| `parseApiRoutes` | `Function` | 110 | `L154-L263` | ~1012 | **89.5%** | [parseApiRoutes](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L154-L263) |
+| `parseDatabaseModels` | `Function` | 298 | `L264-L561` | ~2572 | **73.3%** | [parseDatabaseModels](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L264-L561) |
+| `parseServerActions` | `Function` | 56 | `L562-L617` | ~538 | **94.4%** | [parseServerActions](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L562-L617) |
+| `parseAuthGuards` | `Function` | 44 | `L618-L661` | ~399 | **95.9%** | [parseAuthGuards](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L618-L661) |
+| `parseIntegrations` | `Function` | 53 | `L662-L714` | ~536 | **94.4%** | [parseIntegrations](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L662-L714) |
+| `buildFullstackBridge` | `Function` | 97 | `L715-L811` | ~868 | **91.0%** | [buildFullstackBridge](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L715-L811) |
+| `writeBackendAtlas` | `Function` | 171 | `L812-L982` | ~2404 | **75.0%** | [writeBackendAtlas](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L812-L982) |
+| `runUniversalBackendAudit` | `Function` | 31 | `L983-L1013` | ~265 | **97.2%** | [runUniversalBackendAudit](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L983-L1013) |
+
+### 📄 [scripts/test-frameworks.ts](../../scripts/test-frameworks.ts) (**616** lines / ~**7,874** tokens)
+
+> **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
+
+| Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `cleanTestEnvironment` | `Function` | 6 | `L20-L25` | ~33 | **99.6%** | [cleanTestEnvironment](../../scripts/test-frameworks.ts#L20-L25) |
+| `runAuditInDir` | `Function` | 21 | `L26-L46` | ~140 | **98.2%** | [runAuditInDir](../../scripts/test-frameworks.ts#L26-L46) |
+| `assert` | `Function` | 11 | `L47-L57` | ~73 | **99.1%** | [assert](../../scripts/test-frameworks.ts#L47-L57) |
+| `runTestMatrix` | `Function` | 25 | `L58-L82` | ~362 | **95.4%** | [runTestMatrix](../../scripts/test-frameworks.ts#L58-L82) |
+| `HomePage` | `Component` | 13 | `L83-L95` | ~113 | **98.6%** | [HomePage](../../scripts/test-frameworks.ts#L83-L95) |
+| `DashboardPage` | `Component` | 3 | `L96-L98` | ~42 | **99.5%** | [DashboardPage](../../scripts/test-frameworks.ts#L96-L98) |
+| `Button` | `Component` | 3 | `L99-L101` | ~59 | **99.3%** | [Button](../../scripts/test-frameworks.ts#L99-L101) |
+| `GuestCheckoutModal` | `Component` | 6 | `L102-L107` | ~70 | **99.1%** | [GuestCheckoutModal](../../scripts/test-frameworks.ts#L102-L107) |
+| `UserCard` | `Component` | 232 | `L108-L339` | ~3354 | **57.4%** | [UserCard](../../scripts/test-frameworks.ts#L108-L339) |
+| `Page` | `Component` | 6 | `L340-L345` | ~73 | **99.1%** | [Page](../../scripts/test-frameworks.ts#L340-L345) |
+| `POST` | `Component` | 15 | `L346-L360` | ~136 | **98.3%** | [POST](../../scripts/test-frameworks.ts#L346-L360) |
+| `createCheckoutSession` | `Function` | 46 | `L361-L406` | ~713 | **90.9%** | [createCheckoutSession](../../scripts/test-frameworks.ts#L361-L406) |
+| `queryKeys` | `Function` | 5 | `L407-L411` | ~45 | **99.4%** | [queryKeys](../../scripts/test-frameworks.ts#L407-L411) |
+| `invalidateQueriesForEvent` | `Function` | 14 | `L412-L425` | ~123 | **98.4%** | [invalidateQueriesForEvent](../../scripts/test-frameworks.ts#L412-L425) |
+| `CatalogService` | `Service Class` | 11 | `L426-L436` | ~97 | **98.8%** | [CatalogService](../../scripts/test-frameworks.ts#L426-L436) |
+| `GET` | `Component` | 10 | `L437-L446` | ~88 | **98.9%** | [GET](../../scripts/test-frameworks.ts#L437-L446) |
+| `UserVaultDrawer` | `Component` | 16 | `L447-L462` | ~150 | **98.1%** | [UserVaultDrawer](../../scripts/test-frameworks.ts#L447-L462) |
+| `OrderFulfillmentModal` | `Component` | 17 | `L463-L479` | ~186 | **97.6%** | [OrderFulfillmentModal](../../scripts/test-frameworks.ts#L463-L479) |
+| `Page` | `Component` | 63 | `L480-L542` | ~963 | **87.8%** | [Page](../../scripts/test-frameworks.ts#L480-L542) |
+| `CheckoutPage` | `Component` | 23 | `L543-L565` | ~191 | **97.6%** | [CheckoutPage](../../scripts/test-frameworks.ts#L543-L565) |
+| `POST` | `Component` | 51 | `L566-L616` | ~716 | **90.9%** | [POST](../../scripts/test-frameworks.ts#L566-L616) |
+
+
+
+
+---
+
 # 🌐 Backend API Routes & HTTP Endpoints
 
 > Complete registry of all API endpoints, route handlers, HTTP methods, and auth protection.
 
 ## 📊 Endpoints Summary: **0** Endpoints Detected
 
-| Route URL | HTTP Methods | Framework | Auth Guard | Source File |
-| :--- | :--- | :--- | :--- | :--- |
-| _No API endpoints found_ | — | — | — | — |
+| Route URL | Centrality | HTTP Methods | Framework | Auth Guard | Source File |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| _No API endpoints found_ | — | — | — | — | — |
 
 
 
@@ -44,12 +367,58 @@ _No database schema files detected (Prisma schema.prisma, Drizzle schema.ts, or 
 
 # 🌉 Fullstack Cross-Reference Bridge
 
-> Bi-directional bridge linking Frontend UI triggers directly to Backend APIs, Server Actions, and Database Models.
+> Bi-directional bridge linking Frontend UI triggers directly to Backend APIs, Domain Services, Server Actions, and Database Models.
 
 ## 📊 Fullstack Connections: **0** Linked Triggers
 
-| Frontend UI Trigger | Action / API Target | Type | Method | Connected Database Models | Service |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| _No direct cross-boundary triggers detected_ | — | — | — | — | — |
+| Frontend UI Trigger | Action / API Target | Domain Service / Method | Type | Method | Connected Database Models | Service |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| _No direct cross-boundary triggers detected_ | — | — | — | — | — | — |
+
+## ⚠️ API Contract & Payload Drift Radar
+
+> Detects casing mismatches (e.g. `order_id` vs `orderId`) between Frontend request bodies and Backend route handlers.
+
+_✅ No API contract or casing drift detected across verified triggers._
+
+
+
+
+---
+
+# 🔐 Environment Variables & Secret Leak Radar
+
+> Static analysis of environment variables, client-side exposure risks, and undocumented shadow keys.
+
+> [!NOTE]
+> 🛡️ **0 CLIENT SECRET LEAKS DETECTED**: All client-side environment variable accesses use public prefixes or runtime defaults.
+
+## 📊 Environment Summary
+
+- **Total Unique Variables Referenced**: **5**
+- **Documented in .env.example**: **0**
+- **Shadow (Undocumented) Variables**: **3**
+- **Client Component Exposure Warnings**: **0**
+
+### 👻 Shadow (Undocumented) Variables
+
+> Variables used in code but missing from `.env.example`. Add these to prevent missing variable crashes in deployment!
+
+| Variable Name | Scope | Sensitivity | Primary Usage File |
+| :--- | :--- | :--- | :--- |
+| `NEXT_PUBLIC_APP_URL` | `Server 🖥️` | `PUBLIC` | [scripts/test-frameworks.ts:544](../../scripts/test-frameworks.ts#L544) |
+| `STRIPE_SECRET_KEY` | `Server 🖥️` | `CRITICAL_SECRET` | [scripts/test-frameworks.ts:545](../../scripts/test-frameworks.ts#L545) |
+| `STRIPE_WEBHOOK_SECRET` | `Server 🖥️` | `CRITICAL_SECRET` | [scripts/test-frameworks.ts:567](../../scripts/test-frameworks.ts#L567) |
+
+### 📋 Master Environment Variable Registry
+
+| Variable Name | Scope | Sensitivity | Documented? | Total References |
+| :--- | :--- | :--- | :--- | :--- |
+| `NEXT_PUBLIC_APP_URL` | Server 🖥️ | `PUBLIC` | 👻 Shadow | **1** usages |
+| `STRIPE_SECRET_KEY` | Server 🖥️ | `CRITICAL_SECRET` | 👻 Shadow | **1** usages |
+| `STRIPE_WEBHOOK_SECRET` | Server 🖥️ | `CRITICAL_SECRET` | 👻 Shadow | **1** usages |
+| `HOME` | Server 🖥️ | `CONFIG` | ✅ Documented | **2** usages |
+| `USERPROFILE` | Server 🖥️ | `CONFIG` | ✅ Documented | **2** usages |
+
 
 

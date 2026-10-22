@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7. Catalogs frontend routes, components, live pulse dots, capsule pills, modals, and design tokens into `docs/frontend-atlas/`, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth middleware, and webhooks into `docs/backend-atlas/`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v2.5.0](https://img.shields.io/badge/Release-v2.5.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version: v2.6.0](https://img.shields.io/badge/Release-v2.6.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/fullstack-audit-skill)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
@@ -66,7 +66,7 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ---
 
-## 🛠️ CLI Command Matrix (v2.5.0)
+## 🛠️ CLI Command Matrix (v2.6.0)
 
 | Command | Purpose |
 | :--- | :--- |
