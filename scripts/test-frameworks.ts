@@ -692,6 +692,30 @@ async function runTestMatrix() {
     assert(diffRes.status === 0, "npx fullstack-audit --diff runs without error");
     assert(Boolean(diffRes.stdout && diffRes.stdout.includes("FULLSTACK ARCHITECTURE DELTA REPORT")), "--diff outputs Delta Report table");
 
+    // ============================================================
+    // Test 12: Version Transparency, Inverted Index & Multi-Harness (v2.8.0)
+    // ============================================================
+    console.log("\n▶️ Test 12: Version Transparency, Inverted Index & Multi-Harness (v2.8.0)");
+    const verRes = child_process.spawnSync(npxCmd, ["tsx", auditScript, "--version"], {
+      cwd: batch4AppDir,
+      encoding: "utf-8",
+      shell: true,
+      stdio: "pipe"
+    });
+    assert(verRes.status === 0, "npx fullstack-audit --version runs with exit 0");
+    assert(Boolean(verRes.stdout && verRes.stdout.includes("v2.8.0")), "--version outputs 2.8.0");
+
+    const setupRes = child_process.spawnSync(npxCmd, ["tsx", auditScript, "--setup-all"], {
+      cwd: batch4AppDir,
+      encoding: "utf-8",
+      shell: true,
+      stdio: "pipe"
+    });
+    assert(setupRes.status === 0, "--setup-all runs with exit 0");
+    assert(fs.existsSync(path.join(batch4AppDir, ".cursor", "rules", "fullstack-audit.mdc")), ".cursor/rules/fullstack-audit.mdc generated");
+    assert(fs.existsSync(path.join(batch4AppDir, "CLAUDE.md")), "CLAUDE.md generated");
+    assert(fs.existsSync(path.join(batch4AppDir, "skills", "audit", "fullstack-audit", "SKILL.md")), "Hermes Agent SKILL.md generated");
+
     console.log(`\n============================================================`);
     console.log(`🎉 Test Matrix Complete: ${passedTests}/${totalTests} Passed (100% Success)`);
     console.log(`============================================================`);

@@ -16,7 +16,7 @@ if (args.includes("-v") || args.includes("--version")) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     console.log(`fullstack-audit v${pkg.version} (engine: AST reactive graph v2)`);
   } catch {
-    console.log("fullstack-audit v2.7.0 (engine: AST reactive graph v2)");
+    console.log("fullstack-audit v2.8.0 (engine: AST reactive graph v2)");
   }
   process.exit(0);
 }

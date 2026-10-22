@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7. Catalogs frontend routes, components, live pulse dots, capsule pills, modals, and design tokens into `docs/frontend-atlas/`, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth middleware, and webhooks into `docs/backend-atlas/`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v2.7.0](https://img.shields.io/badge/Release-v2.7.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version: v2.8.0](https://img.shields.io/badge/Release-v2.8.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/fullstack-audit-skill)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
@@ -69,11 +69,15 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ---
 
-## 🛠️ CLI Command Matrix (v2.7.0)
+## 🛠️ CLI Command Matrix (v2.8.0)
 
 | Command | Purpose |
 | :--- | :--- |
 | `npx fullstack-audit` | Regenerates both `docs/frontend-atlas/` and `docs/backend-atlas/` plus root `llms.txt`. |
+| `npx fullstack-audit -v` / `--version` | Instant (<5ms) version banner output without invoking heavy dependencies. |
+| `npx fullstack-audit --check-update` | Compares project Atlas against installed skill version and detects version drift. |
+| `npx fullstack-audit --setup-all` | Universal multi-harness installer (Cursor `.mdc`, Claude Code `.claude/commands/`, Hermes, OpenCode). |
+| `npx fullstack-audit --find <query> [--compact]` | Sub-3ms inverted index search across components, queries, text labels, and icons. |
 | `npx fullstack-audit --solo` | Enforces strictly Single-Agent execution (zero subagent overhead). |
 | `npx fullstack-audit --multi-agent` | Partitions the codebase into 4 parallel zone briefs for multi-agent swarms. |
 | `npx fullstack-audit --llms` | Generates root `llms.txt` & `llms-full.txt` following the official Answer.AI standard. |
@@ -84,7 +88,6 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 | `npx fullstack-audit --manifest <file:line>` | Generates a zero-search agent handoff manifest. |
 | `npx fullstack-audit --diff` | Architecture delta report comparing current scan against `.last_receipt.json`. |
 | `npx fullstack-audit --dead` | Scans and lists potential orphaned/dead components. |
-| `npx fullstack-audit --find <query> [--compact]` | Instant search ranked by Symbol Centrality PageRank across components, queries, text labels, and icons. |
 | `npx fullstack-audit --watch` | Live file watcher for continuous background sync on save. |
 
 ---
