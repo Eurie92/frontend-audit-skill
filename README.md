@@ -10,7 +10,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
 
 ### 📚 Documentation Quick-Links
-[📖 **How It Works (Architecture & AST Engine)**](docs/HOW_IT_WORKS.md) • [🤖 **Multi-Agent Recipes & Swarms**](docs/MULTI_AGENT_RECIPES.md) • [📊 **Empirical Benchmarks (9,053x Faster)**](docs/HOW_IT_WORKS.md#empirical-benchmarks) • [📜 **Changelog**](CHANGELOG.md)
+[🚀 **Master Usage Guide (Full Potential)**](docs/MASTER_USAGE_GUIDE.md) • [📖 **How It Works (Architecture & AST Engine)**](docs/HOW_IT_WORKS.md) • [🤖 **Multi-Agent Recipes & Swarms**](docs/MULTI_AGENT_RECIPES.md) • [📊 **Empirical Benchmarks (9,053x Faster)**](docs/HOW_IT_WORKS.md#empirical-benchmarks) • [📜 **Changelog**](CHANGELOG.md)
 
 ---
 
@@ -48,6 +48,9 @@ Vanilla AI coding assistants waste significant time and token budget on recursiv
 3. **Catches Whole-Website Color Drift**: Discovers hardcoded hexes (`bg-[#121110]`), inline JSX styles (`style={{ background: ... }}`), and dark mode asymmetries in modals and sliding drawers.
 4. **Bi-Directional Fullstack Linker**: Directly links UI buttons ➔ Next.js Server Actions / API endpoints ➔ Prisma/Drizzle database models.
 5. **Universal Dual-Speed Loop (1–2s Responses)**: Separates instant inner-loop surgical edits from outer-loop verification gates, eliminating 45-second headless browser and per-edit compile delays across all harnesses.
+6. **Next.js Client Secret Leak & Shadow Env Radar**: Automatically flags sensitive secrets (`STRIPE_SECRET_KEY`, `DATABASE_URL`) imported in client components and surfaces undocumented `.env` variables before CI/CD crashes.
+7. **Monolithic God-File Surgical Slicer**: Parses massive 1,000+ line monoliths into discrete functional AST slices, saving **88% to 99.8% of input tokens** per surgical read.
+8. **Fullstack Route Complexity & Blast-Radius Radar**: Computes composite risk scores (0–100) and blast-radius tiers (`🚨 Critical`, `⚡ Moderate`, `🟢 Low`) to safeguard high-impact pages during refactoring.
 
 ---
 
@@ -79,6 +82,8 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 | `npx fullstack-audit --migrate-theme --from "#hex" --to "token"` | CRLF-agnostic AST codemod in 80ms (0 LLM output tokens). |
 | `npx fullstack-audit --verify --gate-clean` | Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`). |
 | `npx fullstack-audit --manifest <file:line>` | Generates a zero-search agent handoff manifest. |
+| `npx fullstack-audit --diff` | Architecture delta report comparing current scan against `.last_receipt.json`. |
+| `npx fullstack-audit --dead` | Scans and lists potential orphaned/dead components. |
 | `npx fullstack-audit --find <query> [--compact]` | Instant search ranked by Symbol Centrality PageRank across components, queries, text labels, and icons. |
 | `npx fullstack-audit --watch` | Live file watcher for continuous background sync on save. |
 
@@ -86,13 +91,13 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ## 🧭 What the Engine Produces
 
-The engine generates two distinct, zero-search directories:
+The engine generates two distinct, zero-search directories (18 specialized architecture maps):
 
 ```
 your-project/
 └── docs/
     ├── frontend-atlas/
-    │   ├── 01_ROUTES_AND_PANELS_MAP.md       # 🗺️ Route-to-page map, boundary radar, component tree
+    │   ├── 01_ROUTES_AND_PANELS_MAP.md       # 🗺️ Route-to-page map, boundary radar, component tree & blast radius badges
     │   ├── 02_COMPONENT_INVENTORY.md         # 🔘 Buttons, Live Dots, Capsule Pills, Disclosed Modals (Centrality ranked)
     │   ├── 03_DESIGN_TOKENS_AND_COLORS.md    # 🎨 Universal Tailwind Palette Matrix & Dark Mode Asymmetry
     │   ├── 04_UI_ISLANDS_AND_DRIFT.md        # 🏝️ UI drift & priority unification checklist
@@ -100,7 +105,9 @@ your-project/
     │   ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md # 🏷️ Screenshot-to-Code index of all UI text & labels
     │   ├── 07_VISUAL_AND_ICON_INDEX.md       # 🖼️ Screenshot-to-Code index of all action icons & symbols
     │   ├── 08_DISPATCH_GATEWAY.md            # 🎫 Inter-skill triage matrix & agent handoff router
-    │   ├── 09_QUERY_AND_CACHE_MAP.md         # 🔄 TanStack React Query cache keys, mutations & invalidations
+    │   ├── 09_QUERY_AND_CACHE_MAP.md         # 🔄 TanStack React Query cache keys, mutations & Cache Hygiene Radar
+    │   ├── 10_GOD_FILES_SURGICAL_MAP.md      # ✂️ Monolithic files sliced into AST line bounds (88-99.8% token savings)
+    │   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # 🚨 Composite risk scoring (0-100) & blast radius impact tiers
     │   ├── THEME_MIGRATION_PUNCHLIST.md      # 📋 Actionable checklist for theme & color rebrands
     │   └── README.md                         # 📖 Frontend summary statistics dashboard
     └── backend-atlas/
@@ -110,6 +117,7 @@ your-project/
         ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md  # 🛡️ Middleware matchers, public vs protected routes
         ├── 05_INTEGRATIONS_AND_WEBHOOKS.md   # 🔌 Stripe, Resend, Supabase, S3 & webhook handlers
         ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md# 🌉 Deep UI Trigger ➔ API Route ➔ Domain Service ➔ DB Model
+        ├── 07_ENV_AND_SECRETS_MAP.md         # 🔐 Client Secret Leak Radar & Undocumented Shadow Variables
         └── README.md                         # 📖 Backend summary statistics dashboard
 ```
 

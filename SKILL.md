@@ -95,14 +95,17 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 6. **`06_VISIBLE_TEXT_AND_LABELS_MAP.md`**: Buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.
 7. **`07_VISUAL_AND_ICON_INDEX.md`**: Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.
 8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
-9. **`09_QUERY_AND_CACHE_MAP.md`**: TanStack React Query cache keys, mutations, event invalidations (`invalidateQueriesForEvent`), and reactive dependency graph.
-10. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
+9. **`09_QUERY_AND_CACHE_MAP.md`**: TanStack React Query cache keys, mutations, event invalidations (`invalidateQueriesForEvent`), reactive dependency graph, and Cache Hygiene Radar.
+10. **`10_GOD_FILES_SURGICAL_MAP.md`**: Monolithic files (>500 lines) parsed into functional AST slices (components, hooks, functions) with exact line bounds for 88–99.8% token savings.
+11. **`11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`**: Composite route risk scoring (0–100) and blast-radius tiers (`🚨 Critical`, `⚡ Moderate`, `🟢 Low`) to safeguard high-impact screens.
+12. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
 ## 🛠️ Available Commands (v2.7.0 Reactive State & Call-Graph Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
 - `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
+- `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.
 - `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
 - `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`).
@@ -117,4 +120,5 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 3. **`03_SERVER_ACTIONS_AND_MUTATIONS.md`**: Next.js Server Actions (`"use server"`), parameters, and DB mutations.
 4. **`04_AUTH_AND_MIDDLEWARE_GUARDS.md`**: Middleware matchers, protected routes, and authentication providers.
 5. **`05_INTEGRATIONS_AND_WEBHOOKS.md`**: Third-party SDK clients (Stripe, Resend, Supabase, S3) and webhooks.
-6. **`06_FULLSTACK_CROSS_REFERENCE_MAP.md`**: Deep bi-directional bridge linking frontend UI triggers to backend API routes, domain services (`CatalogService`, `OrderService`), and database models.
+6. **`06_FULLSTACK_CROSS_REFERENCE_MAP.md`**: Deep bi-directional bridge linking frontend UI triggers to backend API routes, domain services (`CatalogService`, `OrderService`), and database models, plus API contract casing drift warnings.
+7. **`07_ENV_AND_SECRETS_MAP.md`**: Client Secret Leak Radar (`🚨 CRITICAL` / `⚠️ WARNING`) and undocumented shadow `.env` variables detector.

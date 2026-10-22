@@ -59,6 +59,53 @@ Tracing UI triggers to backend business logic usually requires multiple search q
 * **UI Component** ➔ **Next.js Server Action (`"use server"`)** or **API Route (`/api/...`)** ➔ **Prisma/Drizzle Database Model**.
 * Example: A purchase button in `GuestCheckoutModal.tsx` is automatically linked to `createCheckoutSession()` and the `Order` database model.
 
+### 4. Raw SQL Migrations & Supabase DDL Parser
+Modern applications frequently manage database schemas via migration directories rather than Prisma or Drizzle alone. The engine natively parses raw `.sql` files (`migrations/`, `db/migrations/`, `supabase/migrations/`) to extract:
+* Table names, columns, and data types (`UUID`, `SERIAL`, `TEXT`, `NUMERIC`, `JSONB`, `BOOLEAN`, etc.).
+* Primary keys, nullability constraints, and foreign key relations (`REFERENCES table(col)`).
+* Integrates directly into `02_DATABASE_MODELS_AND_SCHEMA.md` and links to frontend triggers.
+
+### 5. Ghost & Redirect Alias Route Resolver
+Single-line redirect routes (`redirect('/login')` or `NextResponse.redirect(...)`) frequently cause LLM agents to hallucinate dead ends. The engine detects redirects in route definitions and tags them with `🔀 Redirect ➔ /destination` in `01_ROUTES_AND_PANELS_MAP.md`.
+
+### 6. TanStack React Query & Cache Invalidation Topology (`09_QUERY_AND_CACHE_MAP.md`)
+The engine statically analyzes `@tanstack/react-query` usage (`useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`):
+* Catalogs active query keys, endpoints, and invalidators.
+* Generates an interactive Mermaid reactive dependency graph showing mutators ➔ invalidation keys ➔ queries refetched.
+* **Cache Hygiene Radar**: Flags unlinked dynamic queries and orphaned invalidation keys with 0 active listeners.
+
+### 7. Symbol Centrality PageRank Ranking Engine
+Borrowed from network analysis, the engine evaluates import and export dependency graphs across components, API routes, and database models using an adapted PageRank algorithm:
+* `🔥 Core Hub`: Top 10% critical hubs imported widely across the app.
+* `⭐ Active Hub`: Actively imported and connected modules.
+* `📌 Standard`: Typical feature components.
+* `⚪ Leaf`: Terminal UI components or standalone pages.
+
+### 8. Client Secret Leak & Shadow Env Radar (`07_ENV_AND_SECRETS_MAP.md`)
+* Statically detects `process.env.*` and `import.meta.env.*` references across all files.
+* Flags non-public environment variables referenced in client components (`🚨 CRITICAL` for `STRIPE_SECRET_KEY`, `DATABASE_URL`; `⚠️ WARNING` for private config variables stripped to `undefined`).
+* Scans `.env.example` templates to identify **Shadow Variables**—critical environment variables actively accessed in code but absent from documentation.
+
+### 9. Monolithic God-File Complexity Radar & Surgical Slicer (`10_GOD_FILES_SURGICAL_MAP.md`)
+* Identifies complex files exceeding 500 lines or 25KB that degrade LLM attention.
+* Slices monolithic files into discrete AST functional blocks (components, hooks, classes, functions, types) with exact line bounds (`L{start}-L{end}`).
+* Enables AI assistants to read only the containing 20–40 line slice instead of burning 1,500 lines, **saving 88% to 99.8% of input tokens**!
+
+### 10. API Contract & Payload Drift Detector (`06_FULLSTACK_CROSS_REFERENCE_MAP.md`)
+* Compares frontend client payloads (`fetch`, `axios`) against backend route handler parameter schemas.
+* Automatically flags subtle casing drift (such as snake_case `order_id` sent to camelCase `orderId`).
+
+### 11. Fullstack Route Complexity & Blast-Radius Radar (`11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`)
+* Evaluates composite risk scores (0–100) across all application routes based on component fan-out, disclosed modals/drawers, network API requests, and mutation footprints.
+* Categorizes routes into `🚨 Critical Blast Radius (Score 65–100)`, `⚡ Moderate Impact (Score 35–64)`, and `🟢 Low / Isolated (Score 0–34)`.
+* Injects safety badges into `01_ROUTES_AND_PANELS_MAP.md` and pre-modification safety checklists into `npx fullstack-audit --manifest <file:line>`.
+
+### 12. Architecture Delta Inspection Engine (`--diff`)
+* Compares current scans against `.last_receipt.json` to emit a terminal ASCII delta summary tracking new routes, god files, hex deviations, rogue colors, and query count changes.
+
+### 13. Deterministic Byte-Stable Prompt Caching
+* Replaces wall-clock timestamps in generated atlases with deterministic Git commit hashes, eliminating cache invalidation and maximizing Anthropic and OpenAI KV prompt-cache hit rates (up to 90% token savings across sessions).
+
 ---
 
 ## 🛠️ CRLF-Agnostic Deterministic AST Codemods
@@ -147,6 +194,7 @@ Tested on a production Next.js 15 App Router codebase (**448 files, 50 routes, T
 ---
 
 ## 🔗 Related Documentation
+* [Master Usage Guide & Full Potential Playbook](MASTER_USAGE_GUIDE.md)
 * [Multi-Agent Recipes & Swarms](MULTI_AGENT_RECIPES.md)
 * [Frontend Atlas Directory](../docs/frontend-atlas/)
 * [Backend Atlas Directory](../docs/backend-atlas/)
