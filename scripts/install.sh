@@ -15,6 +15,7 @@ echo "📥 Installing / Updating fullstack-audit-skill..."
 curl -fsSL "$BASE_URL/SKILL.md" -o "$TARGET_DIR/SKILL.md"
 curl -fsSL "$BASE_URL/scripts/audit.ts" -o "$TARGET_DIR/scripts/audit.ts"
 curl -fsSL "$BASE_URL/scripts/audit-backend.ts" -o "$TARGET_DIR/scripts/audit-backend.ts"
+curl -fsSL "$BASE_URL/scripts/constants.ts" -o "$TARGET_DIR/scripts/constants.ts"
 
 RULE_BLOCK='<!-- START_FULLSTACK_AUDIT_RULE -->
 <!-- START_FRONTEND_AUDIT_RULE -->
@@ -127,6 +128,7 @@ if [ -d "$LEGACY_DIR" ]; then
     cp -f "$TARGET_DIR/SKILL.md" "$LEGACY_DIR/SKILL.md"
     cp -f "$TARGET_DIR/scripts/audit.ts" "$LEGACY_DIR/scripts/audit.ts"
     cp -f "$TARGET_DIR/scripts/audit-backend.ts" "$LEGACY_DIR/scripts/audit-backend.ts"
+    cp -f "$TARGET_DIR/scripts/constants.ts" "$LEGACY_DIR/scripts/constants.ts"
 fi
 
 echo "✅ fullstack-audit-skill successfully installed / updated in $TARGET_DIR!"

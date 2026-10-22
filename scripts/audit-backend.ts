@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { FULLSTACK_AUDIT_VERSION, FULLSTACK_AUDIT_ENGINE, getAtlasProvenanceHeader, AtlasIndexEntry } from "./constants.js";
 
 /**
  * Universal Backend Atlas & Full-Stack Audit Engine (v2.0.0)
@@ -1238,8 +1239,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   }
 
   // 1. 01_API_ROUTES_AND_ENDPOINTS.md
-  let md01 = `# 🌐 Backend API Routes & HTTP Endpoints\n\n`;
-  md01 += `> Complete registry of all API endpoints, route handlers, HTTP methods, and auth protection.\n\n`;
+  let md01 = getAtlasProvenanceHeader(
+    "🌐 Backend API Routes & HTTP Endpoints",
+    "Complete registry of all API endpoints, route handlers, HTTP methods, and auth protection."
+  );
   md01 += `## 📊 Endpoints Summary: **${result.endpoints.length}** Endpoints Detected\n\n`;
   md01 += `| Route URL | Centrality | HTTP Methods | Framework | Auth Guard | Source File |\n`;
   md01 += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
@@ -1258,8 +1261,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   fs.writeFileSync(path.join(outputDir, "01_API_ROUTES_AND_ENDPOINTS.md"), md01);
 
   // 2. 02_DATABASE_MODELS_AND_SCHEMA.md
-  let md02 = `# 🗄️ Database Models & Schema Registry\n\n`;
-  md02 += `> Statically cataloged tables, fields, types, and foreign key relations from Prisma, Drizzle, and Raw SQL / Supabase Migrations.\n\n`;
+  let md02 = getAtlasProvenanceHeader(
+    "🗄️ Database Models & Schema Registry",
+    "Statically cataloged tables, fields, types, and foreign key relations from Prisma, Drizzle, and Raw SQL / Supabase Migrations."
+  );
   md02 += `## 📊 Models Summary: **${result.models.length}** Database Models Detected\n\n`;
 
   if (result.models.length === 0) {
@@ -1294,8 +1299,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   fs.writeFileSync(path.join(outputDir, "02_DATABASE_MODELS_AND_SCHEMA.md"), md02);
 
   // 3. 03_SERVER_ACTIONS_AND_MUTATIONS.md
-  let md03 = `# ⚡ Server Actions & Mutations Map\n\n`;
-  md03 += `> Inventory of Next.js Server Actions (\`"use server"\`), parameter signatures, and DB mutations.\n\n`;
+  let md03 = getAtlasProvenanceHeader(
+    "⚡ Server Actions & Mutations Map",
+    "Inventory of Next.js Server Actions (`\"use server\"`), parameter signatures, and DB mutations."
+  );
   md03 += `## 📊 Server Actions Summary: **${result.serverActions.length}** Actions Detected\n\n`;
   md03 += `| Action Function | Parameters | Connected ORM / DB | Services | File : Line |\n`;
   md03 += `| :--- | :--- | :--- | :--- | :--- |\n`;
@@ -1313,8 +1320,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   fs.writeFileSync(path.join(outputDir, "03_SERVER_ACTIONS_AND_MUTATIONS.md"), md03);
 
   // 4. 04_AUTH_AND_MIDDLEWARE_GUARDS.md
-  let md04 = `# 🛡️ Auth & Middleware Route Guards\n\n`;
-  md04 += `> Audit of middleware matchers, route protection rules, and authentication providers.\n\n`;
+  let md04 = getAtlasProvenanceHeader(
+    "🛡️ Auth & Middleware Route Guards",
+    "Audit of middleware matchers, route protection rules, and authentication providers."
+  );
 
   if (result.authGuards.length === 0) {
     md04 += `_No middleware.ts file detected in project root or src/._\n`;
@@ -1336,8 +1345,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   fs.writeFileSync(path.join(outputDir, "04_AUTH_AND_MIDDLEWARE_GUARDS.md"), md04);
 
   // 5. 05_INTEGRATIONS_AND_WEBHOOKS.md
-  let md05 = `# 🔌 External Integrations & Webhooks\n\n`;
-  md05 += `> Map of third-party SDK clients (Stripe, Resend, Supabase, S3) and incoming webhook handlers.\n\n`;
+  let md05 = getAtlasProvenanceHeader(
+    "🔌 External Integrations & Webhooks",
+    "Map of third-party SDK clients (Stripe, Resend, Supabase, S3) and incoming webhook handlers."
+  );
   md05 += `## 📊 Integrations Summary: **${result.integrations.length}** Active Integrations\n\n`;
 
   if (result.integrations.length === 0) {
@@ -1361,8 +1372,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   fs.writeFileSync(path.join(outputDir, "05_INTEGRATIONS_AND_WEBHOOKS.md"), md05);
 
   // 6. 06_FULLSTACK_CROSS_REFERENCE_MAP.md
-  let md06 = `# 🌉 Fullstack Cross-Reference Bridge\n\n`;
-  md06 += `> Bi-directional bridge linking Frontend UI triggers directly to Backend APIs, Domain Services, Server Actions, and Database Models.\n\n`;
+  let md06 = getAtlasProvenanceHeader(
+    "🌉 Fullstack Cross-Reference Bridge",
+    "Bi-directional bridge linking Frontend UI triggers directly to Backend APIs, Domain Services, Server Actions, and Database Models."
+  );
   md06 += `## 📊 Fullstack Connections: **${result.bridgeItems.length}** Linked Triggers\n\n`;
   md06 += `| Frontend UI Trigger | Action / API Target | Domain Service / Method | Type | Method | Connected Database Models | Service |\n`;
   md06 += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
@@ -1402,8 +1415,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
 
   // 7. 07_ENV_AND_SECRETS_MAP.md
   const envReport = result.envAudit || { totalUniqueVars: 0, documentedVarsCount: 0, shadowVarsCount: 0, leakWarningsCount: 0, documentedKeys: [], items: [] };
-  let md07 = "# 🔐 Environment Variables & Secret Leak Radar\n\n";
-  md07 += "> Static analysis of environment variables, client-side exposure risks, and undocumented shadow keys.\n\n";
+  let md07 = getAtlasProvenanceHeader(
+    "🔐 Environment Variables & Secret Leak Radar",
+    "Static analysis of environment variables, client-side exposure risks, and undocumented shadow keys."
+  );
 
   if (envReport.leakWarningsCount > 0) {
     md07 += "> [!CAUTION]\n> 🚨 **" + envReport.leakWarningsCount + " POTENTIAL CLIENT LEAKS DETECTED**: Sensitive environment variables referenced inside Client Components!\n\n";
@@ -1453,10 +1468,11 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
 
   fs.writeFileSync(path.join(outputDir, "07_ENV_AND_SECRETS_MAP.md"), md07);
 
-  // 7. README.md
-  let mdReadme = `# 📖 Backend Atlas & Architecture Catalog\n\n`;
-  mdReadme += `> Statically cataloged backend infrastructure for this project.\n`;
-  mdReadme += `> Run \`npx fullstack-audit --backend\` or \`npm run audit:backend\` to refresh.\n\n`;
+  // 8. README.md
+  let mdReadme = getAtlasProvenanceHeader(
+    "📖 Backend Atlas & Architecture Catalog",
+    "Statically cataloged backend infrastructure for this project.\n> Run `npx fullstack-audit --backend` or `npm run audit:backend` to refresh."
+  );
   mdReadme += `## 📊 Backend Statistics\n\n`;
   mdReadme += `- **HTTP API Endpoints**: **${result.endpoints.length}**\n`;
   mdReadme += `- **Database Models / Tables**: **${result.models.length}**\n`;
@@ -1480,12 +1496,79 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
 
   fs.writeFileSync(path.join(outputDir, "README.md"), mdReadme);
 
+  // 8. Generate .backend-index.json for sub-3ms lookup
+  const backendEntries: AtlasIndexEntry[] = [];
+  result.endpoints.forEach(e => {
+    backendEntries.push({
+      symbol: `${e.methods.join("/")} ${e.urlPath}`,
+      category: "api",
+      file: e.relativePath,
+      line: e.line,
+      meta: `${e.framework} [Auth: ${e.authGuard || "Public"}]`,
+      atlasRef: `docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md`,
+    });
+  });
+
+  result.models.forEach(m => {
+    backendEntries.push({
+      symbol: m.name,
+      category: "model",
+      file: m.relativePath,
+      line: m.line,
+      meta: `${m.orm} (${m.fields.length} fields)`,
+      atlasRef: `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md`,
+    });
+  });
+
+  result.serverActions.forEach(a => {
+    backendEntries.push({
+      symbol: a.name,
+      category: "action",
+      file: a.relativePath,
+      line: a.line,
+      meta: `Mutations: ${a.dbOperations.join(", ") || "None"}`,
+      atlasRef: `docs/backend-atlas/03_SERVER_ACTIONS_AND_MUTATIONS.md`,
+    });
+  });
+
+  result.authGuards.forEach(g => {
+    backendEntries.push({
+      symbol: g.matcherPatterns.join(", ") || "middleware.ts",
+      category: "api",
+      file: g.relativePath,
+      line: g.line,
+      meta: `Auth Guard (${g.authProvider})`,
+      atlasRef: `docs/backend-atlas/04_AUTH_AND_MIDDLEWARE_GUARDS.md`,
+    });
+  });
+
+  result.integrations.forEach(i => {
+    const firstHit = i.detectedFiles[0];
+    backendEntries.push({
+      symbol: i.name,
+      category: "api",
+      file: firstHit ? firstHit.file : "package.json",
+      line: firstHit ? firstHit.line : 1,
+      meta: `${i.category} (${i.clientImports.join(", ")})`,
+      atlasRef: `docs/backend-atlas/05_INTEGRATIONS_AND_WEBHOOKS.md`,
+    });
+  });
+
+  const backendIndex = {
+    version: FULLSTACK_AUDIT_VERSION,
+    engine: FULLSTACK_AUDIT_ENGINE,
+    generatedAt: new Date().toISOString(),
+    totalEntries: backendEntries.length,
+    entries: backendEntries,
+  };
+  fs.writeFileSync(path.join(outputDir, ".backend-index.json"), JSON.stringify(backendIndex, null, 2), "utf-8");
+
   console.log(`✨ Backend Atlas written to: ${path.relative(rootDir, outputDir)}`);
 }
 
 // Main execution function
 export async function runUniversalBackendAudit(rootDir: string = ROOT_DIR): Promise<BackendAuditResult> {
-  console.log("🛡️ Initializing Universal Backend Atlas Engine (v2.0.0)...");
+  console.log(`🛡️ Initializing Universal Backend Atlas Engine (v${FULLSTACK_AUDIT_VERSION})...`);
   const allFiles: string[] = [];
   getSourceFiles(rootDir, allFiles);
   const uniqueFiles = Array.from(new Set(allFiles));

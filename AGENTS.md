@@ -30,21 +30,26 @@ Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, 
 3. **Dual-Speed Execution (Inner-Loop Fast Mode vs. Outer-Loop Verification)**:
    - **⚡ Inner-Loop (Fast Iteration — 1 to 2s responses)**:
      - For UI tweaks, styling adjustments, copy changes, or component fixes: perform direct surgical file edits (`edit_file` / native patch). Let the local dev server (Next.js/Vite/Nuxt HMR) refresh the developer's screen in 50ms.
-     - **No Heavy Browser MCPs**: Do NOT invoke headless browser MCP tools (e.g. Chrome DevTools, Puppeteer) for basic edits. If the developer pastes or attaches a screenshot, map visual cues directly to `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md`.
+     - **No Heavy Browser MCPs**: Do NOT invoke headless browser MCP tools for basic edits. If the developer pastes or attaches a screenshot, map visual cues directly to `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md`.
      - **No Per-Edit Compile Trap**: Do NOT run full TypeScript compilation (`tsc --noEmit` or `--verify`) after every intermediate micro-edit.
    - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:
      - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.
 
 ## 🛠️ Available Commands (v2.7.0 Reactive State & API Call-Graph Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
+- `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
+- `npx fullstack-audit --check-update`: Compares project Atlas against installed skill version and detects version drift.
+- `npx fullstack-audit --setup-all`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.
+- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
 - `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
 - `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.
 - `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
-- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`).
-- `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
+- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate.
+- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.
+- `npx fullstack-audit --setup-all`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
 - `npx fullstack-audit --watch`: Live background file watcher for continuous background sync.
 - `npx fullstack-audit --dead`: Scans for potential orphaned components.

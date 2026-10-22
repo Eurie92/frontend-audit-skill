@@ -98,9 +98,18 @@ import os from "os";
 import child_process from "child_process";
 import ts from "typescript";
 import { runUniversalBackendAudit } from "./audit-backend.js";
+import {
+  FULLSTACK_AUDIT_VERSION,
+  FULLSTACK_AUDIT_ENGINE,
+  FULLSTACK_AUDIT_RELEASE_DATE,
+  getVersionBanner,
+  getAtlasProvenanceHeader,
+  AtlasIndex,
+  AtlasIndexEntry,
+} from "./constants.js";
 
 /**
- * Universal Frontend Atlas & Design System Audit Engine (v1.7.0)
+ * Universal Fullstack Atlas & Design System Audit Engine (v2.7.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
@@ -125,7 +134,14 @@ const OUTPUT_DIR = path.join(ROOT_DIR, "docs", "frontend-atlas");
 
 // Parse CLI Flags
 const ARGS = process.argv.slice(2);
-const FIND_QUERY = ARGS.includes("--find") ? ARGS[ARGS.indexOf("--find") + 1] : undefined;
+const VERSION_MODE = ARGS.includes("--version") || ARGS.includes("-v");
+const CHECK_UPDATE_MODE = ARGS.includes("--check-update");
+const SETUP_ALL_MODE = ARGS.includes("--setup-all");
+const SETUP_CURSOR_MODE = ARGS.includes("--setup-cursor");
+const SETUP_CLAUDE_MODE = ARGS.includes("--setup-claude");
+const SETUP_HERMES_MODE = ARGS.includes("--setup-hermes");
+const SETUP_OPENCODE_MODE = ARGS.includes("--setup-opencode");
+const FIND_QUERY = ARGS.includes("--find") ? ARGS[ARGS.indexOf("--find") + 1] : (ARGS.includes("-f") ? ARGS[ARGS.indexOf("-f") + 1] : undefined);
 const ROUTE_QUERY = ARGS.includes("--route") ? ARGS[ARGS.indexOf("--route") + 1] : undefined;
 const MANIFEST_TARGET = ARGS.includes("--manifest") ? ARGS[ARGS.indexOf("--manifest") + 1] : undefined;
 const SHOULD_FIX_BUTTONS = ARGS.includes("--fix-buttons");
@@ -2822,7 +2838,7 @@ function executeVerificationGate(
     timestamp: prevReceipt && prevReceipt.hardcodedHexesCount === rawHexes && prevReceipt.rogueColorsCount === rawRogues && prevReceipt.typeCheckStatus === tsStatus
       ? prevReceipt.timestamp
       : new Date().toISOString(),
-    version: "2.4.0",
+    version: FULLSTACK_AUDIT_VERSION,
     totalFiles: audits.length,
     routesCount: routes.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -3507,6 +3523,388 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
   }
 }
 
+// 11.5 Fast-Path Atlas Index & Multi-Harness Engines
+function executeFastAtlasFind(query: string, compact: boolean): boolean {
+  const indexPath = path.join(OUTPUT_DIR, ".atlas-index.json");
+  if (!fs.existsSync(indexPath)) {
+    return false;
+  }
+  try {
+    const raw = fs.readFileSync(indexPath, "utf-8");
+    const index: AtlasIndex = JSON.parse(raw);
+    const q = query.toLowerCase().trim();
+
+    const hits: { entry: AtlasIndexEntry; score: number }[] = [];
+    index.entries.forEach(entry => {
+      const sym = entry.symbol.toLowerCase();
+      const file = entry.file.toLowerCase();
+      const meta = (entry.meta || "").toLowerCase();
+
+      if (sym === q) {
+        hits.push({ entry, score: 100 });
+      } else if (sym.startsWith(q)) {
+        hits.push({ entry, score: 75 });
+      } else if (sym.includes(q)) {
+        hits.push({ entry, score: 50 });
+      } else if (file.includes(q) || meta.includes(q)) {
+        hits.push({ entry, score: 25 });
+      }
+    });
+
+    hits.sort((a, b) => b.score - a.score);
+
+    if (hits.length === 0) {
+      if (compact) {
+        console.log(`ZERO_MATCH: "${query}"`);
+      } else {
+        console.log(`⚡ [Atlas Fast-Path] No direct index match found for "${query}".`);
+      }
+      return true;
+    }
+
+    if (compact) {
+      hits.slice(0, 10).forEach(h => {
+        const e = h.entry;
+        const metaStr = e.meta ? ` [${e.meta}]` : "";
+        console.log(`${e.file}:${e.line} [${e.category.toUpperCase()}] ${e.symbol}${metaStr} (${e.atlasRef})`);
+      });
+      if (hits.length > 10) {
+        console.log(`... (+${hits.length - 10} more matches in ${path.relative(ROOT_DIR, OUTPUT_DIR)})`);
+      }
+    } else {
+      console.log(`⚡ [Atlas Fast-Path: Sub-3ms Index Match] Found ${hits.length} result(s) for "${query}":\n`);
+      hits.slice(0, 10).forEach(h => {
+        const e = h.entry;
+        const metaStr = e.meta ? ` (${e.meta})` : "";
+        console.log(`   - [${e.category.toUpperCase()}] ${e.symbol}${metaStr} ➡️ ${e.file}:${e.line}`);
+        console.log(`     📖 Atlas Ref: ${e.atlasRef}`);
+      });
+      if (hits.length > 10) {
+        console.log(`\n   (+${hits.length - 10} more matches in docs/frontend-atlas/)`);
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildAndSaveAtlasIndex(
+  audits: ComponentAudit[],
+  routeMaps: RouteMapItem[],
+  queryTopology?: QueryCacheTopology,
+  godFiles?: GodFileAudit[],
+  outputDir: string = OUTPUT_DIR
+): AtlasIndex {
+  const entries: AtlasIndexEntry[] = [];
+
+  // 1. Routes
+  routeMaps.forEach(r => {
+    entries.push({
+      symbol: r.route,
+      category: "route",
+      file: r.pageFile,
+      line: 1,
+      meta: `Zone: ${r.zone}${r.isClientComponent ? " [Client ⚡]" : " [Server 🖥️]"}`,
+      atlasRef: "docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md",
+    });
+  });
+
+  // 2. Components & UI Elements
+  audits.forEach(a => {
+    const primaryName = a.componentNames[0] || path.basename(a.relativePath).replace(/\.[^/.]+$/, "");
+    entries.push({
+      symbol: primaryName,
+      category: "component",
+      file: a.relativePath,
+      line: 1,
+      meta: `${a.zone} [Centrality: ${a.centralityScore || 0}]`,
+      atlasRef: "docs/frontend-atlas/02_COMPONENT_INVENTORY.md",
+    });
+
+    a.disclosedOverlays.forEach(o => {
+      entries.push({
+        symbol: o.name,
+        category: "overlay",
+        file: a.relativePath,
+        line: o.line,
+        meta: o.type,
+        atlasRef: "docs/frontend-atlas/02_COMPONENT_INVENTORY.md",
+      });
+    });
+
+    a.visualIcons.forEach(i => {
+      entries.push({
+        symbol: i.iconName,
+        category: "icon",
+        file: a.relativePath,
+        line: i.line,
+        meta: `${i.sourceLib} (${i.context})`,
+        atlasRef: "docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md",
+      });
+    });
+
+    a.visibleLabels.slice(0, 10).forEach(l => {
+      if (l.text.length > 2 && l.text.length < 50) {
+        entries.push({
+          symbol: l.text,
+          category: "label",
+          file: a.relativePath,
+          line: l.line,
+          meta: l.type,
+          atlasRef: "docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md",
+        });
+      }
+    });
+  });
+
+  // 3. TanStack Query Keys
+  if (queryTopology && queryTopology.queries) {
+    queryTopology.queries.forEach(q => {
+      entries.push({
+        symbol: q.keyExpression,
+        category: "query",
+        file: q.filePath,
+        line: q.line,
+        meta: `Hook: ${q.hookType}`,
+        atlasRef: "docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md",
+      });
+    });
+  }
+
+  // 4. God-File Slices
+  if (godFiles) {
+    godFiles.forEach(g => {
+      g.slices.forEach(s => {
+        entries.push({
+          symbol: s.name,
+          category: "slice",
+          file: g.relativePath,
+          line: s.startLine,
+          meta: `${s.type} (Lines ${s.startLine}-${s.endLine})`,
+          atlasRef: "docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md",
+        });
+      });
+    });
+  }
+
+  // 5. Backend Integration (if backend atlas index exists)
+  const backendIndexPath = path.join(ROOT_DIR, "docs", "backend-atlas", ".backend-index.json");
+  if (fs.existsSync(backendIndexPath)) {
+    try {
+      const bIndex: { entries: AtlasIndexEntry[] } = JSON.parse(fs.readFileSync(backendIndexPath, "utf-8"));
+      entries.push(...bIndex.entries);
+    } catch {}
+  }
+
+  const atlasIndex: AtlasIndex = {
+    version: FULLSTACK_AUDIT_VERSION,
+    engine: FULLSTACK_AUDIT_ENGINE,
+    generatedAt: new Date().toISOString(),
+    totalEntries: entries.length,
+    entries,
+  };
+
+  const outPath = path.join(outputDir, ".atlas-index.json");
+  fs.writeFileSync(outPath, JSON.stringify(atlasIndex, null, 2), "utf-8");
+  return atlasIndex;
+}
+
+function executeCheckUpdate() {
+  console.log(`📦 Installed Skill Version: v${FULLSTACK_AUDIT_VERSION} (${FULLSTACK_AUDIT_ENGINE})`);
+  const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
+  if (!fs.existsSync(receiptPath)) {
+    console.log(`ℹ️ No prior atlas receipt found at ${path.relative(ROOT_DIR, receiptPath)}. Run 'npx fullstack-audit' to generate.`);
+    return;
+  }
+  try {
+    const receipt = JSON.parse(fs.readFileSync(receiptPath, "utf-8"));
+    const projectVersion = receipt.version || "unknown";
+    if (projectVersion === FULLSTACK_AUDIT_VERSION) {
+      console.log(`✅ Project Atlas is up to date (v${projectVersion}). No version drift detected.`);
+    } else {
+      console.log(`⚠️ Atlas Version Drift Detected!`);
+      console.log(`   - Project Atlas Version: v${projectVersion} (Generated: ${receipt.timestamp || "unknown"})`);
+      console.log(`   - Installed Skill Version: v${FULLSTACK_AUDIT_VERSION}`);
+      console.log(`👉 Recommendation: Run 'npx fullstack-audit' (or 'npm run audit') to refresh your project's atlas.`);
+    }
+  } catch {
+    console.log(`⚠️ Could not parse .last_receipt.json. Run 'npx fullstack-audit' to regenerate.`);
+  }
+}
+
+function executeUniversalSetup(opts: { cursor?: boolean; claude?: boolean; hermes?: boolean; opencode?: boolean }) {
+  console.log(`🚀 Initializing Universal Multi-Harness Setup Engine (v${FULLSTACK_AUDIT_VERSION})...\n`);
+  const targetAll = !opts.cursor && !opts.claude && !opts.hermes && !opts.opencode;
+
+  const ruleLines = [
+    "<!-- START_FULLSTACK_AUDIT_RULE -->",
+    "<!-- START_FRONTEND_AUDIT_RULE -->",
+    "## 🗺️ Fullstack Architecture & Component Lookup Rule",
+    "Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, VS Code**). For all UI, component, route, color theme, API, database, server action, or backend tasks:",
+    "",
+    "1. **Instant Atlas Lookup (Zero-Grep / Zero-Search)**: The FIRST tool call MUST be `view_file` on:",
+    "   - **Frontend Atlas (`docs/frontend-atlas/`)**:",
+    "     - `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, or Server/Client boundary)",
+    "     - `02_COMPONENT_INVENTORY.md` (by Modals, Drawers, Live Dots `animate-pulse`, Capsule Pills `rounded-full`, Buttons)",
+    "     - `03_DESIGN_TOKENS_AND_COLORS.md` (for all 22+ Tailwind color families, dark mode asymmetries, hexes)",
+    "     - `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot)",
+    "     - `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)",
+    "     - `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, or cache invalidation event)",
+    "     - `10_GOD_FILES_SURGICAL_MAP.md` (for files >500 lines to read exact slice bounds and save 90%+ tokens)",
+    "     - `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (to check route risk score and blast radius before modifying)",
+    "     - `THEME_MIGRATION_PUNCHLIST.md` (actionable checklist for whole-website color and dark mode rebrands)",
+    "   - **Backend Atlas (`docs/backend-atlas/`)**:",
+    "     - `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method: GET/POST/PUT/DELETE, or auth guard)",
+    "     - `02_DATABASE_MODELS_AND_SCHEMA.md` (by database table, Prisma model, or Drizzle schema)",
+    "     - `03_SERVER_ACTIONS_AND_MUTATIONS.md` (by Next.js Server Action \"use server\")",
+    "     - `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (by route matcher or public vs protected route)",
+    "     - `05_INTEGRATIONS_AND_WEBHOOKS.md` (by third-party service: Stripe, Resend, Supabase, S3)",
+    "     - `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (to trace UI button/modal directly to backend action & database model)",
+    "     - `07_ENV_AND_SECRETS_MAP.md` (to verify client env access and prevent secret leaks)",
+    "",
+    "2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Get-ChildItem -Recurse | Select-String` or `grep -r`) and do NOT spawn CLI scripts for simple lookups. Both atlases are already indexed on disk as Markdown—read the files directly.",
+    "",
+    "3. **Dual-Speed Execution (Inner-Loop Fast Mode vs. Outer-Loop Verification)**:",
+    "   - **⚡ Inner-Loop (Fast Iteration — 1 to 2s responses)**:",
+    "     - For UI tweaks, styling adjustments, copy changes, or component fixes: perform direct surgical file edits (`edit_file` / native patch). Let the local dev server (Next.js/Vite/Nuxt HMR) refresh the developer's screen in 50ms.",
+    "     - **No Heavy Browser MCPs**: Do NOT invoke headless browser MCP tools for basic edits. If the developer pastes or attaches a screenshot, map visual cues directly to `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md`.",
+    "     - **No Per-Edit Compile Trap**: Do NOT run full TypeScript compilation (`tsc --noEmit` or `--verify`) after every intermediate micro-edit.",
+    "   - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:",
+    "     - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.",
+    "",
+    "## 🛠️ Available Commands (v2.7.0 Reactive State & API Call-Graph Engine)",
+    "- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.",
+    "- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).",
+    "- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.",
+    "- `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).",
+    "- `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.",
+    "- `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99.8% tokens).",
+    "- `npx fullstack-audit --migrate-theme --from \"#hex1,#hex2\" --to \"dark:bg-slate-900\"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).",
+    "- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate.",
+    "- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.",
+    "- `npx fullstack-audit --setup-all`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.",
+    "- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.",
+    "- `npx fullstack-audit --watch`: Live background file watcher for continuous background sync.",
+    "- `npx fullstack-audit --dead`: Scans for potential orphaned components.",
+    "<!-- END_FRONTEND_AUDIT_RULE -->",
+    "<!-- END_FULLSTACK_AUDIT_RULE -->"
+  ].join("\n");
+
+  // 1. Cursor IDE (.cursor/rules/fullstack-audit.mdc)
+  if (targetAll || opts.cursor) {
+    const cursorDir = path.join(ROOT_DIR, ".cursor", "rules");
+    if (!fs.existsSync(cursorDir)) fs.mkdirSync(cursorDir, { recursive: true });
+    const cursorRule = [
+      "---",
+      "description: Zero-Grep Fullstack Architecture & Component Lookup Protocol",
+      "globs: \"**/*.{ts,tsx,jsx,js,vue,svelte,astro,css,prisma,sql}\"",
+      "alwaysApply: true",
+      "---",
+      ruleLines
+    ].join("\n");
+    fs.writeFileSync(path.join(cursorDir, "fullstack-audit.mdc"), cursorRule, "utf-8");
+    console.log("✅ Cursor IDE: Configured .cursor/rules/fullstack-audit.mdc (alwaysApply: true)");
+  }
+
+  // 2. Claude Code CLI (CLAUDE.md + .claude/commands/*.md)
+  if (targetAll || opts.claude) {
+    const claudeDir = path.join(ROOT_DIR, ".claude", "commands");
+    if (!fs.existsSync(claudeDir)) fs.mkdirSync(claudeDir, { recursive: true });
+
+    const commands: Record<string, string> = {
+      "audit.md": `---\ndescription: Regenerate entire fullstack atlas and Answer.AI llms.txt\n---\nRun \`npx fullstack-audit\` to regenerate both frontend and backend atlases.\n`,
+      "find.md": `---\ndescription: Instant sub-3ms lookup across fullstack atlas\narguments:\n  - name: query\n    description: Symbol, component, route, or text to locate\n    required: true\n---\nRun \`npx fullstack-audit --find "$ARGUMENTS" --compact\` and read the exact target file. Do not run global codebase grep.\n`,
+      "diff.md": `---\ndescription: Architecture delta report comparing current scan against last receipt\n---\nRun \`npx fullstack-audit --diff\` to check architecture deltas and regressions.\n`,
+      "theme.md": `---\ndescription: Generate theme migration punchlist\n---\nRun \`npx fullstack-audit --theme\` to generate THEME_MIGRATION_PUNCHLIST.md.\n`,
+      "verify.md": `---\ndescription: Verify closed-loop TypeScript and clean gate\n---\nRun \`npx fullstack-audit --verify --gate-clean\` to verify typecheck and metric deltas.\n`
+    };
+
+    Object.entries(commands).forEach(([filename, content]) => {
+      fs.writeFileSync(path.join(claudeDir, filename), content, "utf-8");
+    });
+
+    const claudeMdPath = path.join(ROOT_DIR, "CLAUDE.md");
+    if (fs.existsSync(claudeMdPath)) {
+      let content = fs.readFileSync(claudeMdPath, "utf-8");
+      const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
+      if (markerPattern.test(content)) {
+        content = content.replace(markerPattern, ruleLines);
+      } else {
+        content = content + "\n\n" + ruleLines + "\n";
+      }
+      fs.writeFileSync(claudeMdPath, content, "utf-8");
+    } else {
+      fs.writeFileSync(claudeMdPath, `# CLAUDE.md — Workspace Guidelines for Claude Code\n\n${ruleLines}\n`, "utf-8");
+    }
+    console.log("✅ Claude Code CLI: Configured CLAUDE.md and 5 custom commands in .claude/commands/");
+  }
+
+  // 3. Hermes Agent (skills/audit/fullstack-audit/SKILL.md)
+  if (targetAll || opts.hermes) {
+    const hermesSkillDir = path.join(ROOT_DIR, "skills", "audit", "fullstack-audit");
+    if (!fs.existsSync(hermesSkillDir)) fs.mkdirSync(hermesSkillDir, { recursive: true });
+    const hermesSkill = [
+      "---",
+      "name: fullstack-audit",
+      "description: Universal fullstack architecture and design system atlas. Zero-grep lookup for routes, components, design tokens, query keys, API routes, and DB models.",
+      "---",
+      "",
+      "# Fullstack Audit Skill (Hermes Agent Specification)",
+      "",
+      "Execute `npx fullstack-audit` to catalog the entire repository into `docs/frontend-atlas/` and `docs/backend-atlas/`.",
+      "",
+      ruleLines
+    ].join("\n");
+    fs.writeFileSync(path.join(hermesSkillDir, "SKILL.md"), hermesSkill, "utf-8");
+    console.log("✅ Hermes Agent: Configured skills/audit/fullstack-audit/SKILL.md (agentskills.io standard)");
+  }
+
+  // 4. OpenCode CLI (.opencode/commands/*.md & .opencode/skills/)
+  if (targetAll || opts.opencode) {
+    const openCodeCmdDir = path.join(ROOT_DIR, ".opencode", "commands");
+    if (!fs.existsSync(openCodeCmdDir)) fs.mkdirSync(openCodeCmdDir, { recursive: true });
+    const openCodeSkillDir = path.join(ROOT_DIR, ".opencode", "skills", "fullstack-audit");
+    if (!fs.existsSync(openCodeSkillDir)) fs.mkdirSync(openCodeSkillDir, { recursive: true });
+
+    const openCommands: Record<string, string> = {
+      "audit.md": `Run \`npx fullstack-audit\` to refresh atlases.\n`,
+      "find.md": `Run \`npx fullstack-audit --find "$ARGUMENTS" --compact\`.\n`,
+      "verify.md": `Run \`npx fullstack-audit --verify --gate-clean\`.\n`
+    };
+    Object.entries(openCommands).forEach(([filename, content]) => {
+      fs.writeFileSync(path.join(openCodeCmdDir, filename), content, "utf-8");
+    });
+
+    const openCodeSkill = [
+      "---",
+      "name: fullstack-audit",
+      "description: Universal fullstack architecture atlas and zero-grep lookup engine.",
+      "---",
+      "",
+      ruleLines
+    ].join("\n");
+    fs.writeFileSync(path.join(openCodeSkillDir, "SKILL.md"), openCodeSkill, "utf-8");
+    console.log("✅ OpenCode CLI: Configured .opencode/commands/ and .opencode/skills/fullstack-audit/");
+  }
+
+  // 5. Root AGENTS.md (Universal standard)
+  const agentsMdPath = path.join(ROOT_DIR, "AGENTS.md");
+  if (fs.existsSync(agentsMdPath)) {
+    let content = fs.readFileSync(agentsMdPath, "utf-8");
+    const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
+    if (markerPattern.test(content)) {
+      content = content.replace(markerPattern, ruleLines);
+    } else {
+      content = content + "\n\n" + ruleLines + "\n";
+    }
+    fs.writeFileSync(agentsMdPath, content, "utf-8");
+    console.log("✅ Universal AGENTS.md: Cleanly synchronized with latest guidelines");
+  }
+
+  console.log("\n🎉 Multi-Harness Setup Complete! Your codebase is now 100% configured for Antigravity, Cursor, Claude Code, Hermes, and OpenCode.\n");
+}
+
 // 12. Main Runner
 export function runUniversalFrontendAudit() {
   const structure = detectProjectStructure();
@@ -3603,7 +4001,7 @@ export function runUniversalFrontendAudit() {
   }
 
   // Default: Generate Markdown Atlas
-  console.log("🌐 Initializing Universal Frontend Atlas Engine (v2.3.0)...");
+  console.log(`🌐 Initializing Universal Frontend Atlas Engine (v${FULLSTACK_AUDIT_VERSION})...`);
   console.log(`📦 Architecture: ${structure.framework}`);
   console.log(`✅ Audited ${audits.length} frontend files across ${routeMaps.length} routes.`);
   if (discoveredSkills.length > 0) {
@@ -3631,6 +4029,9 @@ export function runUniversalFrontendAudit() {
   writeRouteComplexityMap(routeComplexities, OUTPUT_DIR);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents, queryTopology, godFiles);
 
+  // Generate .atlas-index.json for sub-3ms CLI lookups
+  buildAndSaveAtlasIndex(audits, routeMaps, queryTopology, godFiles, OUTPUT_DIR);
+
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
   let prevReceipt: VerificationReceipt | null = null;
@@ -3648,7 +4049,7 @@ export function runUniversalFrontendAudit() {
     timestamp: prevReceipt && prevReceipt.hardcodedHexesCount === rawHexes && prevReceipt.rogueColorsCount === rawRogues
       ? prevReceipt.timestamp
       : new Date().toISOString(),
-    version: "2.4.0",
+    version: FULLSTACK_AUDIT_VERSION,
     totalFiles: audits.length,
     routesCount: routeMaps.length,
     rawButtonsCount: audits.reduce((acc, a) => acc + a.rawButtons.length, 0),
@@ -3794,9 +4195,10 @@ function auditGodFiles(allFiles: string[], rootDir: string = ROOT_DIR): GodFileA
 }
 
 function writeGodFilesMap(godFiles: GodFileAudit[], outputDir: string) {
-  let md = "# ✂️ Monolithic God-File Complexity Radar & Surgical Slicer\n\n";
-  md += "> High-complexity monolithic source files (≥500 lines or ≥25KB) parsed into discrete surgical functional slices.\n";
-  md += "> **Context Token Optimization**: AI agents should read targeted functional slices instead of entire 2,000+ line monolithic files to prevent attention degradation and save up to 99% of input context tokens.\n\n";
+  let md = getAtlasProvenanceHeader(
+    "✂️ Monolithic God-File Complexity Radar & Surgical Slicer",
+    "High-complexity monolithic source files (≥500 lines or ≥25KB) parsed into discrete surgical functional slices.\n> **Context Token Optimization**: AI agents should read targeted functional slices instead of entire 2,000+ line monolithic files to save up to 99% of input tokens."
+  );
 
   if (godFiles.length === 0) {
     md += "_✅ Clean architecture: No monolithic god files (≥500 lines) detected in project scope._\n";
@@ -3970,9 +4372,10 @@ function computeRouteComplexity(
 
 function writeRouteComplexityMap(metrics: RouteComplexityMetric[], outputDir: string) {
   const filePath = path.join(outputDir, "11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md");
-  let md = "# 💥 Fullstack Route Complexity & Blast-Radius Radar\n\n";
-  md += "> Forensic blast-radius scoring evaluating component fan-out, modal disclosures, network calls, database mutation footprints, and cache invalidation dependencies across all routes.\n";
-  md += "> **Safety Protocol**: AI agents MUST review downstream dependencies and cache invalidation targets before editing routes flagged with `🚨 Critical Blast Radius`.\n\n";
+  let md = getAtlasProvenanceHeader(
+    "💥 Fullstack Route Complexity & Blast-Radius Radar",
+    "Forensic blast-radius scoring evaluating component fan-out, modal disclosures, network calls, database mutation footprints, and cache invalidation dependencies across all routes.\n> **Safety Protocol**: AI agents MUST review downstream dependencies and cache invalidation targets before editing routes flagged with `🚨 Critical Blast Radius`."
+  );
 
   const criticalCount = metrics.filter(m => m.blastRadiusTier === "CRITICAL").length;
   const moderateCount = metrics.filter(m => m.blastRadiusTier === "MODERATE").length;
@@ -4075,8 +4478,10 @@ function executeDiffReport(
 
 function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md");
-  let md = `# 🗺️ Frontend Routes & Panels Map\n\n`;
-  md += `> Auto-generated navigation map linking every route to its page file, layout, and component tree.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🗺️ Frontend Routes & Panels Map",
+    "Auto-generated navigation map linking every route to its page file, layout, and component tree."
+  );
   md += `- **Detected Architecture**: \`${structure.framework}\`\n\n`;
 
   const zones = Array.from(new Set(routes.map(r => r.zone))).sort();
@@ -4117,8 +4522,10 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
 
 function writeComponentInventory(audits: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "02_COMPONENT_INVENTORY.md");
-  let md = `# 🧩 Component & Elements Inventory\n\n`;
-  md += `> Comprehensive catalog of UI elements (Interactive Triggers, Disclosed Overlays, Modals, Live Dots, Capsule Pills, Buttons, Cards) across all panels.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🧩 Component & Elements Inventory",
+    "Comprehensive catalog of UI elements (Interactive Triggers, Disclosed Overlays, Modals, Live Dots, Capsule Pills, Buttons, Cards) across all panels."
+  );
 
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
   const totalUiButtons = audits.reduce((acc, a) => acc + a.uiButtons.length, 0);
@@ -4264,8 +4671,10 @@ function writeComponentInventory(audits: ComponentAudit[]) {
 
 function writeDesignTokensAudit(audits: ComponentAudit[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "03_DESIGN_TOKENS_AND_COLORS.md");
-  let md = `# 🎨 Design Tokens, Colors & Theme Health Audit\n\n`;
-  md += `> Universal Tailwind Color Matrix, Dark Mode Asymmetry Scanner, and Hardcoded Hex Registry.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🎨 Design Tokens, Colors & Theme Health Audit",
+    "Universal Tailwind Color Matrix, Dark Mode Asymmetry Scanner, and Hardcoded Hex Registry."
+  );
 
   if (structure.customTokens.size > 0) {
     md += `## 🏛️ Configured Project Color Tokens\n\n`;
@@ -4395,9 +4804,10 @@ function writeThemePunchlist(audits: ComponentAudit[], targetRoute?: string) {
   }
 
   const filePath = path.join(OUTPUT_DIR, "THEME_MIGRATION_PUNCHLIST.md");
-  let md = `# 🎨 Theme Migration & Rebrand Punchlist (${scopeLabel})\n\n`;
-  md += `> Automatically generated actionable checklist for whole-website theme and color palette rebrands.\n`;
-  md += `> Check off items as you update tokens to ensure zero elements or modals are left un-migrated.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    `🎨 Theme Migration & Rebrand Punchlist (${scopeLabel})`,
+    "Automatically generated actionable checklist for whole-website theme and color palette rebrands.\n> Check off items as you update tokens to ensure zero elements or modals are left un-migrated."
+  );
 
   const familyMap = new Map<string, { file: string; line: number; token: string; snippet: string }[]>();
   audits.forEach(a => {
@@ -4457,8 +4867,10 @@ function writeThemePunchlist(audits: ComponentAudit[], targetRoute?: string) {
 
 function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "04_UI_ISLANDS_AND_DRIFT.md");
-  let md = `# 🏝️ UI Islands, Redundancies & Consistency Audit\n\n`;
-  md += `> Identifies isolated design deviations, duplicate components, and actionable refactoring paths.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🏝️ UI Islands, Redundancies & Consistency Audit",
+    "Identifies isolated design deviations, duplicate components, and actionable refactoring paths."
+  );
 
   // Dead Components Section
   md += `## 👻 Potential Dead / Orphaned Components (${deadComponents.length})\n`;
@@ -4489,8 +4901,10 @@ function writeUIIslandsAudit(audits: ComponentAudit[], deadComponents: Component
 
 function writeDeadComponentsLedger(deadComponents: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "05_DEAD_ORPHANED_COMPONENTS.md");
-  let md = `# 👻 Dead & Orphaned Component Ledger\n\n`;
-  md += `> High-confidence inventory of components defined in \`components/\` that have **zero active imports** across route pages, layouts, and panels.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "👻 Dead & Orphaned Component Ledger",
+    "High-confidence inventory of components defined in `components/` that have **zero active imports** across route pages, layouts, and panels."
+  );
   md += `## ⚠️ Deletion Safety Policy\n\n`;
   md += `> **NEVER blindly delete components without checking the following three invariants:**\n`;
   md += `> 1. **Dynamic Imports**: Is the component loaded dynamically via \`next/dynamic\` or \`React.lazy()\`?\n`;
@@ -4518,9 +4932,10 @@ function writeDeadComponentsLedger(deadComponents: ComponentAudit[]) {
 
 function writeVisibleLabelsMap(audits: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "06_VISIBLE_TEXT_AND_LABELS_MAP.md");
-  let md = `# 🏷️ Visible Text & UI Labels Map\n\n`;
-  md += `> Comprehensive index of visible buttons, headings, badges, and accessible labels across all panels.\n`;
-  md += `> 💡 **Screenshot-to-Code**: When matching a UI element from a screenshot, find the visible text label here to locate the exact component file and line in 0ms.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🏷️ Visible Text & UI Labels Map",
+    "Comprehensive index of visible buttons, headings, badges, and accessible labels across all panels.\n> 💡 **Screenshot-to-Code**: When matching a UI element from a screenshot, find the visible text label here to locate the exact component file and line in 0ms."
+  );
 
   const allLabels: { zone: string; file: string; line: number; text: string; type: string; snippet: string }[] = [];
   audits.forEach(a => {
@@ -4554,9 +4969,10 @@ function writeVisibleLabelsMap(audits: ComponentAudit[]) {
 
 function writeVisualIconIndex(audits: ComponentAudit[]) {
   const filePath = path.join(OUTPUT_DIR, "07_VISUAL_AND_ICON_INDEX.md");
-  let md = `# 🖼️ Visual Icons & Action Symbols Index\n\n`;
-  md += `> Comprehensive index of Lucide, Radix, Tabler, and SVG visual action icons across all panels.\n`;
-  md += `> 💡 **Screenshot-to-Code**: When matching icon-only buttons or visual badges from a screenshot (where no text exists), look up the icon name here to locate the exact file and line in 0ms.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🖼️ Visual Icons & Action Symbols Index",
+    "Comprehensive index of Lucide, Radix, Tabler, and SVG visual action icons across all panels.\n> 💡 **Screenshot-to-Code**: When matching icon-only buttons or visual badges from a screenshot (where no text exists), look up the icon name here to locate the exact file and line in 0ms."
+  );
 
   const allIcons: { zone: string; file: string; line: number; iconName: string; sourceLib: string; context: string; snippet: string }[] = [];
   audits.forEach(a => {
@@ -4595,9 +5011,10 @@ function writeVisualIconIndex(audits: ComponentAudit[]) {
 
 function writeDispatchGateway(dispatches: SkillDispatch[], discoveredSkills: DiscoveredSkill[] = []) {
   const filePath = path.join(OUTPUT_DIR, "08_DISPATCH_GATEWAY.md");
-  let md = `# 🎫 Skill Dispatch Gateway & Inter-Skill Handoff Matrix\n\n`;
-  md += `> Dynamic triage router connecting detected frontend findings to specialized peer skills and newly installed workspace skills.\n`;
-  md += `> 💡 **Handoff Protocol**: Downstream agents can directly accept target files from this matrix without redundant full-codebase searches.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🎫 Skill Dispatch Gateway & Inter-Skill Handoff Matrix",
+    "Dynamic triage router connecting detected frontend findings to specialized peer skills and newly installed workspace skills.\n> 💡 **Handoff Protocol**: Downstream agents can directly accept target files from this matrix without redundant full-codebase searches."
+  );
 
   md += `## 🧭 Peer Skill Routing Architecture\n\n`;
   md += `| Core Recommended Skill | Domain & Focus | Workspace Status | Trigger Criteria | CLI Auto-Fix |\n`;
@@ -4688,8 +5105,10 @@ function writeDispatchGateway(dispatches: SkillDispatch[], discoveredSkills: Dis
 
 function writeQueryAndCacheMap(topology: QueryCacheTopology) {
   const filePath = path.join(OUTPUT_DIR, "09_QUERY_AND_CACHE_MAP.md");
-  let md = `# 🔄 TanStack React Query & Cache Invalidation Topology\n\n`;
-  md += `> Reactive state and caching topology linking \`useQuery\` hooks, \`useMutation\` invalidations, centralized query keys, and affected UI queries.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "🔄 TanStack React Query & Cache Invalidation Topology",
+    "Reactive state and caching topology linking `useQuery` hooks, `useMutation` invalidations, centralized query keys, and affected UI queries."
+  );
 
   const totalQueries = topology.queries.length;
   const totalMutations = topology.mutations.length;
@@ -4852,9 +5271,10 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   const totalIcons = audits.reduce((acc, a) => acc + a.visualIcons.length, 0);
   const totalQueries = topology ? topology.queries.length : 0;
 
-  let md = `# 📖 Frontend Atlas & Quick-Reference Catalog\n\n`;
-  md += `> Centralized documentation and audit ledger for this project.\n`;
-  md += `> 💡 **Tip**: Type \`/fullstack-audit\` in AI chat or run \`npx fullstack-audit\` (or \`npm run audit\`) to refresh.\n\n`;
+  let md = getAtlasProvenanceHeader(
+    "📖 Frontend Atlas & Quick-Reference Catalog",
+    "Centralized documentation and audit ledger for this project.\n> 💡 **Tip**: Type `/fullstack-audit` in AI chat or run `npx fullstack-audit` (or `npm run audit`) to refresh."
+  );
 
   md += `## 📊 Platform Statistics\n\n`;
   md += `- **Framework Architecture**: **${structure.framework}**\n`;
@@ -4983,9 +5403,35 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
 }
 
 async function main() {
+  if (VERSION_MODE) {
+    console.log(getVersionBanner());
+    return;
+  }
+
+  if (CHECK_UPDATE_MODE) {
+    executeCheckUpdate();
+    return;
+  }
+
+  if (SETUP_ALL_MODE || SETUP_CURSOR_MODE || SETUP_CLAUDE_MODE || SETUP_HERMES_MODE || SETUP_OPENCODE_MODE) {
+    executeUniversalSetup({
+      cursor: SETUP_CURSOR_MODE,
+      claude: SETUP_CLAUDE_MODE,
+      hermes: SETUP_HERMES_MODE,
+      opencode: SETUP_OPENCODE_MODE,
+    });
+    return;
+  }
+
   if (UPDATE_MODE) {
     await executeSelfUpdate();
     return;
+  }
+
+  // Fast-Path for Symbol/Component/Route/Action Lookups (Sub-3ms)
+  if (FIND_QUERY && !DIFF_MODE && !SHOULD_FIX_BUTTONS && !MIGRATE_THEME_MODE && !VERIFY_MODE) {
+    const fastMatched = executeFastAtlasFind(FIND_QUERY, COMPACT_MODE);
+    if (fastMatched) return;
   }
 
   if (BACKEND_MODE) {
