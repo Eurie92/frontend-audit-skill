@@ -66,26 +66,37 @@ allowed-tools:
 
 ---
 
-## 🔄 Dual-Speed Execution Protocol (Universal Across All Harnesses)
+## 🔄 The 4-Phase Operational Pipeline (Universal Synergy Engine)
 Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and VS Code**:
 
-### ⚡ 1. Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout edits)
-For styling adjustments, CSS classes, layout spacing, copy changes, or component fixes during active pair-programming:
-1. **Zero-Search Atlas Read**: Read the target slice from `docs/frontend-atlas/` or `docs/backend-atlas/` in 0ms.
-2. **Direct Surgical Edit**: Use `edit_file` (or native patch) directly. Let the project's native dev server (Next.js/Vite/Nuxt HMR) refresh the developer's screen in 50ms.
-3. **HARD FORBIDDEN — No Per-Edit Compile Trap**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`) on UI tweaks.
-4. **HARD FORBIDDEN — No Intermediate Audits**: Do NOT run `npm run audit` or `npx fullstack-audit` after intermediate UI edits.
-5. **HARD FORBIDDEN — No Heavy Browser MCPs**: Do NOT invoke headless browser automation (e.g. Chrome DevTools MCP, Puppeteer) or curl localhost for visual checks. Map visual text/icons directly to `06_VISIBLE_TEXT_AND_LABELS_MAP.md` or `07_VISUAL_AND_ICON_INDEX.md`.
-6. **HARD FORBIDDEN — No Multi-Skill Overkill**: Do NOT invoke multiple design skills in parallel for simple CSS/layout adjustments.
-7. **Response Time**: Return immediately to the user in 1–2 seconds.
+### Phase 1: GPS / Locate (fullstack-audit)
+1. **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on `docs/frontend-atlas/` or `docs/backend-atlas/` (or `npx fullstack-audit --find "<query>" --compact`).
+2. **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to Phase 2. It is an architecture locator, NOT an animation or code implementation tool.
 
-### 🛡️ 2. Outer-Loop (Verification Gate — Checkpoints Only)
-Run the audit script (`npm run audit` or `/fullstack-audit`) and verification gates (`npx fullstack-audit --verify --gate-clean`) **ONLY**:
-1. When the developer explicitly invokes `/fullstack-audit` or asks to verify/audit the codebase.
-2. At the completion of an entire multi-step milestone or feature before committing to Git.
-3. When performing whole-website theme migrations via `--theme` or `--migrate-theme`.
+### Phase 2: Design & Anti-Overengineering Firewall (ponytail)
+1. **The Ponytail Hierarchy**:
+   - *Does it need to exist?* Skip unasked features, options, and speculative abstractions.
+   - *Already in codebase?* Reuse existing project helpers and components.
+   - *Platform feature?* Use standard web/DOM/Tailwind primitives over custom JavaScript trigonometry, 36-point polygon waves, or complex SVG math.
+   - *Can it be one line?* Make it one line a reader grasps at a glance.
+   - *Shortest working diff wins.* Deletion beats addition.
+2. **Preserve Always**: Trust boundary validation, auth guards, data-loss error handling, accessibility.
 
----
+### Phase 3: Communication & Zero-Fluff Receipts (caveman)
+1. **Answer First**: Dense result first, technical facts exact. Zero filler, zero apologies.
+2. **Compact Diff Receipt**: Return exact target, diff, ponytail savings, and HMR status.
+
+### Phase 4: Right-Sized Verification (superpowers Dual-Speed)
+1. **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy)**:
+   - Direct surgical file edits (`edit_file` / native patch). Let local dev server HMR refresh in 50ms.
+   - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).
+   - **HARD FORBIDDEN**: Do NOT run `npm run audit` or `npx fullstack-audit` on micro-edits.
+   - **HARD FORBIDDEN**: Do NOT invoke Superpowers process skills (`brainstorming`, `writing-plans`, `test-driven-development`).
+   - **HARD FORBIDDEN**: Do NOT invoke multiple design skills in parallel.
+   - **HARD FORBIDDEN**: Do NOT invoke heavy browser automation (Chrome DevTools MCP / Puppeteer) or curl localhost.
+   - **Response Time**: Return immediately to the user in 1–2 seconds.
+2. **🛡️ Outer-Loop (Checkpoint Verification Gate — Milestones/Backend/DB/Auth)**:
+   - Run `npx fullstack-audit --verify --gate-clean` or test suites (`npm test`, `npm run typecheck`) ONLY at major milestones or explicit user request.
 
 ## 🧭 The Atlas Documents Guide
 
