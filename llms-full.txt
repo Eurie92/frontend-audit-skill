@@ -22,8 +22,8 @@
 
 ## 📊 Quick Summary
 
-- **Active Queries (`useQuery`)**: **1** queries detected
-- **Mutation & Invalidation Emitters**: **3** triggers
+- **Active Queries (`useQuery`)**: **2** queries detected
+- **Mutation & Invalidation Emitters**: **4** triggers
 - **Centralized Query Key Definitions**: **2** keys registered
 - **Reactive Invalidation Links**: **2** active connections
 
@@ -34,6 +34,7 @@ Catalog of `useQuery` hooks, evaluated query keys, and invalidation triggers:
 | Query Key / Identifier | Hook Type | Component / File | Line | API Endpoint Target | Scoped | Invalidated By (Triggers) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `["user", {id}, "vault"]` | `useQuery` | [test-frameworks.ts:448](../../scripts/test-frameworks.ts#L448) | 448 | `/api/catalog` | 🔒 `Scoped` | `test-frameworks.ts (Event: USER_VAULT_MUTATED)`, `test-frameworks.ts (useMutation)` |
+| `["orders", "list"]` | `useQuery` | [test-frameworks.ts:633](../../scripts/test-frameworks.ts#L633) | 633 | `/api/orders` | 🌐 `Global` | _Manual / Polling_ |
 
 ## 💥 Mutation Triggers & Cache Invalidation Map
 
@@ -44,6 +45,7 @@ Mutations and events that invalidate cached queries on mutation completion:
 | [test-frameworks.ts:414](../../scripts/test-frameworks.ts#L414) | 414 | `Event: INVENTORY_CHANGED` | `invalidateQueriesForEvent` | `["catalog"]` | _No Matching Queries_ |
 | [test-frameworks.ts:417](../../scripts/test-frameworks.ts#L417) | 417 | `Event: USER_VAULT_MUTATED` | `invalidateQueriesForEvent` | `["user"]` | 🎯 `["user", {id}, "vault"]` |
 | [test-frameworks.ts:465](../../scripts/test-frameworks.ts#L465) | 465 | `useMutation` | `useMutation.onSuccess` | `["user"]` | 🎯 `["user", {id}, "vault"]` |
+| [test-frameworks.ts:638](../../scripts/test-frameworks.ts#L638) | 638 | `useMutation` | `useMutation.onSuccess` | `["legacy_order_cache"]` | _No Matching Queries_ |
 
 ## 🔑 Centralized Query Keys Registry (Authoritative Keys)
 
@@ -62,7 +64,24 @@ flowchart LR
   M3["useMutation"] -->|invalidates| Q4["["user", {id}, "vault"]"]
 ```
 
-## 🛡️ Cache Invalidation Safety & Stale State Radar
+## 🛡️ Cache Hygiene & Stale State Radar
+
+### 👻 Orphaned Invalidation Emitters (**2** triggers)
+
+> Invalidation targets firing for query keys that have 0 active `useQuery` subscribers in the application.
+
+| Emitter / Trigger Source | Invalidated Key Expression | File | Line |
+| :--- | :--- | :--- | :--- |
+| `Event: INVENTORY_CHANGED` | `["catalog"]` | [test-frameworks.ts:414](../../scripts/test-frameworks.ts#L414) | 414 |
+| `useMutation` | `["legacy_order_cache"]` | [test-frameworks.ts:638](../../scripts/test-frameworks.ts#L638) | 638 |
+
+### ⚠️ Queries with No Mutation Invalidation Links (**1** queries)
+
+> Active dynamic queries that are never automatically refreshed by mutations. Verify whether a mutation should invalidate these!
+
+| Query Key Expression | API Endpoint | Component File | Line |
+| :--- | :--- | :--- | :--- |
+| `["orders", "list"]` | `/api/orders` | [test-frameworks.ts:633](../../scripts/test-frameworks.ts#L633) | 633 |
 
 > [!NOTE]
 > **Cache Hygiene Healthy**: All detected mutation emitters have configured query invalidation targets.
@@ -79,104 +98,108 @@ flowchart LR
 
 ## 📊 God Files Summary: **5** Monolithic Files Indexed
 
-- **Combined Monolithic Code**: **11,856** lines (~**124,987** tokens)
-- **Surgically Mapped Slices**: **201** functional units
-- **Average Slice Size**: **619** tokens (vs ~24997 tokens per full-file read)
-- **Average Context Token Savings**: **97.5%** saved per surgical read!
+- **Combined Monolithic Code**: **12,276** lines (~**130,011** tokens)
+- **Surgically Mapped Slices**: **208** functional units
+- **Average Slice Size**: **622** tokens (vs ~26002 tokens per full-file read)
+- **Average Context Token Savings**: **97.6%** saved per surgical read!
 
 ### 📋 Monolithic Files Ranked by Complexity
 
 | File Path | Total Lines | Total Tokens | Slices | Avg Slice Lines | Max Context Savings |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| [audit.ts](../../scripts/audit.ts) | **4,719** | ~50,342 | **73** | 65 lines | **98.7%** |
+| [audit.ts](../../scripts/audit.ts) | **5,047** | ~54,250 | **77** | 66 lines | **98.8%** |
 | [audit.ts](../../.agent/skills/fullstack-audit/scripts/audit.ts) | **3,943** | ~42,045 | **61** | 65 lines | **98.5%** |
 | [audit-backend.ts](../../scripts/audit-backend.ts) | **1,565** | ~15,097 | **27** | 57 lines | **99.5%** |
 | [audit-backend.ts](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts) | **1,013** | ~9,629 | **19** | 52 lines | **99.4%** |
-| [test-frameworks.ts](../../scripts/test-frameworks.ts) | **616** | ~7,874 | **21** | 28 lines | **99.6%** |
+| [test-frameworks.ts](../../scripts/test-frameworks.ts) | **708** | ~8,990 | **24** | 29 lines | **99.6%** |
 
 ---
 
 ## 🔪 Surgical Slice Directory
 
-### 📄 [scripts/audit.ts](../../scripts/audit.ts) (**4,719** lines / ~**50,342** tokens)
+### 📄 [scripts/audit.ts](../../scripts/audit.ts) (**5,047** lines / ~**54,250** tokens)
 
 > **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
 
 | Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `executeMultiAgentPartition` | `Function` | 27 | `L2-L28` | ~644 | **98.7%** | [executeMultiAgentPartition](../../scripts/audit.ts#L2-L28) |
-| `auditGlobalStylesheets` | `Function` | 63 | `L29-L91` | ~515 | **99.0%** | [auditGlobalStylesheets](../../scripts/audit.ts#L29-L91) |
-| `escapeRegexForCodemod` | `Function` | 60 | `L92-L151` | ~860 | **98.3%** | [escapeRegexForCodemod](../../scripts/audit.ts#L92-L151) |
-| `SupportedFramework` | `Type / Interface` | 14 | `L152-L165` | ~69 | **99.9%** | [SupportedFramework](../../scripts/audit.ts#L152-L165) |
-| `ProjectStructure` | `Type / Interface` | 14 | `L166-L179` | ~78 | **99.8%** | [ProjectStructure](../../scripts/audit.ts#L166-L179) |
-| `VisibleLabel` | `Type / Interface` | 7 | `L180-L186` | ~40 | **99.9%** | [VisibleLabel](../../scripts/audit.ts#L180-L186) |
-| `VisualIconUsage` | `Type / Interface` | 8 | `L187-L194` | ~55 | **99.9%** | [VisualIconUsage](../../scripts/audit.ts#L187-L194) |
-| `LiveStatusDot` | `Type / Interface` | 8 | `L195-L202` | ~30 | **99.9%** | [LiveStatusDot](../../scripts/audit.ts#L195-L202) |
-| `CapsulePill` | `Type / Interface` | 7 | `L203-L209` | ~25 | **100.0%** | [CapsulePill](../../scripts/audit.ts#L203-L209) |
-| `InteractiveTrigger` | `Type / Interface` | 9 | `L210-L218` | ~69 | **99.9%** | [InteractiveTrigger](../../scripts/audit.ts#L210-L218) |
-| `DisclosedOverlay` | `Type / Interface` | 9 | `L219-L227` | ~61 | **99.9%** | [DisclosedOverlay](../../scripts/audit.ts#L219-L227) |
-| `DisclosedElement` | `Type / Interface` | 7 | `L228-L234` | ~36 | **99.9%** | [DisclosedElement](../../scripts/audit.ts#L228-L234) |
-| `ColorUsage` | `Type / Interface` | 10 | `L235-L244` | ~38 | **99.9%** | [ColorUsage](../../scripts/audit.ts#L235-L244) |
-| `DarkModeAsymmetry` | `Type / Interface` | 9 | `L245-L253` | ~32 | **99.9%** | [DarkModeAsymmetry](../../scripts/audit.ts#L245-L253) |
-| `GlobalStylesheetAudit` | `Type / Interface` | 8 | `L254-L261` | ~73 | **99.9%** | [GlobalStylesheetAudit](../../scripts/audit.ts#L254-L261) |
-| `ComponentAudit` | `Type / Interface` | 30 | `L262-L291` | ~310 | **99.4%** | [ComponentAudit](../../scripts/audit.ts#L262-L291) |
-| `QueryDefinition` | `Type / Interface` | 12 | `L292-L303` | ~56 | **99.9%** | [QueryDefinition](../../scripts/audit.ts#L292-L303) |
-| `MutationDefinition` | `Type / Interface` | 10 | `L304-L313` | ~51 | **99.9%** | [MutationDefinition](../../scripts/audit.ts#L304-L313) |
-| `CentralizedKeyDef` | `Type / Interface` | 7 | `L314-L320` | ~29 | **99.9%** | [CentralizedKeyDef](../../scripts/audit.ts#L314-L320) |
-| `EventInvalidationDef` | `Type / Interface` | 7 | `L321-L327` | ~32 | **99.9%** | [EventInvalidationDef](../../scripts/audit.ts#L321-L327) |
-| `FileSlice` | `Type / Interface` | 11 | `L328-L338` | ~75 | **99.9%** | [FileSlice](../../scripts/audit.ts#L328-L338) |
-| `GodFileAudit` | `Type / Interface` | 12 | `L339-L350` | ~66 | **99.9%** | [GodFileAudit](../../scripts/audit.ts#L339-L350) |
-| `QueryCacheTopology` | `Type / Interface` | 7 | `L351-L357` | ~46 | **99.9%** | [QueryCacheTopology](../../scripts/audit.ts#L351-L357) |
-| `RouteComponentNode` | `Type / Interface` | 6 | `L358-L363` | ~25 | **100.0%** | [RouteComponentNode](../../scripts/audit.ts#L358-L363) |
-| `RouteMapItem` | `Type / Interface` | 11 | `L364-L374` | ~58 | **99.9%** | [RouteMapItem](../../scripts/audit.ts#L364-L374) |
-| `SkillDispatch` | `Type / Interface` | 8 | `L375-L382` | ~48 | **99.9%** | [SkillDispatch](../../scripts/audit.ts#L375-L382) |
-| `DiscoveredSkill` | `Type / Interface` | 10 | `L383-L392` | ~46 | **99.9%** | [DiscoveredSkill](../../scripts/audit.ts#L383-L392) |
-| `VerificationReceipt` | `Type / Interface` | 16 | `L393-L408` | ~100 | **99.8%** | [VerificationReceipt](../../scripts/audit.ts#L393-L408) |
-| `detectProjectStructure` | `Function` | 165 | `L409-L573` | ~1872 | **96.3%** | [detectProjectStructure](../../scripts/audit.ts#L409-L573) |
-| `finishProjectStructure` | `Function` | 42 | `L574-L615` | ~362 | **99.3%** | [finishProjectStructure](../../scripts/audit.ts#L574-L615) |
-| `determineZone` | `Function` | 104 | `L616-L719` | ~1077 | **97.9%** | [determineZone](../../scripts/audit.ts#L616-L719) |
-| `getFiles` | `Function` | 48 | `L720-L767` | ~430 | **99.1%** | [getFiles](../../scripts/audit.ts#L720-L767) |
-| `TAILWIND_COLOR_FAMILIES` | `Sub-Component` | 27 | `L768-L794` | ~461 | **99.1%** | [TAILWIND_COLOR_FAMILIES](../../scripts/audit.ts#L768-L794) |
-| `auditFile` | `Function` | 688 | `L795-L1482` | ~7235 | **85.6%** | [auditFile](../../scripts/audit.ts#L795-L1482) |
-| `findDeadComponents` | `Function` | 60 | `L1483-L1542` | ~492 | **99.0%** | [findDeadComponents](../../scripts/audit.ts#L1483-L1542) |
-| `transformSvelteKitRoute` | `Function` | 24 | `L1543-L1566` | ~239 | **99.5%** | [transformSvelteKitRoute](../../scripts/audit.ts#L1543-L1566) |
-| `transformRemixFlatRoute` | `Function` | 61 | `L1567-L1627` | ~424 | **99.2%** | [transformRemixFlatRoute](../../scripts/audit.ts#L1567-L1627) |
-| `transformNuxtRoute` | `Function` | 20 | `L1628-L1647` | ~162 | **99.7%** | [transformNuxtRoute](../../scripts/audit.ts#L1628-L1647) |
-| `transformAstroRoute` | `Function` | 19 | `L1648-L1666` | ~165 | **99.7%** | [transformAstroRoute](../../scripts/audit.ts#L1648-L1666) |
-| `detectRedirectTarget` | `Function` | 14 | `L1667-L1680` | ~127 | **99.7%** | [detectRedirectTarget](../../scripts/audit.ts#L1667-L1680) |
-| `buildRouteMap` | `Function` | 219 | `L1681-L1899` | ~1934 | **96.2%** | [buildRouteMap](../../scripts/audit.ts#L1681-L1899) |
-| `buildComponentTree` | `Function` | 50 | `L1900-L1949` | ~481 | **99.0%** | [buildComponentTree](../../scripts/audit.ts#L1900-L1949) |
-| `executeButtonCodemod` | `Function` | 61 | `L1950-L2010` | ~601 | **98.8%** | [executeButtonCodemod](../../scripts/audit.ts#L1950-L2010) |
-| `generateSkillDispatches` | `Function` | 127 | `L2011-L2137` | ~1078 | **97.9%** | [generateSkillDispatches](../../scripts/audit.ts#L2011-L2137) |
-| `parseSkillFrontmatter` | `Function` | 18 | `L2138-L2155` | ~197 | **99.6%** | [parseSkillFrontmatter](../../scripts/audit.ts#L2138-L2155) |
-| `classifySkillDomain` | `Function` | 53 | `L2156-L2208` | ~703 | **98.6%** | [classifySkillDomain](../../scripts/audit.ts#L2156-L2208) |
-| `discoverInstalledSkills` | `Function` | 92 | `L2209-L2300` | ~934 | **98.1%** | [discoverInstalledSkills](../../scripts/audit.ts#L2209-L2300) |
-| `syncAgentRulesInPlace` | `Function` | 97 | `L2301-L2397` | ~1409 | **97.2%** | [syncAgentRulesInPlace](../../scripts/audit.ts#L2301-L2397) |
-| `executeSelfUpdate` | `Function` | 79 | `L2398-L2476` | ~957 | **98.1%** | [executeSelfUpdate](../../scripts/audit.ts#L2398-L2476) |
-| `executeManifestLookup` | `Function` | 135 | `L2477-L2611` | ~1347 | **97.3%** | [executeManifestLookup](../../scripts/audit.ts#L2477-L2611) |
-| `executeThemeCodemod` | `Function` | 87 | `L2612-L2698` | ~906 | **98.2%** | [executeThemeCodemod](../../scripts/audit.ts#L2612-L2698) |
-| `executeVerificationGate` | `Function` | 175 | `L2699-L2873` | ~2024 | **96.0%** | [executeVerificationGate](../../scripts/audit.ts#L2699-L2873) |
-| `computeComponentCentrality` | `Function` | 53 | `L2874-L2926` | ~477 | **99.1%** | [computeComponentCentrality](../../scripts/audit.ts#L2874-L2926) |
-| `auditQueryCacheTopology` | `Function` | 273 | `L2927-L3199` | ~2466 | **95.1%** | [auditQueryCacheTopology](../../scripts/audit.ts#L2927-L3199) |
-| `executeInteractiveQuery` | `Function` | 274 | `L3200-L3473` | ~3052 | **93.9%** | [executeInteractiveQuery](../../scripts/audit.ts#L3200-L3473) |
-| `runUniversalFrontendAudit` | `Function` | 150 | `L3474-L3623` | ~1296 | **97.4%** | [runUniversalFrontendAudit](../../scripts/audit.ts#L3474-L3623) |
-| `escapeMarkdownSnippet` | `Function` | 11 | `L3624-L3634` | ~63 | **99.9%** | [escapeMarkdownSnippet](../../scripts/audit.ts#L3624-L3634) |
-| `makeFileLink` | `Function` | 8 | `L3635-L3642` | ~97 | **99.8%** | [makeFileLink](../../scripts/audit.ts#L3635-L3642) |
-| `auditGodFiles` | `Function` | 108 | `L3643-L3750` | ~978 | **98.1%** | [auditGodFiles](../../scripts/audit.ts#L3643-L3750) |
-| `writeGodFilesMap` | `Function` | 55 | `L3751-L3805` | ~943 | **98.1%** | [writeGodFilesMap](../../scripts/audit.ts#L3751-L3805) |
-| `writeRoutesMap` | `Function` | 41 | `L3806-L3846` | ~437 | **99.1%** | [writeRoutesMap](../../scripts/audit.ts#L3806-L3846) |
-| `writeComponentInventory` | `Function` | 147 | `L3847-L3993` | ~2069 | **95.9%** | [writeComponentInventory](../../scripts/audit.ts#L3847-L3993) |
-| `writeDesignTokensAudit` | `Function` | 112 | `L3994-L4105` | ~1292 | **97.4%** | [writeDesignTokensAudit](../../scripts/audit.ts#L3994-L4105) |
-| `writeThemePunchlist` | `Function` | 81 | `L4106-L4186` | ~842 | **98.3%** | [writeThemePunchlist](../../scripts/audit.ts#L4106-L4186) |
-| `writeUIIslandsAudit` | `Function` | 32 | `L4187-L4218` | ~480 | **99.0%** | [writeUIIslandsAudit](../../scripts/audit.ts#L4187-L4218) |
-| `writeDeadComponentsLedger` | `Function` | 29 | `L4219-L4247` | ~412 | **99.2%** | [writeDeadComponentsLedger](../../scripts/audit.ts#L4219-L4247) |
-| `writeVisibleLabelsMap` | `Function` | 36 | `L4248-L4283` | ~367 | **99.3%** | [writeVisibleLabelsMap](../../scripts/audit.ts#L4248-L4283) |
-| `writeVisualIconIndex` | `Function` | 41 | `L4284-L4324` | ~452 | **99.1%** | [writeVisualIconIndex](../../scripts/audit.ts#L4284-L4324) |
-| `writeDispatchGateway` | `Function` | 93 | `L4325-L4417` | ~1154 | **97.7%** | [writeDispatchGateway](../../scripts/audit.ts#L4325-L4417) |
-| `writeQueryAndCacheMap` | `Function` | 101 | `L4418-L4518` | ~1288 | **97.4%** | [writeQueryAndCacheMap](../../scripts/audit.ts#L4418-L4518) |
-| `writeAtlasSummary` | `Function` | 68 | `L4519-L4586` | ~1281 | **97.5%** | [writeAtlasSummary](../../scripts/audit.ts#L4519-L4586) |
-| `generateLlmsStandardFiles` | `Function` | 70 | `L4587-L4656` | ~1228 | **97.6%** | [generateLlmsStandardFiles](../../scripts/audit.ts#L4587-L4656) |
-| `main` | `Function` | 63 | `L4657-L4719` | ~476 | **99.1%** | [main](../../scripts/audit.ts#L4657-L4719) |
+| `executeMultiAgentPartition` | `Function` | 27 | `L2-L28` | ~644 | **98.8%** | [executeMultiAgentPartition](../../scripts/audit.ts#L2-L28) |
+| `auditGlobalStylesheets` | `Function` | 63 | `L29-L91` | ~515 | **99.1%** | [auditGlobalStylesheets](../../scripts/audit.ts#L29-L91) |
+| `escapeRegexForCodemod` | `Function` | 61 | `L92-L152` | ~870 | **98.4%** | [escapeRegexForCodemod](../../scripts/audit.ts#L92-L152) |
+| `SupportedFramework` | `Type / Interface` | 14 | `L153-L166` | ~69 | **99.9%** | [SupportedFramework](../../scripts/audit.ts#L153-L166) |
+| `ProjectStructure` | `Type / Interface` | 14 | `L167-L180` | ~78 | **99.9%** | [ProjectStructure](../../scripts/audit.ts#L167-L180) |
+| `VisibleLabel` | `Type / Interface` | 7 | `L181-L187` | ~40 | **99.9%** | [VisibleLabel](../../scripts/audit.ts#L181-L187) |
+| `VisualIconUsage` | `Type / Interface` | 8 | `L188-L195` | ~55 | **99.9%** | [VisualIconUsage](../../scripts/audit.ts#L188-L195) |
+| `LiveStatusDot` | `Type / Interface` | 8 | `L196-L203` | ~30 | **99.9%** | [LiveStatusDot](../../scripts/audit.ts#L196-L203) |
+| `CapsulePill` | `Type / Interface` | 7 | `L204-L210` | ~25 | **100.0%** | [CapsulePill](../../scripts/audit.ts#L204-L210) |
+| `InteractiveTrigger` | `Type / Interface` | 9 | `L211-L219` | ~69 | **99.9%** | [InteractiveTrigger](../../scripts/audit.ts#L211-L219) |
+| `DisclosedOverlay` | `Type / Interface` | 9 | `L220-L228` | ~61 | **99.9%** | [DisclosedOverlay](../../scripts/audit.ts#L220-L228) |
+| `DisclosedElement` | `Type / Interface` | 7 | `L229-L235` | ~36 | **99.9%** | [DisclosedElement](../../scripts/audit.ts#L229-L235) |
+| `ColorUsage` | `Type / Interface` | 10 | `L236-L245` | ~38 | **99.9%** | [ColorUsage](../../scripts/audit.ts#L236-L245) |
+| `DarkModeAsymmetry` | `Type / Interface` | 9 | `L246-L254` | ~32 | **99.9%** | [DarkModeAsymmetry](../../scripts/audit.ts#L246-L254) |
+| `GlobalStylesheetAudit` | `Type / Interface` | 8 | `L255-L262` | ~73 | **99.9%** | [GlobalStylesheetAudit](../../scripts/audit.ts#L255-L262) |
+| `ComponentAudit` | `Type / Interface` | 30 | `L263-L292` | ~310 | **99.4%** | [ComponentAudit](../../scripts/audit.ts#L263-L292) |
+| `QueryDefinition` | `Type / Interface` | 12 | `L293-L304` | ~56 | **99.9%** | [QueryDefinition](../../scripts/audit.ts#L293-L304) |
+| `MutationDefinition` | `Type / Interface` | 10 | `L305-L314` | ~51 | **99.9%** | [MutationDefinition](../../scripts/audit.ts#L305-L314) |
+| `CentralizedKeyDef` | `Type / Interface` | 7 | `L315-L321` | ~29 | **99.9%** | [CentralizedKeyDef](../../scripts/audit.ts#L315-L321) |
+| `EventInvalidationDef` | `Type / Interface` | 7 | `L322-L328` | ~32 | **99.9%** | [EventInvalidationDef](../../scripts/audit.ts#L322-L328) |
+| `RouteComplexityMetric` | `Type / Interface` | 17 | `L329-L345` | ~113 | **99.8%** | [RouteComplexityMetric](../../scripts/audit.ts#L329-L345) |
+| `FileSlice` | `Type / Interface` | 11 | `L346-L356` | ~75 | **99.9%** | [FileSlice](../../scripts/audit.ts#L346-L356) |
+| `GodFileAudit` | `Type / Interface` | 12 | `L357-L368` | ~66 | **99.9%** | [GodFileAudit](../../scripts/audit.ts#L357-L368) |
+| `QueryCacheTopology` | `Type / Interface` | 7 | `L369-L375` | ~46 | **99.9%** | [QueryCacheTopology](../../scripts/audit.ts#L369-L375) |
+| `RouteComponentNode` | `Type / Interface` | 6 | `L376-L381` | ~25 | **100.0%** | [RouteComponentNode](../../scripts/audit.ts#L376-L381) |
+| `RouteMapItem` | `Type / Interface` | 12 | `L382-L393` | ~67 | **99.9%** | [RouteMapItem](../../scripts/audit.ts#L382-L393) |
+| `SkillDispatch` | `Type / Interface` | 8 | `L394-L401` | ~48 | **99.9%** | [SkillDispatch](../../scripts/audit.ts#L394-L401) |
+| `DiscoveredSkill` | `Type / Interface` | 10 | `L402-L411` | ~46 | **99.9%** | [DiscoveredSkill](../../scripts/audit.ts#L402-L411) |
+| `VerificationReceipt` | `Type / Interface` | 21 | `L412-L432` | ~134 | **99.8%** | [VerificationReceipt](../../scripts/audit.ts#L412-L432) |
+| `detectProjectStructure` | `Function` | 165 | `L433-L597` | ~1872 | **96.5%** | [detectProjectStructure](../../scripts/audit.ts#L433-L597) |
+| `finishProjectStructure` | `Function` | 42 | `L598-L639` | ~362 | **99.3%** | [finishProjectStructure](../../scripts/audit.ts#L598-L639) |
+| `determineZone` | `Function` | 104 | `L640-L743` | ~1077 | **98.0%** | [determineZone](../../scripts/audit.ts#L640-L743) |
+| `getFiles` | `Function` | 48 | `L744-L791` | ~430 | **99.2%** | [getFiles](../../scripts/audit.ts#L744-L791) |
+| `TAILWIND_COLOR_FAMILIES` | `Sub-Component` | 27 | `L792-L818` | ~461 | **99.2%** | [TAILWIND_COLOR_FAMILIES](../../scripts/audit.ts#L792-L818) |
+| `auditFile` | `Function` | 688 | `L819-L1506` | ~7235 | **86.7%** | [auditFile](../../scripts/audit.ts#L819-L1506) |
+| `findDeadComponents` | `Function` | 60 | `L1507-L1566` | ~492 | **99.1%** | [findDeadComponents](../../scripts/audit.ts#L1507-L1566) |
+| `transformSvelteKitRoute` | `Function` | 24 | `L1567-L1590` | ~239 | **99.6%** | [transformSvelteKitRoute](../../scripts/audit.ts#L1567-L1590) |
+| `transformRemixFlatRoute` | `Function` | 61 | `L1591-L1651` | ~424 | **99.2%** | [transformRemixFlatRoute](../../scripts/audit.ts#L1591-L1651) |
+| `transformNuxtRoute` | `Function` | 20 | `L1652-L1671` | ~162 | **99.7%** | [transformNuxtRoute](../../scripts/audit.ts#L1652-L1671) |
+| `transformAstroRoute` | `Function` | 19 | `L1672-L1690` | ~165 | **99.7%** | [transformAstroRoute](../../scripts/audit.ts#L1672-L1690) |
+| `detectRedirectTarget` | `Function` | 14 | `L1691-L1704` | ~127 | **99.8%** | [detectRedirectTarget](../../scripts/audit.ts#L1691-L1704) |
+| `buildRouteMap` | `Function` | 219 | `L1705-L1923` | ~1934 | **96.4%** | [buildRouteMap](../../scripts/audit.ts#L1705-L1923) |
+| `buildComponentTree` | `Function` | 50 | `L1924-L1973` | ~481 | **99.1%** | [buildComponentTree](../../scripts/audit.ts#L1924-L1973) |
+| `executeButtonCodemod` | `Function` | 61 | `L1974-L2034` | ~601 | **98.9%** | [executeButtonCodemod](../../scripts/audit.ts#L1974-L2034) |
+| `generateSkillDispatches` | `Function` | 127 | `L2035-L2161` | ~1078 | **98.0%** | [generateSkillDispatches](../../scripts/audit.ts#L2035-L2161) |
+| `parseSkillFrontmatter` | `Function` | 18 | `L2162-L2179` | ~197 | **99.6%** | [parseSkillFrontmatter](../../scripts/audit.ts#L2162-L2179) |
+| `classifySkillDomain` | `Function` | 53 | `L2180-L2232` | ~703 | **98.7%** | [classifySkillDomain](../../scripts/audit.ts#L2180-L2232) |
+| `discoverInstalledSkills` | `Function` | 92 | `L2233-L2324` | ~934 | **98.3%** | [discoverInstalledSkills](../../scripts/audit.ts#L2233-L2324) |
+| `syncAgentRulesInPlace` | `Function` | 97 | `L2325-L2421` | ~1409 | **97.4%** | [syncAgentRulesInPlace](../../scripts/audit.ts#L2325-L2421) |
+| `executeSelfUpdate` | `Function` | 79 | `L2422-L2500` | ~957 | **98.2%** | [executeSelfUpdate](../../scripts/audit.ts#L2422-L2500) |
+| `executeManifestLookup` | `Function` | 144 | `L2501-L2644` | ~1497 | **97.2%** | [executeManifestLookup](../../scripts/audit.ts#L2501-L2644) |
+| `executeThemeCodemod` | `Function` | 87 | `L2645-L2731` | ~906 | **98.3%** | [executeThemeCodemod](../../scripts/audit.ts#L2645-L2731) |
+| `executeVerificationGate` | `Function` | 179 | `L2732-L2910` | ~2087 | **96.2%** | [executeVerificationGate](../../scripts/audit.ts#L2732-L2910) |
+| `computeComponentCentrality` | `Function` | 53 | `L2911-L2963` | ~477 | **99.1%** | [computeComponentCentrality](../../scripts/audit.ts#L2911-L2963) |
+| `auditQueryCacheTopology` | `Function` | 273 | `L2964-L3236` | ~2466 | **95.5%** | [auditQueryCacheTopology](../../scripts/audit.ts#L2964-L3236) |
+| `executeInteractiveQuery` | `Function` | 274 | `L3237-L3510` | ~3052 | **94.4%** | [executeInteractiveQuery](../../scripts/audit.ts#L3237-L3510) |
+| `runUniversalFrontendAudit` | `Function` | 158 | `L3511-L3668` | ~1379 | **97.5%** | [runUniversalFrontendAudit](../../scripts/audit.ts#L3511-L3668) |
+| `escapeMarkdownSnippet` | `Function` | 11 | `L3669-L3679` | ~63 | **99.9%** | [escapeMarkdownSnippet](../../scripts/audit.ts#L3669-L3679) |
+| `makeFileLink` | `Function` | 8 | `L3680-L3687` | ~97 | **99.8%** | [makeFileLink](../../scripts/audit.ts#L3680-L3687) |
+| `auditGodFiles` | `Function` | 108 | `L3688-L3795` | ~978 | **98.2%** | [auditGodFiles](../../scripts/audit.ts#L3688-L3795) |
+| `writeGodFilesMap` | `Function` | 56 | `L3796-L3851` | ~957 | **98.2%** | [writeGodFilesMap](../../scripts/audit.ts#L3796-L3851) |
+| `computeRouteComplexity` | `Function` | 119 | `L3852-L3970` | ~1163 | **97.9%** | [computeRouteComplexity](../../scripts/audit.ts#L3852-L3970) |
+| `writeRouteComplexityMap` | `Function` | 57 | `L3971-L4027` | ~865 | **98.4%** | [writeRouteComplexityMap](../../scripts/audit.ts#L3971-L4027) |
+| `executeDiffReport` | `Function` | 48 | `L4028-L4075` | ~629 | **98.8%** | [executeDiffReport](../../scripts/audit.ts#L4028-L4075) |
+| `writeRoutesMap` | `Function` | 42 | `L4076-L4117` | ~465 | **99.1%** | [writeRoutesMap](../../scripts/audit.ts#L4076-L4117) |
+| `writeComponentInventory` | `Function` | 147 | `L4118-L4264` | ~2069 | **96.2%** | [writeComponentInventory](../../scripts/audit.ts#L4118-L4264) |
+| `writeDesignTokensAudit` | `Function` | 112 | `L4265-L4376` | ~1292 | **97.6%** | [writeDesignTokensAudit](../../scripts/audit.ts#L4265-L4376) |
+| `writeThemePunchlist` | `Function` | 81 | `L4377-L4457` | ~842 | **98.4%** | [writeThemePunchlist](../../scripts/audit.ts#L4377-L4457) |
+| `writeUIIslandsAudit` | `Function` | 32 | `L4458-L4489` | ~480 | **99.1%** | [writeUIIslandsAudit](../../scripts/audit.ts#L4458-L4489) |
+| `writeDeadComponentsLedger` | `Function` | 29 | `L4490-L4518` | ~412 | **99.2%** | [writeDeadComponentsLedger](../../scripts/audit.ts#L4490-L4518) |
+| `writeVisibleLabelsMap` | `Function` | 36 | `L4519-L4554` | ~367 | **99.3%** | [writeVisibleLabelsMap](../../scripts/audit.ts#L4519-L4554) |
+| `writeVisualIconIndex` | `Function` | 41 | `L4555-L4595` | ~452 | **99.2%** | [writeVisualIconIndex](../../scripts/audit.ts#L4555-L4595) |
+| `writeDispatchGateway` | `Function` | 93 | `L4596-L4688` | ~1154 | **97.9%** | [writeDispatchGateway](../../scripts/audit.ts#L4596-L4688) |
+| `writeQueryAndCacheMap` | `Function` | 156 | `L4689-L4844` | ~1963 | **96.4%** | [writeQueryAndCacheMap](../../scripts/audit.ts#L4689-L4844) |
+| `writeAtlasSummary` | `Function` | 68 | `L4845-L4912` | ~1281 | **97.6%** | [writeAtlasSummary](../../scripts/audit.ts#L4845-L4912) |
+| `generateLlmsStandardFiles` | `Function` | 72 | `L4913-L4984` | ~1294 | **97.6%** | [generateLlmsStandardFiles](../../scripts/audit.ts#L4913-L4984) |
+| `main` | `Function` | 63 | `L4985-L5047` | ~479 | **99.1%** | [main](../../scripts/audit.ts#L4985-L5047) |
 
 ### 📄 [.agent/skills/fullstack-audit/scripts/audit.ts](../../.agent/skills/fullstack-audit/scripts/audit.ts) (**3,943** lines / ~**42,045** tokens)
 
@@ -306,34 +329,64 @@ flowchart LR
 | `writeBackendAtlas` | `Function` | 171 | `L812-L982` | ~2404 | **75.0%** | [writeBackendAtlas](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L812-L982) |
 | `runUniversalBackendAudit` | `Function` | 31 | `L983-L1013` | ~265 | **97.2%** | [runUniversalBackendAudit](../../.agent/skills/fullstack-audit/scripts/audit-backend.ts#L983-L1013) |
 
-### 📄 [scripts/test-frameworks.ts](../../scripts/test-frameworks.ts) (**616** lines / ~**7,874** tokens)
+### 📄 [scripts/test-frameworks.ts](../../scripts/test-frameworks.ts) (**708** lines / ~**8,990** tokens)
 
 > **Agent Instruction**: To view or edit this file, DO NOT read the entire file. Use `read_file` with specific `StartLine` and `EndLine` from the table below.
 
 | Slice Name | Type | Lines | Range | Approx Tokens | Token Savings | Surgical Handoff Link |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `cleanTestEnvironment` | `Function` | 6 | `L20-L25` | ~33 | **99.6%** | [cleanTestEnvironment](../../scripts/test-frameworks.ts#L20-L25) |
-| `runAuditInDir` | `Function` | 21 | `L26-L46` | ~140 | **98.2%** | [runAuditInDir](../../scripts/test-frameworks.ts#L26-L46) |
-| `assert` | `Function` | 11 | `L47-L57` | ~73 | **99.1%** | [assert](../../scripts/test-frameworks.ts#L47-L57) |
-| `runTestMatrix` | `Function` | 25 | `L58-L82` | ~362 | **95.4%** | [runTestMatrix](../../scripts/test-frameworks.ts#L58-L82) |
-| `HomePage` | `Component` | 13 | `L83-L95` | ~113 | **98.6%** | [HomePage](../../scripts/test-frameworks.ts#L83-L95) |
+| `runAuditInDir` | `Function` | 21 | `L26-L46` | ~140 | **98.4%** | [runAuditInDir](../../scripts/test-frameworks.ts#L26-L46) |
+| `assert` | `Function` | 11 | `L47-L57` | ~73 | **99.2%** | [assert](../../scripts/test-frameworks.ts#L47-L57) |
+| `runTestMatrix` | `Function` | 25 | `L58-L82` | ~362 | **96.0%** | [runTestMatrix](../../scripts/test-frameworks.ts#L58-L82) |
+| `HomePage` | `Component` | 13 | `L83-L95` | ~113 | **98.7%** | [HomePage](../../scripts/test-frameworks.ts#L83-L95) |
 | `DashboardPage` | `Component` | 3 | `L96-L98` | ~42 | **99.5%** | [DashboardPage](../../scripts/test-frameworks.ts#L96-L98) |
 | `Button` | `Component` | 3 | `L99-L101` | ~59 | **99.3%** | [Button](../../scripts/test-frameworks.ts#L99-L101) |
-| `GuestCheckoutModal` | `Component` | 6 | `L102-L107` | ~70 | **99.1%** | [GuestCheckoutModal](../../scripts/test-frameworks.ts#L102-L107) |
-| `UserCard` | `Component` | 232 | `L108-L339` | ~3354 | **57.4%** | [UserCard](../../scripts/test-frameworks.ts#L108-L339) |
-| `Page` | `Component` | 6 | `L340-L345` | ~73 | **99.1%** | [Page](../../scripts/test-frameworks.ts#L340-L345) |
-| `POST` | `Component` | 15 | `L346-L360` | ~136 | **98.3%** | [POST](../../scripts/test-frameworks.ts#L346-L360) |
-| `createCheckoutSession` | `Function` | 46 | `L361-L406` | ~713 | **90.9%** | [createCheckoutSession](../../scripts/test-frameworks.ts#L361-L406) |
-| `queryKeys` | `Function` | 5 | `L407-L411` | ~45 | **99.4%** | [queryKeys](../../scripts/test-frameworks.ts#L407-L411) |
-| `invalidateQueriesForEvent` | `Function` | 14 | `L412-L425` | ~123 | **98.4%** | [invalidateQueriesForEvent](../../scripts/test-frameworks.ts#L412-L425) |
-| `CatalogService` | `Service Class` | 11 | `L426-L436` | ~97 | **98.8%** | [CatalogService](../../scripts/test-frameworks.ts#L426-L436) |
-| `GET` | `Component` | 10 | `L437-L446` | ~88 | **98.9%** | [GET](../../scripts/test-frameworks.ts#L437-L446) |
-| `UserVaultDrawer` | `Component` | 16 | `L447-L462` | ~150 | **98.1%** | [UserVaultDrawer](../../scripts/test-frameworks.ts#L447-L462) |
-| `OrderFulfillmentModal` | `Component` | 17 | `L463-L479` | ~186 | **97.6%** | [OrderFulfillmentModal](../../scripts/test-frameworks.ts#L463-L479) |
-| `Page` | `Component` | 63 | `L480-L542` | ~963 | **87.8%** | [Page](../../scripts/test-frameworks.ts#L480-L542) |
-| `CheckoutPage` | `Component` | 23 | `L543-L565` | ~191 | **97.6%** | [CheckoutPage](../../scripts/test-frameworks.ts#L543-L565) |
-| `POST` | `Component` | 51 | `L566-L616` | ~716 | **90.9%** | [POST](../../scripts/test-frameworks.ts#L566-L616) |
+| `GuestCheckoutModal` | `Component` | 6 | `L102-L107` | ~70 | **99.2%** | [GuestCheckoutModal](../../scripts/test-frameworks.ts#L102-L107) |
+| `UserCard` | `Component` | 232 | `L108-L339` | ~3354 | **62.7%** | [UserCard](../../scripts/test-frameworks.ts#L108-L339) |
+| `Page` | `Component` | 6 | `L340-L345` | ~73 | **99.2%** | [Page](../../scripts/test-frameworks.ts#L340-L345) |
+| `POST` | `Component` | 15 | `L346-L360` | ~136 | **98.5%** | [POST](../../scripts/test-frameworks.ts#L346-L360) |
+| `createCheckoutSession` | `Function` | 46 | `L361-L406` | ~713 | **92.1%** | [createCheckoutSession](../../scripts/test-frameworks.ts#L361-L406) |
+| `queryKeys` | `Function` | 5 | `L407-L411` | ~45 | **99.5%** | [queryKeys](../../scripts/test-frameworks.ts#L407-L411) |
+| `invalidateQueriesForEvent` | `Function` | 14 | `L412-L425` | ~123 | **98.6%** | [invalidateQueriesForEvent](../../scripts/test-frameworks.ts#L412-L425) |
+| `CatalogService` | `Service Class` | 11 | `L426-L436` | ~97 | **98.9%** | [CatalogService](../../scripts/test-frameworks.ts#L426-L436) |
+| `GET` | `Component` | 10 | `L437-L446` | ~88 | **99.0%** | [GET](../../scripts/test-frameworks.ts#L437-L446) |
+| `UserVaultDrawer` | `Component` | 16 | `L447-L462` | ~150 | **98.3%** | [UserVaultDrawer](../../scripts/test-frameworks.ts#L447-L462) |
+| `OrderFulfillmentModal` | `Component` | 17 | `L463-L479` | ~186 | **97.9%** | [OrderFulfillmentModal](../../scripts/test-frameworks.ts#L463-L479) |
+| `Page` | `Component` | 63 | `L480-L542` | ~963 | **89.3%** | [Page](../../scripts/test-frameworks.ts#L480-L542) |
+| `CheckoutPage` | `Component` | 23 | `L543-L565` | ~191 | **97.9%** | [CheckoutPage](../../scripts/test-frameworks.ts#L543-L565) |
+| `POST` | `Component` | 54 | `L566-L619` | ~871 | **90.3%** | [POST](../../scripts/test-frameworks.ts#L566-L619) |
+| `OrderModal` | `Component` | 11 | `L620-L630` | ~114 | **98.7%** | [OrderModal](../../scripts/test-frameworks.ts#L620-L630) |
+| `AdminOrdersPage` | `Component` | 26 | `L631-L656` | ~215 | **97.6%** | [AdminOrdersPage](../../scripts/test-frameworks.ts#L631-L656) |
+| `AboutPage` | `Component` | 52 | `L657-L708` | ~632 | **93.0%** | [AboutPage](../../scripts/test-frameworks.ts#L657-L708) |
 
+
+
+
+---
+
+# 💥 Fullstack Route Complexity & Blast-Radius Radar
+
+> Forensic blast-radius scoring evaluating component fan-out, modal disclosures, network calls, database mutation footprints, and cache invalidation dependencies across all routes.
+> **Safety Protocol**: AI agents MUST review downstream dependencies and cache invalidation targets before editing routes flagged with `🚨 Critical Blast Radius`.
+
+## 📊 Blast Radius Summary
+
+- **Total Routes Evaluated**: **0** routes
+- **🚨 Critical Blast Radius (Score 65-100)**: **0** routes (high systemic impact)
+- **⚡ Moderate Impact (Score 35-64)**: **0** routes (local component/query dependencies)
+- **🟢 Low / Isolated (Score 0-34)**: **0** routes (leaf pages & redirects)
+
+### 📋 Route Complexity & Blast-Radius Registry
+
+| Route | Page File | Boundary | Complexity Score | Blast Radius Tier | Risk Factors |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+
+---
+
+## 🚨 Critical Blast-Radius Route Profiles (Safety Protocols)
+
+_✅ No critical blast-radius routes detected. All routes have isolated or moderate impact boundaries._
 
 
 

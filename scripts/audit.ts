@@ -148,6 +148,7 @@ const JSON_MODE = ARGS.includes("--json");
 const LLMS_MODE = ARGS.includes("--llms");
 const SOLO_MODE = ARGS.includes("--solo") || (!ARGS.includes("--multi-agent") && !ARGS.includes("--parallel") && !ARGS.includes("--zones"));
 const MULTI_AGENT_MODE = ARGS.includes("--multi-agent") || ARGS.includes("--parallel") || ARGS.includes("--zones");
+const DIFF_MODE = ARGS.includes("--diff");
 
 export type SupportedFramework =
   | "Next.js (App Router)"
@@ -325,6 +326,23 @@ export interface EventInvalidationDef {
   invalidatedKeys: string[];
 }
 
+export interface RouteComplexityMetric {
+  route: string;
+  zone: string;
+  pageFile: string;
+  isClientComponent: boolean;
+  importedComponentsCount: number;
+  overlaysCount: number;
+  apiEndpointsCalled: string[];
+  databaseModelsTouched: string[];
+  queriesSubscribed: string[];
+  cacheKeysInvalidated: string[];
+  complexityScore: number;
+  blastRadiusTier: "CRITICAL" | "MODERATE" | "LOW";
+  blastRadiusBadge: string;
+  riskFactors: string[];
+}
+
 export interface FileSlice {
   name: string;
   type: "Component" | "Sub-Component" | "Hook" | "Function" | "Service Class" | "Type / Interface" | "Event Handler";
@@ -370,6 +388,7 @@ interface RouteMapItem {
   importedComponents: string[];
   componentTree: RouteComponentNode[];
   redirectTarget?: string;
+  complexity?: RouteComplexityMetric;
 }
 
 interface SkillDispatch {
@@ -392,6 +411,7 @@ interface DiscoveredSkill {
 
 interface VerificationReceipt {
   timestamp: string;
+  gitCommitHash?: string;
   version: string;
   totalFiles: number;
   routesCount: number;
@@ -403,6 +423,10 @@ interface VerificationReceipt {
   orphanedComponentsCount: number;
   visualIconsCount: number;
   typeCheckStatus: "PASS" | "FAIL" | "SKIPPED";
+  godFilesCount?: number;
+  queriesCount?: number;
+  secretLeaksCount?: number;
+  contractDriftsCount?: number;
 }
 
 // 1. Framework Auto-Discovery
@@ -2474,7 +2498,7 @@ async function executeSelfUpdate() {
 }
 
 // 10. Zero-Search Agent Handoff Manifest Generator (--manifest <target>)
-function executeManifestLookup(audits: ComponentAudit[], target: string, discoveredSkills: DiscoveredSkill[] = [], godFiles: GodFileAudit[] = []) {
+function executeManifestLookup(audits: ComponentAudit[], target: string, discoveredSkills: DiscoveredSkill[] = [], godFiles: GodFileAudit[] = [], routes: RouteMapItem[] = []) {
   console.log(`🎫 Generating Agent Handoff Manifest for: "${target}"...\n`);
   const [filePathQuery, lineStr] = target.split(":");
   const targetLine = lineStr ? parseInt(lineStr, 10) : undefined;
@@ -2578,8 +2602,17 @@ function executeManifestLookup(audits: ComponentAudit[], target: string, discove
       : []),
         (() => {
       const matchingGod = godFiles.find(g => g.filePath === matchingAudit.filePath || g.relativePath === matchingAudit.relativePath);
+            const matchingRoute = routes.find((r: RouteMapItem) => r.pageFile === matchingAudit.relativePath);
+      const blastRadiusYaml = matchingRoute && matchingRoute.complexity ? `blast_radius_safety:
+  route: "${matchingRoute.route}"
+  complexity_score: ${matchingRoute.complexity.complexityScore}
+  tier: "${matchingRoute.complexity.blastRadiusTier}"
+  badge: "${matchingRoute.complexity.blastRadiusBadge}"
+  risk_factors: [${matchingRoute.complexity.riskFactors.map((f: string) => `"${f}"`).join(", ")}]` : `blast_radius_safety:
+  tier: "LOW"`;
       if (!matchingGod) return `surgical_slicing:
-  monolithic_god_file: false`;
+  monolithic_god_file: false
+${blastRadiusYaml}`;
       if (targetLine) {
         const slice = matchingGod.slices.find(s => s.startLine <= targetLine && s.endLine >= targetLine);
         if (slice) {
@@ -2700,7 +2733,9 @@ function executeVerificationGate(
   audits: ComponentAudit[],
   routes: RouteMapItem[],
   deadComponents: ComponentAudit[],
-  structure?: ProjectStructure
+  structure?: ProjectStructure,
+  godFiles: GodFileAudit[] = [],
+  queryTopology?: QueryCacheTopology
 ) {
   console.log("🛡️ Running Closed-Loop Verification Gate (--verify)...\n");
 
@@ -2798,6 +2833,8 @@ function executeVerificationGate(
     orphanedComponentsCount: deadComponents.length,
     visualIconsCount: audits.reduce((acc, a) => acc + a.visualIcons.length, 0),
     typeCheckStatus: tsStatus,
+    godFilesCount: typeof godFiles !== "undefined" ? godFiles.length : undefined,
+    queriesCount: typeof queryTopology !== "undefined" ? queryTopology.queries.length : undefined,
   };
 
   fs.writeFileSync(receiptPath, JSON.stringify(currentReceipt, null, 2), "utf-8");
@@ -3495,12 +3532,19 @@ export function runUniversalFrontendAudit() {
   computeComponentCentrality(audits);
   const queryTopology = auditQueryCacheTopology(uniqueFiles, ROOT_DIR);
   const routeMaps = buildRouteMap(audits, structure);
+  const routeComplexities = computeRouteComplexity(routeMaps, audits, queryTopology);
   const deadComponents = findDeadComponents(audits, structure);
   const skillDispatches = generateSkillDispatches(audits);
   const discoveredSkills = discoverInstalledSkills();
   const godFiles = auditGodFiles(uniqueFiles, ROOT_DIR);
 
   // If --fix-buttons requested
+  // If --diff requested
+  if (DIFF_MODE) {
+    executeDiffReport(audits, routeMaps, structure, deadComponents, godFiles, queryTopology);
+    return;
+  }
+
   if (SHOULD_FIX_BUTTONS) {
     executeButtonCodemod(audits);
     return;
@@ -3508,7 +3552,7 @@ export function runUniversalFrontendAudit() {
 
   // If --manifest requested
   if (MANIFEST_TARGET) {
-    executeManifestLookup(audits, MANIFEST_TARGET, discoveredSkills, godFiles);
+    executeManifestLookup(audits, MANIFEST_TARGET, discoveredSkills, godFiles, routeMaps);
     return;
   }
 
@@ -3526,7 +3570,7 @@ export function runUniversalFrontendAudit() {
 
   // If --verify requested
   if (VERIFY_MODE) {
-    executeVerificationGate(audits, routeMaps, deadComponents, structure);
+    executeVerificationGate(audits, routeMaps, deadComponents, structure, godFiles, queryTopology);
     return;
   }
 
@@ -3584,6 +3628,7 @@ export function runUniversalFrontendAudit() {
   writeThemePunchlist(audits);
   writeQueryAndCacheMap(queryTopology);
   writeGodFilesMap(godFiles, OUTPUT_DIR);
+  writeRouteComplexityMap(routeComplexities, OUTPUT_DIR);
   writeAtlasSummary(audits, routeMaps, structure, deadComponents, queryTopology, godFiles);
 
   // Update .last_receipt.json baseline
@@ -3803,6 +3848,231 @@ function writeGodFilesMap(godFiles: GodFileAudit[], outputDir: string) {
   fs.writeFileSync(path.join(outputDir, "10_GOD_FILES_SURGICAL_MAP.md"), md, "utf-8");
 }
 
+// 11. Route Complexity & Blast-Radius Scoring Engine
+function computeRouteComplexity(
+  routes: RouteMapItem[],
+  audits: ComponentAudit[],
+  topology?: QueryCacheTopology
+): RouteComplexityMetric[] {
+  const metrics: RouteComplexityMetric[] = [];
+  const bridgePath = path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md");
+  let bridgeContent = "";
+  if (fs.existsSync(bridgePath)) {
+    try { bridgeContent = fs.readFileSync(bridgePath, "utf-8"); } catch {}
+  }
+
+  routes.forEach(r => {
+    const matchingAudit = audits.find(a => a.relativePath === r.pageFile || a.filePath === r.pageFile);
+    const relatedAudits: ComponentAudit[] = matchingAudit ? [matchingAudit] : [];
+
+    r.importedComponents.forEach(comp => {
+      const compAudit = audits.find(a =>
+        a.componentNames.includes(comp) ||
+        a.relativePath.includes(comp) ||
+        path.basename(a.relativePath, path.extname(a.relativePath)) === comp
+      );
+      if (compAudit && !relatedAudits.includes(compAudit)) {
+        relatedAudits.push(compAudit);
+      }
+    });
+
+    const overlaysCount = relatedAudits.reduce((acc, a) => acc + a.disclosedOverlays.length, 0);
+    const apiEndpoints: string[] = [];
+    relatedAudits.forEach(a => {
+      try {
+        const c = fs.readFileSync(a.filePath, "utf-8");
+        const fetchMatches = c.matchAll(/\b(?:fetch|axios\.(?:get|post|put|delete|patch))\s*\(\s*["'`]([^"'`]*\/api\/[^"'`]+)["'`]/g);
+        for (const fm of fetchMatches) {
+          if (!apiEndpoints.includes(fm[1])) apiEndpoints.push(fm[1]);
+        }
+      } catch {}
+    });
+
+    const dbModels: string[] = [];
+    apiEndpoints.forEach(ep => {
+      const epRegex = new RegExp(`\\|\\s*\`[^\`]*\`\\s*\\|\\s*\`${ep}\`[^|]*\\|[^|]*\\|[^|]*\\|[^|]*\\|([^|]+)\\|`);
+      const m = bridgeContent.match(epRegex);
+      if (m) {
+        const modelsStr = m[1].trim();
+        const modelMatches = modelsStr.matchAll(/`([^`]+)`/g);
+        for (const mm of modelMatches) {
+          if (!dbModels.includes(mm[1])) dbModels.push(mm[1]);
+        }
+      }
+    });
+
+    const queriesSubscribed: string[] = [];
+    const cacheKeysInvalidated: string[] = [];
+    if (topology) {
+      relatedAudits.forEach(a => {
+        topology.queries.filter(q => q.filePath === a.relativePath || q.filePath === a.filePath).forEach(q => {
+          if (!queriesSubscribed.includes(q.keyExpression)) queriesSubscribed.push(q.keyExpression);
+        });
+        topology.mutations.filter(m => m.filePath === a.relativePath || m.filePath === a.filePath).forEach(m => {
+          m.invalidatedKeys.forEach(k => {
+            if (!cacheKeysInvalidated.includes(k)) cacheKeysInvalidated.push(k);
+          });
+        });
+      });
+    }
+
+    let score = r.isClientComponent ? 10 : 5;
+    score += Math.min(30, r.importedComponents.length * 4);
+    score += Math.min(20, overlaysCount * 8);
+    score += Math.min(25, apiEndpoints.length * 7);
+    score += Math.min(20, dbModels.length * 5);
+    score += Math.min(15, (queriesSubscribed.length + cacheKeysInvalidated.length) * 4);
+    score = Math.min(100, score);
+
+    let blastRadiusTier: "CRITICAL" | "MODERATE" | "LOW" = "LOW";
+    let blastRadiusBadge = "🟢 Low / Isolated";
+    if (score >= 65) {
+      blastRadiusTier = "CRITICAL";
+      blastRadiusBadge = `🚨 Critical (${score})`;
+    } else if (score >= 35) {
+      blastRadiusTier = "MODERATE";
+      blastRadiusBadge = `⚡ Moderate (${score})`;
+    } else {
+      blastRadiusTier = "LOW";
+      blastRadiusBadge = `🟢 Low (${score})`;
+    }
+
+    const riskFactors: string[] = [];
+    if (overlaysCount > 0) riskFactors.push(`${overlaysCount} Overlays (Modals/Drawers)`);
+    if (apiEndpoints.length > 0) riskFactors.push(`${apiEndpoints.length} Network API Endpoints`);
+    if (dbModels.length > 0) riskFactors.push(`${dbModels.length} Database Models Touched`);
+    if (queriesSubscribed.length > 0) riskFactors.push(`${queriesSubscribed.length} Query Subscriptions`);
+    if (cacheKeysInvalidated.length > 0) riskFactors.push(`${cacheKeysInvalidated.length} Cache Invalidations`);
+
+    const metric: RouteComplexityMetric = {
+      route: r.route,
+      zone: r.zone,
+      pageFile: r.pageFile,
+      isClientComponent: r.isClientComponent,
+      importedComponentsCount: r.importedComponents.length,
+      overlaysCount,
+      apiEndpointsCalled: apiEndpoints,
+      databaseModelsTouched: dbModels,
+      queriesSubscribed,
+      cacheKeysInvalidated,
+      complexityScore: score,
+      blastRadiusTier,
+      blastRadiusBadge,
+      riskFactors,
+    };
+    r.complexity = metric;
+    metrics.push(metric);
+  });
+
+  metrics.sort((a, b) => b.complexityScore - a.complexityScore);
+  return metrics;
+}
+
+function writeRouteComplexityMap(metrics: RouteComplexityMetric[], outputDir: string) {
+  const filePath = path.join(outputDir, "11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md");
+  let md = "# 💥 Fullstack Route Complexity & Blast-Radius Radar\n\n";
+  md += "> Forensic blast-radius scoring evaluating component fan-out, modal disclosures, network calls, database mutation footprints, and cache invalidation dependencies across all routes.\n";
+  md += "> **Safety Protocol**: AI agents MUST review downstream dependencies and cache invalidation targets before editing routes flagged with `🚨 Critical Blast Radius`.\n\n";
+
+  const criticalCount = metrics.filter(m => m.blastRadiusTier === "CRITICAL").length;
+  const moderateCount = metrics.filter(m => m.blastRadiusTier === "MODERATE").length;
+  const lowCount = metrics.filter(m => m.blastRadiusTier === "LOW").length;
+
+  md += "## 📊 Blast Radius Summary\n\n";
+  md += "- **Total Routes Evaluated**: **" + metrics.length + "** routes\n";
+  md += "- **🚨 Critical Blast Radius (Score 65-100)**: **" + criticalCount + "** routes (high systemic impact)\n";
+  md += "- **⚡ Moderate Impact (Score 35-64)**: **" + moderateCount + "** routes (local component/query dependencies)\n";
+  md += "- **🟢 Low / Isolated (Score 0-34)**: **" + lowCount + "** routes (leaf pages & redirects)\n\n";
+
+  md += "### 📋 Route Complexity & Blast-Radius Registry\n\n";
+  md += "| Route | Page File | Boundary | Complexity Score | Blast Radius Tier | Risk Factors |\n";
+  md += "| :--- | :--- | :--- | :--- | :--- | :--- |\n";
+
+  metrics.forEach(m => {
+    const pageLink = makeFileLink(m.pageFile, undefined, path.basename(m.pageFile));
+    const boundaryStr = m.isClientComponent ? "`Client ⚡`" : "`Server 🖥️`";
+    const riskStr = m.riskFactors.length > 0 ? m.riskFactors.join(", ") : "_Isolated / Static_";
+    md += "| `" + m.route + "` | " + pageLink + " | " + boundaryStr + " | **" + m.complexityScore + "/100** | " + m.blastRadiusBadge + " | " + riskStr + " |\n";
+  });
+  md += "\n---\n\n";
+
+  md += "## 🚨 Critical Blast-Radius Route Profiles (Safety Protocols)\n\n";
+  const criticalRoutes = metrics.filter(m => m.blastRadiusTier === "CRITICAL");
+  if (criticalRoutes.length === 0) {
+    md += "_✅ No critical blast-radius routes detected. All routes have isolated or moderate impact boundaries._\n";
+  } else {
+    criticalRoutes.slice(0, 10).forEach(m => {
+      md += "### ⚠️ Route `" + m.route + "` (Score: **" + m.complexityScore + "/100**)\n\n";
+      md += "- **Source Page**: " + makeFileLink(m.pageFile) + "\n";
+      md += "- **Zone**: `" + m.zone + "`\n";
+      if (m.apiEndpointsCalled.length > 0) {
+        md += "- **Network API Endpoints**: `" + m.apiEndpointsCalled.join("`, `") + "`\n";
+      }
+      if (m.databaseModelsTouched.length > 0) {
+        md += "- **Database Tables Touched**: `" + m.databaseModelsTouched.join("`, `") + "`\n";
+      }
+      if (m.queriesSubscribed.length > 0) {
+        md += "- **Query Key Subscriptions**: `" + m.queriesSubscribed.join("`, `") + "`\n";
+      }
+      if (m.cacheKeysInvalidated.length > 0) {
+        md += "- **Invalidated Cache Keys**: `" + m.cacheKeysInvalidated.join("`, `") + "`\n";
+      }
+      md += "- **Agent Safety Rule**: Before refactoring or changing state in this route, confirm that API endpoints and downstream invalidations are preserved.\n\n";
+    });
+  }
+
+  fs.writeFileSync(filePath, md, "utf-8");
+}
+
+// 12. Delta Inspection Engine (--diff)
+function executeDiffReport(
+  audits: ComponentAudit[],
+  routes: RouteMapItem[],
+  structure: ProjectStructure,
+  deadComponents: ComponentAudit[],
+  godFiles: GodFileAudit[] = [],
+  topology?: QueryCacheTopology
+) {
+  console.log("🔍 Computing Fullstack Architecture Delta Report (--diff)...\n");
+  const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
+  if (!fs.existsSync(receiptPath)) {
+    console.log("ℹ️ No previous .last_receipt.json baseline found. Run `npx fullstack-audit` first to establish a baseline.");
+    return;
+  }
+
+  let prevReceipt: VerificationReceipt;
+  try {
+    prevReceipt = JSON.parse(fs.readFileSync(receiptPath, "utf-8"));
+  } catch {
+    console.log("❌ Could not parse .last_receipt.json baseline.");
+    return;
+  }
+
+  const rawHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
+  const rawRogues = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
+
+  function diffStr(curr: number, prev: number = 0, isLowerBetter = true): string {
+    const delta = curr - prev;
+    if (delta === 0) return `${curr} (no change)`;
+    if (delta > 0) {
+      return `${curr} (+${delta}) ${isLowerBetter ? "⚠️ increased" : "✅ added"}`;
+    }
+    return `${curr} (${delta}) ${isLowerBetter ? "✅ reduced" : "⚠️ removed"}`;
+  }
+
+  console.log("┌────────────────────────────────────────────────────────────────────────┐");
+  console.log("│                  FULLSTACK ARCHITECTURE DELTA REPORT                   │");
+  console.log("├────────────────────────────────────────────────────────────────────────┤");
+  console.log(`│ Total Frontend Files:    ${diffStr(audits.length, prevReceipt.totalFiles, false).padEnd(46)}│`);
+  console.log(`│ Active Routes:           ${diffStr(routes.length, prevReceipt.routesCount, false).padEnd(46)}│`);
+  console.log(`│ Monolithic God Files:    ${diffStr(godFiles.length, prevReceipt.godFilesCount || 0, true).padEnd(46)}│`);
+  console.log(`│ Hardcoded Hex Deviations:${diffStr(rawHexes, prevReceipt.hardcodedHexesCount, true).padEnd(46)}│`);
+  console.log(`│ Rogue Color Utilities:   ${diffStr(rawRogues, prevReceipt.rogueColorsCount, true).padEnd(46)}│`);
+  console.log(`│ Orphaned Dead Components:${diffStr(deadComponents.length, prevReceipt.orphanedComponentsCount, true).padEnd(46)}│`);
+  console.log(`│ Active React Queries:    ${diffStr(topology?.queries.length || 0, prevReceipt.queriesCount || 0, false).padEnd(46)}│`);
+  console.log("└────────────────────────────────────────────────────────────────────────┘\n");
+}
+
 function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
   const filePath = path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md");
   let md = `# 🗺️ Frontend Routes & Panels Map\n\n`;
@@ -3816,7 +4086,7 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
     if (zoneRoutes.length === 0) return;
 
     md += `## 📂 ${zone} (${zoneRoutes.length} Routes)\n\n`;
-    md += `| Route | Page File | Boundary | Layout File | Key Imported Components |\n`;
+    md += `| Route | Page File | Boundary | Blast Radius | Layout File | Key Imported Components |\n`;
     md += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
     zoneRoutes.forEach(r => {
@@ -3835,7 +4105,8 @@ function writeRoutesMap(routes: RouteMapItem[], structure: ProjectStructure) {
           }).join(" • ")
         : `_None (Direct UI)_`;
 
-      md += `| \`${r.route}\` | ${pageLink} | ${boundaryStr} | ${layoutStr} | ${importsStr} |\n`;
+            const blastBadge = r.complexity ? r.complexity.blastRadiusBadge : "—";
+      md += `| \`${r.route}\` | ${pageLink} | ${boundaryStr} | ${blastBadge} | ${layoutStr} | ${importsStr} |\n`;
     });
 
     md += `\n`;
@@ -4503,7 +4774,62 @@ function writeQueryAndCacheMap(topology: QueryCacheTopology) {
   }
 
   // Section 5: Cache Invalidation Health & Safety Guardrails
-  md += `## 🛡️ Cache Invalidation Safety & Stale State Radar\n\n`;
+    // Cache Hygiene & Stale State Radar
+  md += `## 🛡️ Cache Hygiene & Stale State Radar\n\n`;
+  const orphaned: { trigger: string; key: string; file: string; line: number }[] = [];
+  const unlinked: { key: string; file: string; line: number; endpoint: string }[] = [];
+
+  topology.mutations.forEach(m => {
+    m.invalidatedKeys.forEach(invKey => {
+      const cleanKey = invKey.replace(/[\[\]"'`]/g, "").trim().toLowerCase();
+      const hasSubscriber = topology.queries.some(q => {
+        const cleanQ = q.keyExpression.replace(/[\[\]"'`]/g, "").trim().toLowerCase();
+        return cleanQ.includes(cleanKey) || cleanKey.includes(cleanQ);
+      });
+      if (!hasSubscriber && !cleanKey.includes("all") && !cleanKey.includes("invalidate")) {
+        orphaned.push({ trigger: m.triggerName, key: invKey, file: m.filePath, line: m.line });
+      }
+    });
+  });
+
+  topology.queries.forEach(q => {
+    if (q.apiTarget && q.apiTarget !== "_Custom QueryFn_") {
+      const cleanQ = q.keyExpression.replace(/[\[\]"'`]/g, "").trim().toLowerCase();
+      const hasInvalidator = topology.mutations.some(m => {
+        return m.invalidatedKeys.some(k => {
+          const cleanK = k.replace(/[\[\]"'`]/g, "").trim().toLowerCase();
+          return cleanQ.includes(cleanK) || cleanK.includes(cleanQ);
+        });
+      });
+      if (!hasInvalidator && q.invalidatedBy.length === 0) {
+        unlinked.push({ key: q.keyExpression, file: q.filePath, line: q.line, endpoint: q.apiTarget || "_Custom QueryFn_" });
+      }
+    }
+  });
+
+  if (orphaned.length > 0) {
+    md += `### 👻 Orphaned Invalidation Emitters (**${orphaned.length}** triggers)\n\n`;
+    md += `> Invalidation targets firing for query keys that have 0 active \`useQuery\` subscribers in the application.\n\n`;
+    md += `| Emitter / Trigger Source | Invalidated Key Expression | File | Line |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    orphaned.forEach(o => {
+      const fileLink = makeFileLink(o.file, o.line, `${path.basename(o.file)}:${o.line}`);
+      md += `| \`${o.trigger}\` | \`${o.key}\` | ${fileLink} | ${o.line} |\n`;
+    });
+    md += `\n`;
+  }
+
+  if (unlinked.length > 0) {
+    md += `### ⚠️ Queries with No Mutation Invalidation Links (**${unlinked.length}** queries)\n\n`;
+    md += `> Active dynamic queries that are never automatically refreshed by mutations. Verify whether a mutation should invalidate these!\n\n`;
+    md += `| Query Key Expression | API Endpoint | Component File | Line |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    unlinked.slice(0, 10).forEach(u => {
+      const fileLink = makeFileLink(u.file, u.line, `${path.basename(u.file)}:${u.line}`);
+      md += `| \`${u.key}\` | \`${u.endpoint}\` | ${fileLink} | ${u.line} |\n`;
+    });
+    md += `\n`;
+  }
   const unlinkedMutations = topology.mutations.filter(m => m.invalidatedKeys.length === 0);
   if (unlinkedMutations.length > 0) {
     md += `> [!WARNING]\n`;
@@ -4611,7 +4937,8 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
   llmsTxt += `- [07_VISUAL_AND_ICON_INDEX.md](docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md): Lucide/Radix/SVG visual action icon index.\n`;
   llmsTxt += `- [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.\n`;
   llmsTxt += `- [09_QUERY_AND_CACHE_MAP.md](docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md): TanStack React Query cache keys, mutations, and reactive invalidation topology.
-- [10_GOD_FILES_SURGICAL_MAP.md](docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md): Monolithic God-File Complexity Radar & Surgical Slicer (exact line ranges for LLMs).\n\n`;
+- [10_GOD_FILES_SURGICAL_MAP.md](docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md): Monolithic God-File Complexity Radar & Surgical Slicer (exact line ranges for LLMs).
+- [11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md](docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md): Fullstack Route Complexity & Blast-Radius Radar (safety checklists & component fan-out).\n\n`;
 
   llmsTxt += `## Backend Architecture\n`;
   llmsTxt += `- [01_API_ROUTES_AND_ENDPOINTS.md](docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md): HTTP API routes, methods, and auth protection guards.\n`;
@@ -4635,6 +4962,7 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
     path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md"),
     path.join(OUTPUT_DIR, "09_QUERY_AND_CACHE_MAP.md"),
     path.join(OUTPUT_DIR, "10_GOD_FILES_SURGICAL_MAP.md"),
+    path.join(OUTPUT_DIR, "11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "01_API_ROUTES_AND_ENDPOINTS.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "02_DATABASE_MODELS_AND_SCHEMA.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"),
@@ -4674,7 +5002,7 @@ async function main() {
     return;
   }
 
-  if (FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS || MIGRATE_THEME_MODE || MULTI_AGENT_MODE) {
+  if (DIFF_MODE || FRONTEND_MODE || THEME_MODE || FIND_QUERY || ROUTE_QUERY || MANIFEST_TARGET || VERIFY_MODE || SHOW_DEAD_ONLY || SHOULD_FIX_BUTTONS || MIGRATE_THEME_MODE || MULTI_AGENT_MODE) {
     runUniversalFrontendAudit();
   } else {
     // Default: Fullstack Audit (Runs both Frontend Atlas AND Backend Atlas)

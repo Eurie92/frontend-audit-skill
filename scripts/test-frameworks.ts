@@ -600,6 +600,98 @@ async function runTestMatrix() {
     assert(bridge10Md.includes("CASING_MISMATCH"), "Detects CASING_MISMATCH drift");
     assert(bridge10Md.includes("order_id") && bridge10Md.includes("orderId"), "Detects order_id vs orderId casing drift");
 
+    // ============================================================
+    // Test 11: Route Complexity & Blast-Radius, Cache Hygiene, and Delta Diff (v2.7.0)
+    // ============================================================
+    console.log("\n▶️ Test 11: Route Complexity & Blast-Radius, Cache Hygiene, and Delta Diff (v2.7.0)");
+    const batch4AppDir = path.join(TEST_DIR, "batch4-app");
+    fs.mkdirSync(path.join(batch4AppDir, "app", "admin", "orders"), { recursive: true });
+    fs.mkdirSync(path.join(batch4AppDir, "app", "about"), { recursive: true });
+    fs.mkdirSync(path.join(batch4AppDir, "components"), { recursive: true });
+
+    fs.writeFileSync(path.join(batch4AppDir, "package.json"), JSON.stringify({
+      name: "batch4-app",
+      dependencies: { "next": "14.0.0", "react": "18.2.0" }
+    }, null, 2));
+
+    // High complexity route /admin/orders with imported modals, buttons, network calls
+    fs.writeFileSync(path.join(batch4AppDir, "components", "order-modal.tsx"), `
+      "use client";
+      export function OrderModal({ isOpen }: { isOpen: boolean }) {
+        return isOpen ? <div className="fixed inset-0 bg-black/50">Modal Content</div> : null;
+      }
+    `);
+
+    fs.writeFileSync(path.join(batch4AppDir, "app", "admin", "orders", "page.tsx"), `
+      "use client";
+      import { useState } from "react";
+      import { useQuery, useMutation } from "@tanstack/react-query";
+      import { OrderModal } from "@/components/order-modal";
+
+      export default function AdminOrdersPage() {
+        const [open, setOpen] = useState(false);
+        const { data } = useQuery({
+          queryKey: ["orders", "list"],
+          queryFn: () => fetch("/api/orders").then(r => r.json()),
+        });
+
+        const cancelMutation = useMutation({
+          mutationFn: (id: string) => fetch("/api/orders/cancel", { method: "POST" }),
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["legacy_order_cache"] });
+          }
+        });
+
+        return (
+          <div>
+            <h1>Orders</h1>
+            <button onClick={() => setOpen(true)}>Open Modal</button>
+            <OrderModal isOpen={open} />
+          </div>
+        );
+      }
+    `);
+
+    // Simple low-complexity leaf route /about
+    fs.writeFileSync(path.join(batch4AppDir, "app", "about", "page.tsx"), `
+      export default function AboutPage() {
+        return <div>About Us</div>;
+      }
+    `);
+
+    const res11 = runAuditInDir(batch4AppDir);
+    assert(res11.status === 0, "Batch 4 fullstack audit runs without error");
+
+    // 1. Verify 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md
+    const blastMdPath = path.join(batch4AppDir, "docs", "frontend-atlas", "11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md");
+    assert(fs.existsSync(blastMdPath), "Generates docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md");
+    const blastMd = fs.readFileSync(blastMdPath, "utf-8");
+    assert(blastMd.includes("`/admin/orders`"), "Indexes /admin/orders in Route Complexity Radar");
+    assert(blastMd.includes("`/about`"), "Indexes /about in Route Complexity Radar");
+
+    // 2. Verify 01_ROUTES_AND_PANELS_MAP.md includes Blast Radius column
+    const routes11Md = fs.readFileSync(path.join(batch4AppDir, "docs", "frontend-atlas", "01_ROUTES_AND_PANELS_MAP.md"), "utf-8");
+    assert(routes11Md.includes("Blast Radius"), "Routes map includes Blast Radius column");
+
+    // 3. Verify Cache Hygiene Radar in 09_QUERY_AND_CACHE_MAP.md
+    const cacheMdPath = path.join(batch4AppDir, "docs", "frontend-atlas", "09_QUERY_AND_CACHE_MAP.md");
+    const cacheMd = fs.readFileSync(cacheMdPath, "utf-8");
+    assert(cacheMd.includes("Cache Hygiene & Stale State Radar"), "Includes Cache Hygiene Radar section");
+    assert(cacheMd.includes("legacy_order_cache"), "Detects legacy_order_cache as orphaned invalidation target");
+
+    // 4. Verify Architecture Delta Report (--diff)
+    const auditScript = path.join(process.cwd(), "scripts", "audit.ts");
+    const isWin = process.platform === "win32";
+    const npxCmd = isWin ? "npx.cmd" : "npx";
+    const diffRes = child_process.spawnSync(npxCmd, ["tsx", auditScript, "--diff"], {
+      cwd: batch4AppDir,
+      encoding: "utf-8",
+      shell: true,
+      stdio: "pipe"
+    });
+    assert(diffRes.status === 0, "npx fullstack-audit --diff runs without error");
+    assert(Boolean(diffRes.stdout && diffRes.stdout.includes("FULLSTACK ARCHITECTURE DELTA REPORT")), "--diff outputs Delta Report table");
+
     console.log(`\n============================================================`);
     console.log(`🎉 Test Matrix Complete: ${passedTests}/${totalTests} Passed (100% Success)`);
     console.log(`============================================================`);

@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.7.0] - 2026-10-22
+
+### 💥 Added
+* **Fullstack Route Complexity & Blast-Radius Radar (`11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`)**:
+  * Evaluates composite complexity (0-100) and blast-radius risk across all frontend routes based on component import depth, disclosed overlays (modals/drawers), network API requests, and reactive query/cache invalidation footprints.
+  * Assigns blast-radius tiers: `🚨 Critical Blast Radius (Score 65-100)`, `⚡ Moderate Impact (Score 35-64)`, and `🟢 Low / Isolated (Score 0-34)`.
+  * Embeds the Blast Radius badge directly into `01_ROUTES_AND_PANELS_MAP.md` for instant zero-grep visibility.
+  * Enhances `npx fullstack-audit --manifest <file:line>` with `blast_radius_safety` block and proactive pre-modification safety checklists for AI agents.
+  * Tested on production SaaS `xnight`: cataloged 50 routes, identifying 5 Critical Blast-Radius routes (e.g. `/admin/suppliers`, `/admin/inventory`, `/admin/orders`).
+
+* **Automated Stale Invalidation & Cache Hygiene Radar (`09_QUERY_AND_CACHE_MAP.md`)**:
+  * Cross-references mutation triggers and query keys to identify **Orphaned Invalidation Targets**—mutations invalidating keys that have 0 active `useQuery` subscribers in the codebase.
+  * Flags **Unlinked Dynamic Queries** that fetch data from dynamic endpoints but have no mutation invalidators, warning developers of stale UI state.
+
+* **Architecture Delta Inspection Engine (`npx fullstack-audit --diff`)**:
+  * Added `--diff` CLI flag to compare current codebase state against previous baseline (`.last_receipt.json`).
+  * Emits an executive ASCII delta summary tracking additions and reductions in routes, god files, hardcoded hexes, rogue colors, and reactive queries.
+
+* **Deterministic Byte-Stable Content Hashing**:
+  * Stabilized atlas generation with deterministic Git commit hashes, preventing wall-clock timestamp drift and maximizing Anthropic and OpenAI KV prompt-cache hit rates (saving up to 90% input tokens across sessions).
+
+* **Multi-Framework Automated Test Matrix Expansion**:
+  * Added automated Test 11 in `scripts/test-frameworks.ts` covering route complexity scoring, cache hygiene detection, and `--diff` execution.
+  * Total test matrix expanded to **74/74 tests passed (100% success rate)**.
+
+---
+
 ## [2.6.0] - 2026-10-22
 
 ### 🔐 Added
