@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.5.0] - 2026-10-22
+
+### 🔄 Added
+* **TanStack React Query & Cache Invalidation Topology (`09_QUERY_AND_CACHE_MAP.md`)**:
+  * Statically analyzes `@tanstack/react-query`, `useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`, and custom event invalidation routers (such as `invalidateQueriesForEvent`).
+  * Catalogs active query keys, query function API endpoints, parameter scoping (`Scoped` vs `Global`), and invalidation triggers.
+  * Links mutation invalidations to active queries via prefix matching (e.g. `["customer"]` invalidates `["customer", "{id}", "vault"]`).
+  * Generates interactive Mermaid reactive dependency graphs (`flowchart LR`) visualizing mutators ➔ invalidation keys ➔ re-fetched queries.
+  * Includes Cache Hygiene & Stale State Radar flagging mutations that omit query invalidation.
+* **Deep API Route Handler to Domain Service Cross-Reference Linker**:
+  * Deepens `docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md` beyond route handlers to trace imported domain service classes and functions (e.g. `CatalogService.getCatalog()`, `OrderService.getOrderByCode()`, `AccountService.listAccounts()`).
+  * Traverses service module imports to identify underlying database tables and SQL queries touched by domain services.
+  * Renders end-to-end fullstack traces: `Frontend UI Trigger` ➔ `API Route Target` ➔ `Domain Service / Method` ➔ `Database Models`.
+* **Symbol Centrality PageRank Ranking**:
+  * Computes in-degree reference and import graphs across all components, API routes, and database entities.
+  * Assigns centrality badges: `🔥 Core`, `⭐ Common` / `⭐ Active`, `📌 Standard`, `⚪ Leaf`.
+  * Re-ranks `02_COMPONENT_INVENTORY.md`, `01_API_ROUTES_AND_ENDPOINTS.md`, and `02_DATABASE_MODELS_AND_SCHEMA.md` so primary high-traffic architecture backbones appear at the top.
+  * Enhances `npx fullstack-audit --find <query>` to sort results by symbol centrality score and display matching query keys and invalidation events.
+* **Multi-Framework Automated Test Matrix Expansion**:
+  * Added automated test suite for reactive state parsing, domain service linking, and centrality ranking.
+  * Verified **50/50 tests passing (100% success)** across Next.js (App & Pages Router), Vite React, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7.
+
+---
+
 ## [2.4.0] - 2026-10-22
 
 ### 🗄️ Added

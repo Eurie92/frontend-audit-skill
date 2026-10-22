@@ -27,6 +27,8 @@ export interface ApiEndpoint {
   isProtected: boolean;
   authGuard?: string;
   sourceSnippet: string;
+  centralityScore?: number;
+  centralityBadge?: string;
 }
 
 export interface DbField {
@@ -47,6 +49,8 @@ export interface DbModel {
   line: number;
   tableName: string;
   fields: DbField[];
+  centralityScore?: number;
+  centralityBadge?: string;
 }
 
 export interface ServerAction {
@@ -87,6 +91,8 @@ export interface FullstackBridgeItem {
   httpMethod?: string;
   connectedModels: string[];
   externalService?: string;
+  domainServices?: string[];
+  serviceCalls?: string[];
 }
 
 export interface BackendAuditResult {
@@ -720,18 +726,100 @@ export function buildFullstackBridge(
   rootDir: string = ROOT_DIR
 ): FullstackBridgeItem[] {
   const bridgeItems: FullstackBridgeItem[] = [];
-  const endpointContentCache = new Map<string, string>();
+  const contentCache = new Map<string, string>();
 
-  function getEndpointContent(epPath: string): string {
-    if (endpointContentCache.has(epPath)) return endpointContentCache.get(epPath)!;
+  function getFileContentCached(filePath: string): string {
+    if (contentCache.has(filePath)) return contentCache.get(filePath)!;
     try {
-      const c = fs.readFileSync(epPath, "utf-8");
-      endpointContentCache.set(epPath, c);
+      const c = fs.readFileSync(filePath, "utf-8");
+      contentCache.set(filePath, c);
       return c;
     } catch {
-      endpointContentCache.set(epPath, "");
+      contentCache.set(filePath, "");
       return "";
     }
+  }
+
+  function resolveImportPath(importPath: string, fromFile: string): string | null {
+    const extensions = [".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.js"];
+    let base = "";
+    if (importPath.startsWith("@/")) {
+      base = path.join(rootDir, importPath.slice(2));
+    } else if (importPath.startsWith("~/")) {
+      base = path.join(rootDir, importPath.slice(2));
+    } else if (importPath.startsWith(".")) {
+      base = path.resolve(path.dirname(fromFile), importPath);
+    } else {
+      return null;
+    }
+
+    if (fs.existsSync(base) && !fs.statSync(base).isDirectory()) return base;
+    const cleanBase = base.replace(/\.js$/, "");
+    for (const ext of extensions) {
+      const candidate = cleanBase + ext;
+      if (fs.existsSync(candidate) && !fs.statSync(candidate).isDirectory()) return candidate;
+    }
+    if (importPath.startsWith("@/")) {
+      const srcBase = path.join(rootDir, "src", importPath.slice(2)).replace(/\.js$/, "");
+      for (const ext of extensions) {
+        const candidate = srcBase + ext;
+        if (fs.existsSync(candidate) && !fs.statSync(candidate).isDirectory()) return candidate;
+      }
+    }
+    return null;
+  }
+
+  function extractDomainServices(content: string, filePath: string): { services: string[]; serviceCalls: string[]; extraContents: string[] } {
+    const services: string[] = [];
+    const serviceCalls: string[] = [];
+    const extraContents: string[] = [];
+
+    const importRegex = /import\s+(?:\{([^}]+)\}|([A-Za-z0-9_]+))\s+from\s+["']([^"']+)["']/g;
+    let match;
+    while ((match = importRegex.exec(content)) !== null) {
+      const rawNames = match[1] || match[2] || "";
+      const importPath = match[3];
+      const names = rawNames.split(",").map(n => n.trim().split(/\s+as\s+/)[0]).filter(Boolean);
+
+      names.forEach(name => {
+        if (
+          /Service\b/i.test(name) ||
+          /Store\b/i.test(name) ||
+          /Sync\b/i.test(name) ||
+          /Manager\b/i.test(name) ||
+          /Client\b/i.test(name) ||
+          importPath.includes("/services/") ||
+          importPath.includes("/server/")
+        ) {
+          if (!services.includes(name)) services.push(name);
+          const resolved = resolveImportPath(importPath, filePath);
+          if (resolved) {
+            const svcContent = getFileContentCached(resolved);
+            if (svcContent) extraContents.push(svcContent);
+          }
+        }
+      });
+    }
+
+    services.forEach(svc => {
+      const methodRegex = new RegExp(`\\b${svc}\\.([a-zA-Z0-9_]+)\\s*\\(`, "g");
+      let mm;
+      let hadMethod = false;
+      while ((mm = methodRegex.exec(content)) !== null) {
+        hadMethod = true;
+        const callSig = `${svc}.${mm[1]}()`;
+        if (!serviceCalls.includes(callSig)) serviceCalls.push(callSig);
+      }
+      if (!hadMethod) {
+        const directRegex = new RegExp(`\\b${svc}\\s*\\(`, "g");
+        if (directRegex.test(content)) {
+          const callSig = `${svc}()`;
+          if (!serviceCalls.includes(callSig)) serviceCalls.push(callSig);
+        }
+      }
+    });
+
+    return { services, serviceCalls, extraContents };
   }
 
   files.forEach(filePath => {
@@ -764,12 +852,20 @@ export function buildFullstackBridge(
           (matchingEndpoint?.methods[0] || "GET");
 
         let connectedModels: string[] = [];
+        let domainServices: string[] = [];
+        let serviceCalls: string[] = [];
+
         if (matchingEndpoint) {
-          const epContent = getEndpointContent(matchingEndpoint.filePath);
+          const epContent = getFileContentCached(matchingEndpoint.filePath);
+          const svcInfo = extractDomainServices(epContent, matchingEndpoint.filePath);
+          domainServices = svcInfo.services;
+          serviceCalls = svcInfo.serviceCalls;
+          const combinedContent = [epContent, ...svcInfo.extraContents].join("\n");
+
           connectedModels = models
             .filter(m => {
               const nameRegex = new RegExp(`\\b${m.name}\\b|\\b${m.tableName}\\b`, "i");
-              return matchingEndpoint.filePath.toLowerCase().includes(m.name.toLowerCase()) || nameRegex.test(epContent);
+              return matchingEndpoint.filePath.toLowerCase().includes(m.name.toLowerCase()) || nameRegex.test(combinedContent);
             })
             .map(m => m.name);
         }
@@ -782,6 +878,8 @@ export function buildFullstackBridge(
           targetType: "API Route",
           httpMethod: method,
           connectedModels,
+          domainServices,
+          serviceCalls,
           externalService: rawTarget.includes("stripe") ? "Stripe" : rawTarget.includes("resend") ? "Resend" : undefined,
         });
       }
@@ -790,6 +888,19 @@ export function buildFullstackBridge(
       actions.forEach(action => {
         const actionCallRegex = new RegExp(`\\b${action.name}\\s*\\(`);
         if (actionCallRegex.test(trimmed) && relPath !== action.relativePath) {
+          const actionFull = path.resolve(rootDir, action.filePath);
+          const actionContent = getFileContentCached(actionFull);
+          const svcInfo = extractDomainServices(actionContent, actionFull);
+          const combinedAction = [actionContent, ...svcInfo.extraContents].join("\n");
+
+          const connectedModels = models
+            .filter(m => {
+              const nameRegex = new RegExp(`\\b${m.name}\\b|\\b${m.tableName}\\b`, "i");
+              return nameRegex.test(combinedAction);
+            })
+            .map(m => m.name)
+            .slice(0, 3);
+
           bridgeItems.push({
             frontendFile: relPath,
             frontendLine: lineNum,
@@ -797,7 +908,9 @@ export function buildFullstackBridge(
             backendTarget: `${action.name}()`,
             targetType: "Server Action",
             httpMethod: "POST",
-            connectedModels: action.dbOperations.length > 0 ? models.map(m => m.name).slice(0, 2) : [],
+            connectedModels,
+            domainServices: svcInfo.services,
+            serviceCalls: svcInfo.serviceCalls,
             externalService: action.externalServices[0],
           });
         }
@@ -819,17 +932,18 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   let md01 = `# 🌐 Backend API Routes & HTTP Endpoints\n\n`;
   md01 += `> Complete registry of all API endpoints, route handlers, HTTP methods, and auth protection.\n\n`;
   md01 += `## 📊 Endpoints Summary: **${result.endpoints.length}** Endpoints Detected\n\n`;
-  md01 += `| Route URL | HTTP Methods | Framework | Auth Guard | Source File |\n`;
-  md01 += `| :--- | :--- | :--- | :--- | :--- |\n`;
+  md01 += `| Route URL | Centrality | HTTP Methods | Framework | Auth Guard | Source File |\n`;
+  md01 += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
   if (result.endpoints.length === 0) {
-    md01 += `| _No API endpoints found_ | — | — | — | — |\n`;
+    md01 += `| _No API endpoints found_ | — | — | — | — | — |\n`;
   } else {
     result.endpoints.forEach(e => {
       const fileLink = makeFileLink(e.relativePath, e.line, `${e.relativePath}:${e.line}`);
       const methodsBadge = e.methods.map(m => `\`${m}\``).join(" ");
       const authBadge = e.isProtected ? `🔒 \`Protected\` (${e.authGuard || "Guarded"})` : `🔓 \`Public\``;
-      md01 += `| \`${e.urlPath}\` | ${methodsBadge} | ${e.framework} | ${authBadge} | ${fileLink} |\n`;
+      const centralityBadge = e.centralityBadge || "📌 Standard";
+      md01 += `| \`${e.urlPath}\` | ${centralityBadge} | ${methodsBadge} | ${e.framework} | ${authBadge} | ${fileLink} |\n`;
     });
   }
   fs.writeFileSync(path.join(outputDir, "01_API_ROUTES_AND_ENDPOINTS.md"), md01);
@@ -844,8 +958,10 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
   } else {
     result.models.forEach(model => {
       const fileLink = makeFileLink(model.relativePath, model.line, `${model.relativePath}:${model.line}`);
-      md02 += `### 📦 Model \`${model.name}\` (${model.orm})\n\n`;
+      const centralityBadge = model.centralityBadge ? ` — ${model.centralityBadge}` : "";
+      md02 += `### 📦 Model \`${model.name}\` (${model.orm})${centralityBadge}\n\n`;
       md02 += `- **Table Name**: \`${model.tableName}\`\n`;
+      md02 += `- **Centrality**: ${model.centralityBadge || "📌 Standard Entity"}\n`;
       md02 += `- **Source**: ${fileLink}\n`;
       md02 += `- **Total Fields**: **${model.fields.length}**\n\n`;
 
@@ -937,19 +1053,22 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
 
   // 6. 06_FULLSTACK_CROSS_REFERENCE_MAP.md
   let md06 = `# 🌉 Fullstack Cross-Reference Bridge\n\n`;
-  md06 += `> Bi-directional bridge linking Frontend UI triggers directly to Backend APIs, Server Actions, and Database Models.\n\n`;
+  md06 += `> Bi-directional bridge linking Frontend UI triggers directly to Backend APIs, Domain Services, Server Actions, and Database Models.\n\n`;
   md06 += `## 📊 Fullstack Connections: **${result.bridgeItems.length}** Linked Triggers\n\n`;
-  md06 += `| Frontend UI Trigger | Action / API Target | Type | Method | Connected Database Models | Service |\n`;
-  md06 += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+  md06 += `| Frontend UI Trigger | Action / API Target | Domain Service / Method | Type | Method | Connected Database Models | Service |\n`;
+  md06 += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
   if (result.bridgeItems.length === 0) {
-    md06 += `| _No direct cross-boundary triggers detected_ | — | — | — | — | — |\n`;
+    md06 += `| _No direct cross-boundary triggers detected_ | — | — | — | — | — | — |\n`;
   } else {
     result.bridgeItems.forEach(b => {
       const fileLink = makeFileLink(b.frontendFile, b.frontendLine, `${path.basename(b.frontendFile)}:${b.frontendLine}`);
       const modelsStr = b.connectedModels.length > 0 ? b.connectedModels.map(m => `\`${m}\``).join(", ") : "_Direct / Dynamic_";
       const serviceStr = b.externalService ? `\`${b.externalService}\`` : "—";
-      md06 += `| ${fileLink} | \`${b.backendTarget}\` | \`${b.targetType}\` | \`${b.httpMethod || "POST"}\` | ${modelsStr} | ${serviceStr} |\n`;
+      const serviceCallsStr = b.serviceCalls && b.serviceCalls.length > 0
+        ? b.serviceCalls.slice(0, 2).map(s => `\`${s}\``).join(", ")
+        : "_Direct Route Handler_";
+      md06 += `| ${fileLink} | \`${b.backendTarget}\` | ${serviceCallsStr} | \`${b.targetType}\` | \`${b.httpMethod || "POST"}\` | ${modelsStr} | ${serviceStr} |\n`;
     });
   }
   fs.writeFileSync(path.join(outputDir, "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), md06);
@@ -992,6 +1111,50 @@ export async function runUniversalBackendAudit(rootDir: string = ROOT_DIR): Prom
   const authGuards = parseAuthGuards(uniqueFiles, rootDir);
   const integrations = parseIntegrations(uniqueFiles, rootDir);
   const bridgeItems = buildFullstackBridge(uniqueFiles, endpoints, serverActions, models, rootDir);
+
+  // Symbol Centrality PageRank Calculation
+  // 1. Calculate Endpoint Centrality (caller count + in-code mentions)
+  const fileContents = new Map<string, string>();
+  uniqueFiles.forEach(f => {
+    try {
+      fileContents.set(f, fs.readFileSync(f, "utf-8"));
+    } catch {
+      fileContents.set(f, "");
+    }
+  });
+
+  endpoints.forEach(ep => {
+    const triggerCallers = bridgeItems.filter(b => b.backendTarget.startsWith(ep.urlPath) || ep.urlPath.startsWith(b.backendTarget)).length;
+    let codeMentions = 0;
+    fileContents.forEach(content => {
+      if (content.includes(ep.urlPath)) codeMentions++;
+    });
+    ep.centralityScore = Math.max(triggerCallers, codeMentions);
+    ep.centralityBadge = ep.centralityScore >= 5
+      ? `🔥 High Traffic (${ep.centralityScore} callers)`
+      : ep.centralityScore >= 2
+      ? `⭐ Common (${ep.centralityScore} callers)`
+      : `📌 Standard (${ep.centralityScore} callers)`;
+  });
+  // Sort endpoints: highest centrality first, then alphabetical
+  endpoints.sort((a, b) => (b.centralityScore || 0) - (a.centralityScore || 0) || a.urlPath.localeCompare(b.urlPath));
+
+  // 2. Calculate Database Model Centrality (occurrences across endpoints, actions, bridge, and service code)
+  models.forEach(m => {
+    let refCount = 0;
+    const nameRegex = new RegExp(`\\b${m.name}\\b|\\b${m.tableName}\\b`, "i");
+    fileContents.forEach(content => {
+      if (nameRegex.test(content)) refCount++;
+    });
+    m.centralityScore = refCount;
+    m.centralityBadge = refCount >= 10
+      ? `🔥 Core Entity (${refCount} refs)`
+      : refCount >= 4
+      ? `⭐ Active Entity (${refCount} refs)`
+      : `📌 Standard Entity (${refCount} refs)`;
+  });
+  // Sort models: highest centrality first, then alphabetical
+  models.sort((a, b) => (b.centralityScore || 0) - (a.centralityScore || 0) || a.name.localeCompare(b.name));
 
   const result: BackendAuditResult = {
     endpoints,

@@ -285,6 +285,51 @@ interface ComponentAudit {
   visualIcons: VisualIconUsage[];
   hasDirectStyleTag: boolean;
   isExportedComponent: boolean;
+  centralityScore?: number;
+  centralityBadge?: string;
+}
+
+export interface QueryDefinition {
+  keyExpression: string;
+  rawKey: string;
+  filePath: string;
+  line: number;
+  snippet: string;
+  apiTarget?: string;
+  isScoped: boolean;
+  hookType: string;
+  invalidatedBy: string[];
+}
+
+export interface MutationDefinition {
+  filePath: string;
+  line: number;
+  snippet: string;
+  triggerName: string;
+  invalidatedKeys: string[];
+  invalidationType: string;
+  affectedQueries: string[];
+}
+
+export interface CentralizedKeyDef {
+  name: string;
+  keyExpression: string;
+  filePath: string;
+  line: number;
+}
+
+export interface EventInvalidationDef {
+  eventName: string;
+  filePath: string;
+  line: number;
+  invalidatedKeys: string[];
+}
+
+export interface QueryCacheTopology {
+  queries: QueryDefinition[];
+  mutations: MutationDefinition[];
+  centralizedKeys: CentralizedKeyDef[];
+  eventDefs: EventInvalidationDef[];
 }
 
 interface RouteComponentNode {
@@ -2763,8 +2808,334 @@ function executeVerificationGate(
   console.log(`📄 Verification receipt saved to: docs/frontend-atlas/.last_receipt.json\n`);
 }
 
+// 10.5 Symbol Centrality PageRank Engine
+export function computeComponentCentrality(audits: ComponentAudit[]) {
+  const importFrequency = new Map<string, number>();
+
+  // Count inbound imports across files
+  audits.forEach(consumer => {
+    consumer.imports.forEach(imp => {
+      const impBase = path.basename(imp).replace(/\.[^/.]+$/, "");
+      audits.forEach(target => {
+        const targetBase = path.basename(target.relativePath).replace(/\.[^/.]+$/, "");
+        if (target.relativePath !== consumer.relativePath && (targetBase === impBase || target.relativePath.includes(imp))) {
+          importFrequency.set(target.relativePath, (importFrequency.get(target.relativePath) || 0) + 1);
+        }
+      });
+    });
+  });
+
+  // Count JSX tag usage across files
+  const fileContents = new Map<string, string>();
+  audits.forEach(a => {
+    try {
+      fileContents.set(a.relativePath, fs.readFileSync(a.filePath, "utf-8"));
+    } catch {
+      fileContents.set(a.relativePath, "");
+    }
+  });
+
+  audits.forEach(target => {
+    let tagUsages = 0;
+    target.componentNames.forEach(comp => {
+      const tagRegex = new RegExp(`<${comp}\\b`, "g");
+      fileContents.forEach((c, fPath) => {
+        if (fPath !== target.relativePath && tagRegex.test(c)) {
+          tagUsages++;
+        }
+      });
+    });
+    const inImports = importFrequency.get(target.relativePath) || 0;
+    const score = Math.max(inImports, tagUsages);
+    target.centralityScore = score;
+    target.centralityBadge = score >= 8
+      ? `🔥 Core (${score} refs)`
+      : score >= 3
+      ? `⭐ Common (${score} refs)`
+      : score >= 1
+      ? `📌 Standard (${score} refs)`
+      : `⚪ Leaf (0 refs)`;
+  });
+
+  // Sort audits by centrality score descending, then relativePath
+  audits.sort((a, b) => (b.centralityScore || 0) - (a.centralityScore || 0) || a.relativePath.localeCompare(b.relativePath));
+}
+
+// 10.6 TanStack React Query & Cache Invalidation Topology Analyzer
+export function auditQueryCacheTopology(files: string[], rootDir: string = ROOT_DIR): QueryCacheTopology {
+  const queries: QueryDefinition[] = [];
+  const mutations: MutationDefinition[] = [];
+  const centralizedKeys: CentralizedKeyDef[] = [];
+  const eventDefs: EventInvalidationDef[] = [];
+
+  files.forEach(file => {
+    const relPath = path.relative(rootDir, file).replace(/\\/g, "/");
+    let content = "";
+    try {
+      content = fs.readFileSync(file, "utf-8");
+    } catch {
+      return;
+    }
+
+    if (
+      !content.includes("Query") &&
+      !content.includes("Mutation") &&
+      !content.includes("queryKey") &&
+      !content.includes("invalidateQueries") &&
+      !content.includes("queryKeys")
+    ) {
+      return;
+    }
+
+    // A. Centralized Query Keys
+    if (content.includes("queryKeys")) {
+      const qkObjMatch = content.match(/(?:export\s+)?(?:const|let|var)\s+queryKeys\s*=\s*\{([\s\S]*?)\n\s*\};/);
+      if (qkObjMatch) {
+        const body = qkObjMatch[1];
+        const keyFnRegex = /([a-zA-Z0-9_]+)\s*:\s*\(([^)]*)\)\s*=>\s*(\[[^\]]+\])/g;
+        let km;
+        while ((km = keyFnRegex.exec(body)) !== null) {
+          const fnName = km[1];
+          const params = km[2].trim();
+          const rawArray = km[3].replace(/\s+/g, " ");
+          const linesBefore = content.slice(0, (qkObjMatch.index || 0) + km.index).split("\n");
+
+          let evaluatedKey = rawArray;
+          if (params) {
+            params.split(",").forEach(p => {
+              const pName = p.split(":")[0].replace(/[?]/g, "").trim();
+              if (pName) {
+                evaluatedKey = evaluatedKey.replace(new RegExp(`(?:String\\(${pName}\\)|${pName}\\s*\\|\\|\\s*[^,\\]]+|${pName})`, "g"), `{${pName}}`);
+              }
+            });
+          }
+
+          centralizedKeys.push({
+            name: `queryKeys.${fnName}(${params ? params.split(",").map(p => p.split(":")[0].trim()).join(", ") : ""})`,
+            keyExpression: evaluatedKey,
+            filePath: relPath,
+            line: linesBefore.length,
+          });
+        }
+      }
+    }
+
+    // B. Centralized Event Invalidation (e.g. invalidateQueriesForEvent)
+    if (content.includes("invalidateQueries") && (content.includes("switch") || content.includes("case "))) {
+      const switchBlocks = content.matchAll(/case\s+["']([^"']+)["']:\s*([\s\S]*?)(?:break;|return;)/g);
+      for (const sb of switchBlocks) {
+        const eventName = sb[1];
+        const caseBody = sb[2];
+        const invalidatedKeysInCase: string[] = [];
+        const inqRegex = /invalidateQueries\s*\(\s*\{\s*queryKey:\s*(\[[^\]]+\])/g;
+        let inqMatch;
+        while ((inqMatch = inqRegex.exec(caseBody)) !== null) {
+          const k = inqMatch[1].replace(/\s+/g, " ").trim();
+          if (!invalidatedKeysInCase.includes(k)) invalidatedKeysInCase.push(k);
+        }
+        if (invalidatedKeysInCase.length > 0) {
+          const linesBefore = content.slice(0, sb.index || 0).split("\n");
+          eventDefs.push({
+            eventName,
+            filePath: relPath,
+            line: linesBefore.length,
+            invalidatedKeys: invalidatedKeysInCase,
+          });
+
+          mutations.push({
+            filePath: relPath,
+            line: linesBefore.length,
+            snippet: `Event: ${eventName}`,
+            triggerName: `Event: ${eventName}`,
+            invalidatedKeys: invalidatedKeysInCase,
+            invalidationType: "invalidateQueriesForEvent",
+            affectedQueries: [],
+          });
+        }
+      }
+    }
+
+    // C. Queries (useQuery, useSuspenseQuery, useInfiniteQuery)
+    const queryHookRegex = /\b(useQuery|useSuspenseQuery|useInfiniteQuery)\s*(?:<[^>]+>)?\s*\(\s*\{/g;
+    let qm;
+    while ((qm = queryHookRegex.exec(content)) !== null) {
+      const hookType = qm[1];
+      const charIdx = qm.index;
+      const linesBefore = content.slice(0, charIdx).split("\n");
+      const lineNum = linesBefore.length;
+
+      const blockStart = content.indexOf("{", charIdx);
+      let depth = 0;
+      let blockEnd = -1;
+      for (let i = blockStart; i < content.length; i++) {
+        if (content[i] === "{") depth++;
+        else if (content[i] === "}") {
+          depth--;
+          if (depth === 0) {
+            blockEnd = i;
+            break;
+          }
+        }
+      }
+      const block = blockEnd !== -1 ? content.slice(blockStart, blockEnd + 1) : content.slice(blockStart, blockStart + 1000);
+
+      let keyExpression = "_UnknownKey_";
+      let rawKey = "";
+      const keyArrayMatch = block.match(/queryKey:\s*(\[[^\]]+\])/);
+      const keyRefMatch = block.match(/queryKey:\s*([a-zA-Z0-9_$.()]+)/);
+
+      if (keyArrayMatch) {
+        rawKey = keyArrayMatch[1].replace(/\s+/g, " ");
+        keyExpression = rawKey
+          .replace(/\b(?:user\?\.email\s*\|\|\s*["'][^"']+["']|[a-zA-Z0-9_]+Id|[a-zA-Z0-9_]+\.id|id)\b/g, "{id}")
+          .replace(/\b(?:viewArchived\s*\?\s*["'][^"']+["']\s*:\s*["'][^"']+["'])\b/g, "{status}");
+      } else if (keyRefMatch) {
+        rawKey = keyRefMatch[1].trim();
+        keyExpression = rawKey;
+      }
+
+      let apiTarget: string | undefined;
+      const fetchInFn = block.match(/fetch\s*\(\s*(?:`([^`]+)`|["']([^"']+)["']|endpoint|url)/);
+      if (fetchInFn) {
+        apiTarget = fetchInFn[1] || fetchInFn[2];
+      }
+      if (!apiTarget) {
+        const apiMatch = block.match(/["'`]([^"'`]*\/api\/[^"'`]+)["'`]/);
+        if (apiMatch) apiTarget = apiMatch[1];
+      }
+
+      const isScoped = keyExpression.includes("{") || keyExpression.includes("id") || keyExpression.includes("email");
+
+      queries.push({
+        keyExpression,
+        rawKey,
+        filePath: relPath,
+        line: lineNum,
+        snippet: block.split("\n")[0].trim().slice(0, 60),
+        apiTarget,
+        isScoped,
+        hookType,
+        invalidatedBy: [],
+      });
+    }
+
+    // D. Mutations (useMutation)
+    const mutHookRegex = /\buseMutation\s*(?:<[^>]+>)?\s*\(\s*\{/g;
+    let mm;
+    while ((mm = mutHookRegex.exec(content)) !== null) {
+      const charIdx = mm.index;
+      const linesBefore = content.slice(0, charIdx).split("\n");
+      const lineNum = linesBefore.length;
+
+      const blockStart = content.indexOf("{", charIdx);
+      let depth = 0;
+      let blockEnd = -1;
+      for (let i = blockStart; i < content.length; i++) {
+        if (content[i] === "{") depth++;
+        else if (content[i] === "}") {
+          depth--;
+          if (depth === 0) {
+            blockEnd = i;
+            break;
+          }
+        }
+      }
+      const block = blockEnd !== -1 ? content.slice(blockStart, blockEnd + 1) : content.slice(blockStart, blockStart + 1000);
+
+      const invalidatedKeys: string[] = [];
+      const inqRegex = /invalidateQueries\s*\(\s*\{\s*queryKey:\s*(\[[^\]]+\])/g;
+      let inqMatch;
+      while ((inqMatch = inqRegex.exec(block)) !== null) {
+        const k = inqMatch[1].replace(/\s+/g, " ");
+        if (!invalidatedKeys.includes(k)) invalidatedKeys.push(k);
+      }
+
+      const evCall = block.match(/invalidateQueriesForEvent\s*\([^,]+,\s*["']([^"']+)["']/);
+      if (evCall) {
+        const evName = evCall[1];
+        const def = eventDefs.find(e => e.eventName === evName);
+        if (def) {
+          def.invalidatedKeys.forEach(k => {
+            if (!invalidatedKeys.includes(k)) invalidatedKeys.push(k);
+          });
+        }
+      }
+
+      mutations.push({
+        filePath: relPath,
+        line: lineNum,
+        snippet: block.split("\n")[0].trim().slice(0, 60),
+        triggerName: `useMutation`,
+        invalidatedKeys,
+        invalidationType: "useMutation.onSuccess",
+        affectedQueries: [],
+      });
+    }
+
+    // E. Standalone queryClient.invalidateQueries calls
+    const standaloneInqRegex = /queryClient\.invalidateQueries\s*\(\s*\{\s*queryKey:\s*(\[[^\]]+\])/g;
+    let sm;
+    while ((sm = standaloneInqRegex.exec(content)) !== null) {
+      const linesBefore = content.slice(0, sm.index).split("\n");
+      const lineNum = linesBefore.length;
+      const key = sm[1].replace(/\s+/g, " ");
+      const alreadyAdded = mutations.some(m => m.filePath === relPath && Math.abs(m.line - lineNum) <= 3);
+      if (!alreadyAdded) {
+        mutations.push({
+          filePath: relPath,
+          line: lineNum,
+          snippet: `queryClient.invalidateQueries({ queryKey: ${key} })`,
+          triggerName: `Direct Invalidation`,
+          invalidatedKeys: [key],
+          invalidationType: "queryClient.invalidateQueries",
+          affectedQueries: [],
+        });
+      }
+    }
+  });
+
+  // F. Cross-link topology (Prefix Matching)
+  function cleanKeyTokens(k: string): string[] {
+    return k.replace(/^\[|\]$/g, "")
+      .split(",")
+      .map(s => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+
+  mutations.forEach(mut => {
+    mut.invalidatedKeys.forEach(invKey => {
+      const invTokens = cleanKeyTokens(invKey);
+      queries.forEach(q => {
+        const qTokens = cleanKeyTokens(q.keyExpression);
+        let isMatch = true;
+        if (invTokens.length === 0 || qTokens.length === 0) isMatch = false;
+        for (let i = 0; i < invTokens.length; i++) {
+          if (
+            i >= qTokens.length ||
+            (invTokens[i] !== qTokens[i] && !invTokens[i].startsWith("{") && !qTokens[i].startsWith("{"))
+          ) {
+            isMatch = false;
+            break;
+          }
+        }
+        if (isMatch) {
+          if (!mut.affectedQueries.includes(q.keyExpression)) {
+            mut.affectedQueries.push(q.keyExpression);
+          }
+          const triggerLabel = `${path.basename(mut.filePath)} (${mut.triggerName})`;
+          if (!q.invalidatedBy.includes(triggerLabel)) {
+            q.invalidatedBy.push(triggerLabel);
+          }
+        }
+      });
+    });
+  });
+
+  return { queries, mutations, centralizedKeys, eventDefs };
+}
+
 // 11. Interactive Query Filter (--find / --route)
-function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string) {
+function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[], query: string, topology?: QueryCacheTopology) {
   const q = query.toLowerCase();
 
   if (JSON_MODE) {
@@ -2773,7 +3144,8 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     const matchingHexes = audits.filter(a => a.hardcodedHexes.some(h => h.hex.toLowerCase().includes(q)));
     const matchingLabels: { file: string; line: number; text: string; type: string }[] = [];
     audits.forEach(a => a.visibleLabels.forEach(vl => { if (vl.text.toLowerCase().includes(q)) matchingLabels.push({ file: a.relativePath, line: vl.line, text: vl.text, type: vl.type }); }));
-    console.log(JSON.stringify({ query, matchingRoutes, matchingComponents: matchingComponents.map(c => c.relativePath), matchingHexes: matchingHexes.map(h => ({ file: h.relativePath, hexes: h.hardcodedHexes.filter(x => x.hex.toLowerCase().includes(q)) })), matchingLabels: matchingLabels.slice(0, 20) }, null, 2));
+    const matchingQueries = topology ? topology.queries.filter(qi => qi.keyExpression.toLowerCase().includes(q) || qi.filePath.toLowerCase().includes(q)) : [];
+    console.log(JSON.stringify({ query, matchingRoutes, matchingComponents: matchingComponents.map(c => c.relativePath), matchingHexes: matchingHexes.map(h => ({ file: h.relativePath, hexes: h.hardcodedHexes.filter(x => x.hex.toLowerCase().includes(q)) })), matchingLabels: matchingLabels.slice(0, 20), matchingQueries }, null, 2));
     return;
   }
 
@@ -2788,6 +3160,14 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     audits.forEach(a => a.visibleLabels.forEach(vl => {
       if (vl.text.toLowerCase().includes(q)) console.log(`[label] "${vl.text}" ➔ ${a.relativePath}:${vl.line}`);
     }));
+    if (topology) {
+      topology.queries.filter(qi => qi.keyExpression.toLowerCase().includes(q) || qi.filePath.toLowerCase().includes(q)).forEach(qi => {
+        console.log(`[query] ${qi.keyExpression} ➔ ${qi.filePath}:${qi.line}`);
+      });
+      topology.mutations.filter(mi => mi.triggerName.toLowerCase().includes(q) || mi.invalidatedKeys.some(k => k.toLowerCase().includes(q))).forEach(mi => {
+        console.log(`[mutation] ${mi.triggerName} ➔ ${mi.filePath}:${mi.line}`);
+      });
+    }
     return;
   }
 
@@ -2804,19 +3184,22 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     console.log();
   }
 
-  // Search Components & Buttons
+  // Search Components & Buttons (Sorted by Centrality PageRank)
   const matchingComponents = audits.filter(a =>
     a.relativePath.toLowerCase().includes(q) ||
     a.componentNames.some(c => c.toLowerCase().includes(q)) ||
     a.rawButtons.some(b => b.className?.toLowerCase().includes(q) || b.snippet.toLowerCase().includes(q))
   );
 
+  matchingComponents.sort((a, b) => (b.centralityScore || 0) - (a.centralityScore || 0));
+
   if (matchingComponents.length > 0) {
     console.log(`🧩 Matching Components & Files (${matchingComponents.length}):`);
     matchingComponents.slice(0, 15).forEach(c => {
       const btnCount = c.rawButtons.length + c.uiButtons.length;
       const boundary = c.isClientComponent ? "[Client ⚡]" : "[Server 🖥️]";
-      console.log(`   - [${c.zone}] ${c.relativePath} ${boundary} (${btnCount} buttons, ${c.cardsAndSurfaces.length} cards)`);
+      const centralityBadge = c.centralityBadge ? ` [${c.centralityBadge}]` : "";
+      console.log(`   - [${c.zone}] ${c.relativePath} ${boundary}${centralityBadge} (${btnCount} buttons, ${c.cardsAndSurfaces.length} cards)`);
       if (c.rawButtons.length > 0 && (q.includes("btn") || q.includes("button"))) {
         c.rawButtons.slice(0, 3).forEach(b => {
           console.log(`       Line ${b.line}: ${b.snippet}`);
@@ -2824,6 +3207,33 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
       }
     });
     console.log();
+  }
+
+  // Search TanStack Queries & Invalidation Keys
+  if (topology) {
+    const matchingQueries = topology.queries.filter(qItem =>
+      qItem.keyExpression.toLowerCase().includes(q) ||
+      qItem.filePath.toLowerCase().includes(q) ||
+      (qItem.apiTarget && qItem.apiTarget.toLowerCase().includes(q))
+    );
+    const matchingMutations = topology.mutations.filter(m =>
+      m.triggerName.toLowerCase().includes(q) ||
+      m.filePath.toLowerCase().includes(q) ||
+      m.invalidatedKeys.some(k => k.toLowerCase().includes(q))
+    );
+
+    if (matchingQueries.length > 0 || matchingMutations.length > 0) {
+      console.log(`🔄 Matching TanStack Queries & Cache Keys (${matchingQueries.length + matchingMutations.length}):`);
+      matchingQueries.slice(0, 6).forEach(mq => {
+        const apiStr = mq.apiTarget ? ` ➔ ${mq.apiTarget}` : "";
+        console.log(`   - [query] ${mq.keyExpression} (${mq.hookType})${apiStr} ➡️ ${mq.filePath}:${mq.line}`);
+      });
+      matchingMutations.slice(0, 6).forEach(mm => {
+        const keysStr = mm.invalidatedKeys.join(", ");
+        console.log(`   - [invalidation] ${mm.triggerName} ➔ [${keysStr}] ➡️ ${mm.filePath}:${mm.line}`);
+      });
+      console.log();
+    }
   }
 
   // Search Hexes
@@ -2890,8 +3300,8 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     console.log();
   }
 
-  // Search Interactive Triggers (Buttons, Triggers, Clickable Containers, Links)
-  const matchingTriggers: { file: string; line: number; element: string; type: string; handler?: string; target?: string }[] = [];
+  // Search Interactive Triggers (Buttons, Triggers, Clickable Containers, Links - Sorted by Centrality)
+  const matchingTriggers: { file: string; line: number; element: string; type: string; handler?: string; target?: string; centralityScore: number; centralityBadge?: string }[] = [];
   audits.forEach(a => {
     a.interactiveTriggers.forEach(t => {
       if (
@@ -2907,17 +3317,22 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
           type: t.triggerType,
           handler: t.handlerName,
           target: t.disclosesTarget,
+          centralityScore: a.centralityScore || 0,
+          centralityBadge: a.centralityBadge,
         });
       }
     });
   });
+
+  matchingTriggers.sort((a, b) => b.centralityScore - a.centralityScore);
 
   if (matchingTriggers.length > 0) {
     console.log(`🔘 Matching Interactive Triggers & Clickable Elements (${matchingTriggers.length}):`);
     matchingTriggers.slice(0, 10).forEach(t => {
       const handlerStr = t.handler ? ` [Handler: ${t.handler}]` : "";
       const targetStr = t.target ? ` [Target: ${t.target}]` : "";
-      console.log(`   - ${t.element} (${t.type})${handlerStr}${targetStr} ➡️ ${t.file}:${t.line}`);
+      const centBadge = t.centralityBadge ? ` [${t.centralityBadge}]` : "";
+      console.log(`   - ${t.element} (${t.type})${centBadge}${handlerStr}${targetStr} ➡️ ${t.file}:${t.line}`);
     });
     if (matchingTriggers.length > 10) {
       console.log(`     (+${matchingTriggers.length - 10} more matches in 02_COMPONENT_INVENTORY.md)`);
@@ -2925,8 +3340,8 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
     console.log();
   }
 
-  // Search Disclosed Overlays & Modal Windows
-  const matchingOverlays: { file: string; line: number; name: string; type: string; condition?: string }[] = [];
+  // Search Disclosed Overlays & Modal Windows (Sorted by Centrality)
+  const matchingOverlays: { file: string; line: number; name: string; type: string; condition?: string; centralityScore: number; centralityBadge?: string }[] = [];
   audits.forEach(a => {
     a.disclosedOverlays.forEach(o => {
       if (
@@ -2940,16 +3355,21 @@ function executeInteractiveQuery(audits: ComponentAudit[], routes: RouteMapItem[
           name: o.name,
           type: o.type,
           condition: o.conditionVariable,
+          centralityScore: a.centralityScore || 0,
+          centralityBadge: a.centralityBadge,
         });
       }
     });
   });
 
+  matchingOverlays.sort((a, b) => b.centralityScore - a.centralityScore);
+
   if (matchingOverlays.length > 0) {
     console.log(`🪟 Matching Disclosed Overlays & Modal Windows (${matchingOverlays.length}):`);
     matchingOverlays.slice(0, 8).forEach(o => {
       const condStr = o.condition ? ` [Condition: ${o.condition}]` : "";
-      console.log(`   - <${o.name}> (${o.type})${condStr} ➡️ ${o.file}:${o.line}`);
+      const centBadge = o.centralityBadge ? ` [${o.centralityBadge}]` : "";
+      console.log(`   - <${o.name}> (${o.type})${centBadge}${condStr} ➡️ ${o.file}:${o.line}`);
     });
     if (matchingOverlays.length > 8) {
       console.log(`     (+${matchingOverlays.length - 8} more matches in 02_COMPONENT_INVENTORY.md)`);
@@ -3004,6 +3424,8 @@ export function runUniversalFrontendAudit() {
   const uniqueFiles = Array.from(new Set(allFiles));
 
   const audits = uniqueFiles.map(f => auditFile(f, structure));
+  computeComponentCentrality(audits);
+  const queryTopology = auditQueryCacheTopology(uniqueFiles, ROOT_DIR);
   const routeMaps = buildRouteMap(audits, structure);
   const deadComponents = findDeadComponents(audits, structure);
   const skillDispatches = generateSkillDispatches(audits);
@@ -3050,13 +3472,13 @@ export function runUniversalFrontendAudit() {
 
   // If query requested
   if (FIND_QUERY) {
-    executeInteractiveQuery(audits, routeMaps, FIND_QUERY);
+    executeInteractiveQuery(audits, routeMaps, FIND_QUERY, queryTopology);
     return;
   }
 
   // If route query requested
   if (ROUTE_QUERY) {
-    executeInteractiveQuery(audits, routeMaps, ROUTE_QUERY);
+    executeInteractiveQuery(audits, routeMaps, ROUTE_QUERY, queryTopology);
     return;
   }
 
@@ -3091,7 +3513,8 @@ export function runUniversalFrontendAudit() {
   writeVisualIconIndex(audits);
   writeDispatchGateway(skillDispatches, discoveredSkills);
   writeThemePunchlist(audits);
-  writeAtlasSummary(audits, routeMaps, structure, deadComponents);
+  writeQueryAndCacheMap(queryTopology);
+  writeAtlasSummary(audits, routeMaps, structure, deadComponents, queryTopology);
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
@@ -3212,9 +3635,9 @@ function writeComponentInventory(audits: ComponentAudit[]) {
 
   // Section 1: Interactive Triggers & Clickable Elements (AST Scanned)
   md += `## 🔘 Interactive Triggers & Clickable Elements (AST Scanned)\n\n`;
-  md += `Exhaustive index of every interactive element with its action handler and disclosed target:\n\n`;
-  md += `| Zone | File | Line | Element | Trigger Type | Action Handler / OnClick | Disclosed Target | Snippet Preview |\n`;
-  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+  md += `Exhaustive index of every interactive element with its action handler, centrality score, and disclosed target:\n\n`;
+  md += `| Zone | File | Centrality | Line | Element | Trigger Type | Action Handler / OnClick | Disclosed Target | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
   audits.forEach(a => {
     if (a.interactiveTriggers.length > 0) {
@@ -3223,7 +3646,8 @@ function writeComponentInventory(audits: ComponentAudit[]) {
         const handlerStr = t.handlerName ? `\`${escapeMarkdownSnippet(t.handlerName, 35)}\`` : `_None_`;
         const targetStr = t.disclosesTarget ? `🎯 \`${escapeMarkdownSnippet(t.disclosesTarget, 30)}\`` : `_Action / Nav_`;
         const cleanSnippet = escapeMarkdownSnippet(t.snippet, 40);
-        md += `| ${a.zone} | ${fileLink} | ${t.line} | \`${escapeMarkdownSnippet(t.tagName, 25)}\` | \`${t.triggerType}\` | ${handlerStr} | ${targetStr} | \`${cleanSnippet}\` |\n`;
+        const centralityStr = a.centralityBadge || "📌 Standard";
+        md += `| ${a.zone} | ${fileLink} | ${centralityStr} | ${t.line} | \`${escapeMarkdownSnippet(t.tagName, 25)}\` | \`${t.triggerType}\` | ${handlerStr} | ${targetStr} | \`${cleanSnippet}\` |\n`;
       });
     }
   });
@@ -3240,8 +3664,8 @@ function writeComponentInventory(audits: ComponentAudit[]) {
 
   md += `\n## 🪟 Disclosed Overlays, Modals & Dynamic Windows (AST Scanned)\n\n`;
   md += `Interactive overlay containers with reverse route caller tracking and disclosure state:\n\n`;
-  md += `| Zone | File | Line | Overlay Component | Overlay Type | Condition / Disclose State | Calling Routes / Importers | Snippet Preview |\n`;
-  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+  md += `| Zone | File | Centrality | Line | Overlay Component | Overlay Type | Condition / Disclose State | Calling Routes / Importers | Snippet Preview |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
   audits.forEach(a => {
     if (a.disclosedOverlays.length > 0) {
@@ -3255,7 +3679,8 @@ function writeComponentInventory(audits: ComponentAudit[]) {
         const fileLink = makeFileLink(a.relativePath, m.line, `${a.relativePath}:${m.line}`);
         const condStr = m.conditionVariable ? `\`${escapeMarkdownSnippet(m.conditionVariable, 30)}\`` : `_Always Mounted / Prop Controlled_`;
         const cleanSnippet = escapeMarkdownSnippet(m.snippet, 40);
-        md += `| ${a.zone} | ${fileLink} | ${m.line} | \`${escapeMarkdownSnippet(m.name, 25)}\` | \`${m.type}\` | ${condStr} | ${callersStr} | \`${cleanSnippet}\` |\n`;
+        const centralityStr = a.centralityBadge || "📌 Standard";
+        md += `| ${a.zone} | ${fileLink} | ${centralityStr} | ${m.line} | \`${escapeMarkdownSnippet(m.name, 25)}\` | \`${m.type}\` | ${condStr} | ${callersStr} | \`${cleanSnippet}\` |\n`;
       });
     }
   });
@@ -3756,7 +4181,108 @@ function writeDispatchGateway(dispatches: SkillDispatch[], discoveredSkills: Dis
   fs.writeFileSync(filePath, md);
 }
 
-function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[]) {
+function writeQueryAndCacheMap(topology: QueryCacheTopology) {
+  const filePath = path.join(OUTPUT_DIR, "09_QUERY_AND_CACHE_MAP.md");
+  let md = `# 🔄 TanStack React Query & Cache Invalidation Topology\n\n`;
+  md += `> Reactive state and caching topology linking \`useQuery\` hooks, \`useMutation\` invalidations, centralized query keys, and affected UI queries.\n\n`;
+
+  const totalQueries = topology.queries.length;
+  const totalMutations = topology.mutations.length;
+  const totalCentralized = topology.centralizedKeys.length;
+  const totalConnections = topology.mutations.reduce((acc, m) => acc + m.affectedQueries.length, 0);
+
+  md += `## 📊 Quick Summary\n\n`;
+  md += `- **Active Queries (\`useQuery\`)**: **${totalQueries}** queries detected\n`;
+  md += `- **Mutation & Invalidation Emitters**: **${totalMutations}** triggers\n`;
+  md += `- **Centralized Query Key Definitions**: **${totalCentralized}** keys registered\n`;
+  md += `- **Reactive Invalidation Links**: **${totalConnections}** active connections\n\n`;
+
+  // Section 1: Active Queries Catalog
+  md += `## ⚡ Active React Queries Catalog\n\n`;
+  md += `Catalog of \`useQuery\` hooks, evaluated query keys, and invalidation triggers:\n\n`;
+  md += `| Query Key / Identifier | Hook Type | Component / File | Line | API Endpoint Target | Scoped | Invalidated By (Triggers) |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  if (totalQueries === 0) {
+    md += `| _No active useQuery hooks detected_ | — | — | — | — | — | — |\n`;
+  } else {
+    topology.queries.forEach(q => {
+      const fileLink = makeFileLink(q.filePath, q.line, `${path.basename(q.filePath)}:${q.line}`);
+      const endpointStr = q.apiTarget ? `\`${q.apiTarget}\`` : `_Custom QueryFn_`;
+      const scopedBadge = q.isScoped ? `🔒 \`Scoped\`` : `🌐 \`Global\``;
+      const invalidatorsStr = q.invalidatedBy.length > 0
+        ? q.invalidatedBy.slice(0, 3).map(inv => `\`${inv}\``).join(", ")
+        : `_Manual / Polling_`;
+      md += `| \`${q.keyExpression}\` | \`${q.hookType}\` | ${fileLink} | ${q.line} | ${endpointStr} | ${scopedBadge} | ${invalidatorsStr} |\n`;
+    });
+  }
+
+  // Section 2: Mutation Triggers & Invalidation Map
+  md += `\n## 💥 Mutation Triggers & Cache Invalidation Map\n\n`;
+  md += `Mutations and events that invalidate cached queries on mutation completion:\n\n`;
+  md += `| Emitter / Trigger Source | Line | Trigger Type | Invalidation Type | Invalidated Query Keys | Stale Queries Refetched |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+  if (totalMutations === 0) {
+    md += `| _No mutation invalidations detected_ | — | — | — | — | — |\n`;
+  } else {
+    topology.mutations.forEach(m => {
+      const fileLink = makeFileLink(m.filePath, m.line, `${path.basename(m.filePath)}:${m.line}`);
+      const keysStr = m.invalidatedKeys.length > 0
+        ? m.invalidatedKeys.map(k => `\`${k}\``).join(", ")
+        : `_None_`;
+      const affectedStr = m.affectedQueries.length > 0
+        ? m.affectedQueries.map(k => `🎯 \`${k}\``).join("<br>")
+        : `_No Matching Queries_`;
+      md += `| ${fileLink} | ${m.line} | \`${m.triggerName}\` | \`${m.invalidationType}\` | ${keysStr} | ${affectedStr} |\n`;
+    });
+  }
+
+  // Section 3: Centralized Query Keys Registry
+  if (totalCentralized > 0) {
+    md += `\n## 🔑 Centralized Query Keys Registry (Authoritative Keys)\n\n`;
+    md += `Centralized query key builder functions (e.g. \`src/lib/query-keys.ts\`):\n\n`;
+    md += `| Key Helper Function | Evaluated Structure | Source File | Line |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    topology.centralizedKeys.forEach(k => {
+      const fileLink = makeFileLink(k.filePath, k.line, `${path.basename(k.filePath)}:${k.line}`);
+      md += `| \`${k.name}\` | \`${k.keyExpression}\` | ${fileLink} | ${k.line} |\n`;
+    });
+  }
+
+  // Section 4: Reactive Invalidation Graph (Mermaid)
+  if (totalConnections > 0) {
+    md += `\n## 📈 Reactive Invalidation Dependency Graph\n\n`;
+    md += `\`\`\`mermaid\n`;
+    md += `flowchart LR\n`;
+    let nodeIdx = 1;
+    topology.mutations.forEach(m => {
+      if (m.affectedQueries.length > 0) {
+        const mNode = `M${nodeIdx++}["${escapeMarkdownSnippet(m.triggerName, 25)}"]`;
+        m.affectedQueries.slice(0, 3).forEach(aq => {
+          const qNode = `Q${nodeIdx++}["${escapeMarkdownSnippet(aq, 25)}"]`;
+          md += `  ${mNode} -->|invalidates| ${qNode}\n`;
+        });
+      }
+    });
+    md += `\`\`\`\n\n`;
+  }
+
+  // Section 5: Cache Invalidation Health & Safety Guardrails
+  md += `## 🛡️ Cache Invalidation Safety & Stale State Radar\n\n`;
+  const unlinkedMutations = topology.mutations.filter(m => m.invalidatedKeys.length === 0);
+  if (unlinkedMutations.length > 0) {
+    md += `> [!WARNING]\n`;
+    md += `> **Potential Stale State Hazard**: Found **${unlinkedMutations.length}** mutation hooks with no query invalidations. UI state may remain stale after mutation execution.\n\n`;
+  } else {
+    md += `> [!NOTE]\n`;
+    md += `> **Cache Hygiene Healthy**: All detected mutation emitters have configured query invalidation targets.\n\n`;
+  }
+
+  fs.writeFileSync(filePath, md);
+}
+
+function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], structure: ProjectStructure, deadComponents: ComponentAudit[], topology?: QueryCacheTopology) {
   const filePath = path.join(OUTPUT_DIR, "README.md");
   const totalFiles = audits.length;
   const totalRawButtons = audits.reduce((acc, a) => acc + a.rawButtons.length, 0);
@@ -3764,6 +4290,7 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   const totalHexes = audits.reduce((acc, a) => acc + a.hardcodedHexes.length, 0);
   const totalRogue = audits.reduce((acc, a) => acc + a.rogueTailwindColors.length, 0);
   const totalIcons = audits.reduce((acc, a) => acc + a.visualIcons.length, 0);
+  const totalQueries = topology ? topology.queries.length : 0;
 
   let md = `# 📖 Frontend Atlas & Quick-Reference Catalog\n\n`;
   md += `> Centralized documentation and audit ledger for this project.\n`;
@@ -3778,7 +4305,11 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `- **Orphaned / Dead Components**: **${deadComponents.length}**\n`;
   md += `- **Hardcoded Hex Deviations**: **${totalHexes}**\n`;
   md += `- **Rogue Color Classes**: **${totalRogue}**\n`;
-  md += `- **Indexed Visual Icons**: **${totalIcons}**\n\n`;
+  md += `- **Indexed Visual Icons**: **${totalIcons}**\n`;
+  if (totalQueries > 0) {
+    md += `- **Active TanStack React Queries**: **${totalQueries}** queries indexed\n`;
+  }
+  md += `\n`;
 
   md += `## 📑 Atlas Documents Guide\n\n`;
   md += `### Frontend Atlas (\`docs/frontend-atlas/\`)\n\n`;
@@ -3800,6 +4331,8 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `   - Inter-skill handoff matrix routing diagnosed UI findings to specialized peer skills (\`emil-design-eng\`, \`ui-ux-pro-max\`, \`a11y-debugging\`, \`impeccable\`).\n\n`;
   md += `9. **[THEME_MIGRATION_PUNCHLIST.md](./THEME_MIGRATION_PUNCHLIST.md)**\n`;
   md += `   - Actionable checklist generated via \`--theme\` for complete website rebrands and dark mode upgrades.\n\n`;
+  md += `10. **[09_QUERY_AND_CACHE_MAP.md](./09_QUERY_AND_CACHE_MAP.md)**\n`;
+  md += `   - TanStack React Query cache keys, mutations, and reactive invalidation topology.\n\n`;
   md += `### Backend Atlas (\`docs/backend-atlas/\`)\n\n`;
   md += `- See **[Backend Atlas Overview](../backend-atlas/README.md)** for API routes, database schemas, server actions, auth guards, and bi-directional cross-reference map.\n\n`;
 
@@ -3835,11 +4368,12 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
 
   llmsTxt += `## Frontend Architecture\n`;
   llmsTxt += `- [01_ROUTES_AND_PANELS_MAP.md](docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md): Complete route registry (${routes.length} routes), layouts, and component hierarchy.\n`;
-  llmsTxt += `- [02_COMPONENT_INVENTORY.md](docs/frontend-atlas/02_COMPONENT_INVENTORY.md): Interactive triggers, modals, live status indicators, capsule pills, and a11y flags.\n`;
+  llmsTxt += `- [02_COMPONENT_INVENTORY.md](docs/frontend-audit/02_COMPONENT_INVENTORY.md): Interactive triggers, modals, live status indicators, capsule pills, and a11y flags.\n`;
   llmsTxt += `- [03_DESIGN_TOKENS_AND_COLORS.md](docs/frontend-atlas/03_DESIGN_TOKENS_AND_COLORS.md): Tailwind color palette matrix, dark mode tokens, and hardcoded hex registry.\n`;
   llmsTxt += `- [06_VISIBLE_TEXT_AND_LABELS_MAP.md](docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md): Screenshot-to-code button labels and headings index.\n`;
   llmsTxt += `- [07_VISUAL_AND_ICON_INDEX.md](docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md): Lucide/Radix/SVG visual action icon index.\n`;
-  llmsTxt += `- [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.\n\n`;
+  llmsTxt += `- [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.\n`;
+  llmsTxt += `- [09_QUERY_AND_CACHE_MAP.md](docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md): TanStack React Query cache keys, mutations, and reactive invalidation topology.\n\n`;
 
   llmsTxt += `## Backend Architecture\n`;
   llmsTxt += `- [01_API_ROUTES_AND_ENDPOINTS.md](docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md): HTTP API routes, methods, and auth protection guards.\n`;
@@ -3860,6 +4394,7 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
 
   const filesToConcatenate = [
     path.join(OUTPUT_DIR, "01_ROUTES_AND_PANELS_MAP.md"),
+    path.join(OUTPUT_DIR, "09_QUERY_AND_CACHE_MAP.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "01_API_ROUTES_AND_ENDPOINTS.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "02_DATABASE_MODELS_AND_SCHEMA.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"),

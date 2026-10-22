@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7. Catalogs frontend routes, components, live pulse dots, capsule pills, modals, and design tokens into `docs/frontend-atlas/`, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth middleware, and webhooks into `docs/backend-atlas/`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v2.3.0](https://img.shields.io/badge/Release-v2.3.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version: v2.5.0](https://img.shields.io/badge/Release-v2.5.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/fullstack-audit-skill)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
@@ -66,7 +66,7 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ---
 
-## 🛠️ CLI Command Matrix (v2.4.0)
+## 🛠️ CLI Command Matrix (v2.5.0)
 
 | Command | Purpose |
 | :--- | :--- |
@@ -79,7 +79,7 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 | `npx fullstack-audit --migrate-theme --from "#hex" --to "token"` | CRLF-agnostic AST codemod in 80ms (0 LLM output tokens). |
 | `npx fullstack-audit --verify --gate-clean` | Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`). |
 | `npx fullstack-audit --manifest <file:line>` | Generates a zero-search agent handoff manifest. |
-| `npx fullstack-audit --find <query> --compact` | Instant sub-second search across components, text labels, and icons. |
+| `npx fullstack-audit --find <query> [--compact]` | Instant search ranked by Symbol Centrality PageRank across components, queries, text labels, and icons. |
 | `npx fullstack-audit --watch` | Live file watcher for continuous background sync on save. |
 
 ---
@@ -93,22 +93,23 @@ your-project/
 └── docs/
     ├── frontend-atlas/
     │   ├── 01_ROUTES_AND_PANELS_MAP.md       # 🗺️ Route-to-page map, boundary radar, component tree
-    │   ├── 02_COMPONENT_INVENTORY.md         # 🔘 Buttons, Live Dots, Capsule Pills, Disclosed Modals
+    │   ├── 02_COMPONENT_INVENTORY.md         # 🔘 Buttons, Live Dots, Capsule Pills, Disclosed Modals (Centrality ranked)
     │   ├── 03_DESIGN_TOKENS_AND_COLORS.md    # 🎨 Universal Tailwind Palette Matrix & Dark Mode Asymmetry
     │   ├── 04_UI_ISLANDS_AND_DRIFT.md        # 🏝️ UI drift & priority unification checklist
     │   ├── 05_DEAD_ORPHANED_COMPONENTS.md    # 👻 Unused component punch-list & safe removal guide
     │   ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md # 🏷️ Screenshot-to-Code index of all UI text & labels
     │   ├── 07_VISUAL_AND_ICON_INDEX.md       # 🖼️ Screenshot-to-Code index of all action icons & symbols
     │   ├── 08_DISPATCH_GATEWAY.md            # 🎫 Inter-skill triage matrix & agent handoff router
+    │   ├── 09_QUERY_AND_CACHE_MAP.md         # 🔄 TanStack React Query cache keys, mutations & invalidations
     │   ├── THEME_MIGRATION_PUNCHLIST.md      # 📋 Actionable checklist for theme & color rebrands
     │   └── README.md                         # 📖 Frontend summary statistics dashboard
     └── backend-atlas/
-        ├── 01_API_ROUTES_AND_ENDPOINTS.md    # 🌐 Next.js App/Pages API, Express, Hono route handlers
-        ├── 02_DATABASE_MODELS_AND_SCHEMA.md  # 🗄️ Prisma, Drizzle & Raw SQL / Supabase tables, fields, relations
+        ├── 01_API_ROUTES_AND_ENDPOINTS.md    # 🌐 Next.js App/Pages API, Express, Hono (Traffic Centrality ranked)
+        ├── 02_DATABASE_MODELS_AND_SCHEMA.md  # 🗄️ Prisma, Drizzle & Raw SQL / Supabase tables (Entity Centrality ranked)
         ├── 03_SERVER_ACTIONS_AND_MUTATIONS.md# ⚡ "use server" actions, signatures, mutations
         ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md  # 🛡️ Middleware matchers, public vs protected routes
         ├── 05_INTEGRATIONS_AND_WEBHOOKS.md   # 🔌 Stripe, Resend, Supabase, S3 & webhook handlers
-        ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md# 🌉 Bi-directional UI Trigger ➔ Backend API ➔ DB Model
+        ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md# 🌉 Deep UI Trigger ➔ API Route ➔ Domain Service ➔ DB Model
         └── README.md                         # 📖 Backend summary statistics dashboard
 ```
 

@@ -12,6 +12,7 @@ Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, 
      - `03_DESIGN_TOKENS_AND_COLORS.md` (for all 22+ Tailwind color families, dark mode asymmetries, hexes)
      - `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot)
      - `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot)
+     - `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, or cache invalidation event)
      - `THEME_MIGRATION_PUNCHLIST.md` (actionable checklist for whole-website color and dark mode rebrands)
    - **Backend Atlas (`docs/backend-atlas/`)**:
      - `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method: GET/POST/PUT/DELETE, or auth guard)
@@ -31,7 +32,7 @@ Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, 
    - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:
      - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.
 
-## 🛠️ Available Commands (v2.4.0 Dual-Speed & Schema-Complete Engine)
+## 🛠️ Available Commands (v2.5.0 Reactive State & API Call-Graph Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.

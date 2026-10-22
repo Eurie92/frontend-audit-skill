@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
-description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, and audits backend API routes, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
-version: 2.4.0
+description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, maps TanStack React Query cache topology, and audits backend API routes, domain services, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
+version: 2.5.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -95,9 +95,10 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 6. **`06_VISIBLE_TEXT_AND_LABELS_MAP.md`**: Buttons, headings, badges, and visible UI labels for instant Screenshot-to-Code targeting.
 7. **`07_VISUAL_AND_ICON_INDEX.md`**: Lucide, Radix, Tabler, and SVG visual action icons for textless screenshot targeting.
 8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
-9. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
+9. **`09_QUERY_AND_CACHE_MAP.md`**: TanStack React Query cache keys, mutations, event invalidations (`invalidateQueriesForEvent`), and reactive dependency graph.
+10. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## 🛠️ Available Commands (v2.4.0 Dual-Speed & Schema-Complete Engine)
+## 🛠️ Available Commands (v2.5.0 Reactive State & Call-Graph Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
@@ -105,15 +106,15 @@ Run the audit script (`npm run audit` or `/fullstack-audit`) and verification ga
 - `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
 - `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`).
-- `npx fullstack-audit --find <query> --compact`: Ultra-fast, single-line token-compact query mode for AI agents.
+- `npx fullstack-audit --find <query> [--compact]`: Instant search ranked by Symbol Centrality PageRank across components, queries, text labels, and icons.
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
 - `npx fullstack-audit --watch`: Live background file watcher for continuous auto-sync.
 - `npx fullstack-audit --dead`: Scans for potential orphaned components.
 
 ### `docs/backend-atlas/` (Backend & Fullstack)
-1. **`01_API_ROUTES_AND_ENDPOINTS.md`**: HTTP API endpoints, methods (`GET`, `POST`, `PUT`, `DELETE`), params, and auth guards.
-2. **`02_DATABASE_MODELS_AND_SCHEMA.md`**: Prisma, Drizzle, and Raw SQL / Supabase models, fields, types, and relations.
+1. **`01_API_ROUTES_AND_ENDPOINTS.md`**: HTTP API endpoints, methods (`GET`, `POST`, `PUT`, `DELETE`), params, auth guards, and Traffic Centrality ranking.
+2. **`02_DATABASE_MODELS_AND_SCHEMA.md`**: Prisma, Drizzle, and Raw SQL / Supabase models, fields, types, relations, and Entity Centrality ranking.
 3. **`03_SERVER_ACTIONS_AND_MUTATIONS.md`**: Next.js Server Actions (`"use server"`), parameters, and DB mutations.
 4. **`04_AUTH_AND_MIDDLEWARE_GUARDS.md`**: Middleware matchers, protected routes, and authentication providers.
 5. **`05_INTEGRATIONS_AND_WEBHOOKS.md`**: Third-party SDK clients (Stripe, Resend, Supabase, S3) and webhooks.
-6. **`06_FULLSTACK_CROSS_REFERENCE_MAP.md`**: Bi-directional bridge linking frontend UI triggers to backend actions and database models.
+6. **`06_FULLSTACK_CROSS_REFERENCE_MAP.md`**: Deep bi-directional bridge linking frontend UI triggers to backend API routes, domain services (`CatalogService`, `OrderService`), and database models.

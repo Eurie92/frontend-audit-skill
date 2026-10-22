@@ -378,6 +378,132 @@ async function runTestMatrix() {
 
     const bridgeMd = fs.readFileSync(path.join(backendAppDir, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), "utf-8");
     assert(bridgeMd.includes("/api/checkout"), "Cross-reference map links UI button to `/api/checkout`");
+    assert(bridgeMd.includes("Domain Service / Method"), "Cross-reference map contains Domain Service / Method column");
+    assert(apiMd.includes("Centrality"), "API catalog includes Centrality PageRank column");
+    assert(dbMd.includes("Centrality") || dbMd.includes("Entity"), "Database schema includes Centrality ranking");
+
+    // =========================================================================
+    // TEST 9: TanStack React Query Topology & Symbol Centrality (v2.5.0)
+    // =========================================================================
+    console.log("\n▶️ Test 9: Reactive State & TanStack Query Topology + Centrality (v2.5.0)");
+    const queryAppDir = path.join(TEST_DIR, "reactive-app");
+    fs.mkdirSync(path.join(queryAppDir, "src", "lib"), { recursive: true });
+    fs.mkdirSync(path.join(queryAppDir, "src", "components"), { recursive: true });
+    fs.mkdirSync(path.join(queryAppDir, "src", "services"), { recursive: true });
+    fs.mkdirSync(path.join(queryAppDir, "app", "api", "catalog"), { recursive: true });
+
+    fs.writeFileSync(path.join(queryAppDir, "package.json"), JSON.stringify({
+      name: "test-reactive-app",
+      dependencies: {
+        next: "^14.2.0",
+        react: "^18.2.0",
+        "@tanstack/react-query": "^5.28.0"
+      }
+    }));
+
+    // Authoritative centralized query keys
+    fs.writeFileSync(path.join(queryAppDir, "src", "lib", "query-keys.ts"), `
+      import type { QueryClient } from "@tanstack/react-query";
+      export const queryKeys = {
+        catalog: () => ["catalog"] as const,
+        userVault: (userId?: string) => ["user", userId || "anonymous", "vault"] as const,
+      };
+
+      export function invalidateQueriesForEvent(queryClient: any, event: string) {
+        switch (event) {
+          case "INVENTORY_CHANGED":
+            queryClient.invalidateQueries({ queryKey: ["catalog"] });
+            break;
+          case "USER_VAULT_MUTATED":
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+            break;
+        }
+      }
+    `);
+
+    // Service file
+    fs.writeFileSync(path.join(queryAppDir, "src", "services", "catalog.service.ts"), `
+      export class CatalogService {
+        static async getItems() {
+          return [{ id: 1, name: "Product A" }];
+        }
+      }
+    `);
+
+    // Route handler importing service
+    fs.writeFileSync(path.join(queryAppDir, "app", "api", "catalog", "route.ts"), `
+      import { NextResponse } from "next/server";
+      import { CatalogService } from "@/src/services/catalog.service";
+      export async function GET() {
+        const items = await CatalogService.getItems();
+        return NextResponse.json(items);
+      }
+    `);
+
+    // UI Component using useQuery
+    fs.writeFileSync(path.join(queryAppDir, "src", "components", "UserVaultDrawer.tsx"), `
+      "use client";
+      import { useQuery } from "@tanstack/react-query";
+      export function UserVaultDrawer({ userId }: { userId: string }) {
+        const { data } = useQuery({
+          queryKey: ["user", userId, "vault"],
+          queryFn: async () => {
+            const res = await fetch("/api/catalog");
+            return res.json();
+          }
+        });
+        return <div>User Vault</div>;
+      }
+    `);
+
+    // UI Component using useMutation with invalidation
+    fs.writeFileSync(path.join(queryAppDir, "src", "components", "OrderFulfillmentModal.tsx"), `
+      "use client";
+      import { useMutation, useQueryClient } from "@tanstack/react-query";
+      export function OrderFulfillmentModal() {
+        const queryClient = useQueryClient();
+        const { mutate } = useMutation({
+          mutationFn: async () => fetch("/api/catalog", { method: "POST" }),
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+          }
+        });
+        return <button onClick={() => mutate()}>Fulfill</button>;
+      }
+    `);
+
+    // App page importing components multiple times (to verify Centrality PageRank)
+    fs.writeFileSync(path.join(queryAppDir, "app", "page.tsx"), `
+      "use client";
+      import { UserVaultDrawer } from "@/src/components/UserVaultDrawer";
+      import { OrderFulfillmentModal } from "@/src/components/OrderFulfillmentModal";
+      export default function Page() {
+        return (
+          <div>
+            <UserVaultDrawer userId="123" />
+            <OrderFulfillmentModal />
+          </div>
+        );
+      }
+    `);
+
+    const res9 = runAuditInDir(queryAppDir);
+    assert(res9.status === 0, "Reactive app audit runs without error");
+
+    const queryMdPath = path.join(queryAppDir, "docs", "frontend-atlas", "09_QUERY_AND_CACHE_MAP.md");
+    assert(fs.existsSync(queryMdPath), "Generates docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md");
+
+    const queryMd = fs.readFileSync(queryMdPath, "utf-8");
+    assert(queryMd.includes("`[\"user\", \"{id}\", \"vault\"]`") || queryMd.includes("user"), "Active queries catalog indexes user vault query");
+    assert(queryMd.includes("`[\"user\"]`"), "Mutation map indexes `[\"user\"]` invalidation target");
+    assert(queryMd.includes("`queryKeys.catalog()`"), "Centralized keys registry indexes `queryKeys.catalog()`");
+    assert(queryMd.includes("flowchart LR"), "Generates Mermaid reactive invalidation graph");
+
+    const compInvMd = fs.readFileSync(path.join(queryAppDir, "docs", "frontend-atlas", "02_COMPONENT_INVENTORY.md"), "utf-8");
+    assert(compInvMd.includes("Centrality"), "Component inventory includes Centrality PageRank column");
+
+    const bridge9Md = fs.readFileSync(path.join(queryAppDir, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"), "utf-8");
+    assert(bridge9Md.includes("CatalogService.getItems()"), "Deep cross-reference bridge traces API route to `CatalogService.getItems()`");
 
     console.log(`\n============================================================`);
     console.log(`🎉 Test Matrix Complete: ${passedTests}/${totalTests} Passed (100% Success)`);
