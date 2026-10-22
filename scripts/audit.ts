@@ -109,7 +109,7 @@ import {
 } from "./constants.js";
 
 /**
- * Universal Fullstack Atlas & Design System Audit Engine (v2.7.0)
+ * Universal Fullstack Atlas & Design System Audit Engine (v2.8.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
@@ -3773,7 +3773,7 @@ function executeUniversalSetup(opts: { cursor?: boolean; claude?: boolean; herme
     "   - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:",
     "     - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.",
     "",
-    "## 🛠️ Available Commands (v2.7.0 Reactive State & API Call-Graph Engine)",
+    "## 🛠️ Available Commands (v2.8.0 Multi-Harness & Inverted Index Engine)",
     "- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.",
     "- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).",
     "- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.",

@@ -35,12 +35,8 @@ Universal rule for all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, 
    - **🛡️ Outer-Loop (Checkpoint Verification & Sync)**:
      - Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at logical task checkpoints: when the entire multi-step task is complete, when explicitly requested by the developer, or before finalizing git commits.
 
-## 🛠️ Available Commands (v2.7.0 Reactive State & API Call-Graph Engine)
+## 🛠️ Available Commands (v2.8.0 Multi-Harness & Inverted Index Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
-- `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
-- `npx fullstack-audit --check-update`: Compares project Atlas against installed skill version and detects version drift.
-- `npx fullstack-audit --setup-all`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.
-- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
 - `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).

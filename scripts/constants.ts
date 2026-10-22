@@ -3,8 +3,8 @@
  * Single source of truth for versioning, engine metadata, and harness definitions.
  */
 
-export const FULLSTACK_AUDIT_VERSION = "2.7.0";
-export const FULLSTACK_AUDIT_ENGINE = "AST reactive graph v2";
+export const FULLSTACK_AUDIT_VERSION = "2.8.0";
+export const FULLSTACK_AUDIT_ENGINE = "Multi-Harness & Inverted Index v2.8.0";
 export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-22";
 
 export interface VersionInfo {
