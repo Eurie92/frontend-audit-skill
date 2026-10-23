@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
 description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, maps TanStack React Query cache topology, indexes test suites, and audits backend API routes, domain services, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
-version: 2.10.0
+version: 2.10.1
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -115,7 +115,7 @@ Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and
 12. **`12_TEST_SUITES_AND_COVERAGE_MAP.md`**: Pre-indexed registry of unit, integration, and E2E test suites. Eliminates blind directory greps on test assertion failures.
 13. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## 🛠️ Available Commands (v2.10.0 Multi-Harness & Inverted Index Engine)
+## 🛠️ Available Commands (v2.10.1 Multi-Harness & Inverted Index Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
 - `npx fullstack-audit --check-update`: Compares project Atlas against installed skill version and detects version drift.

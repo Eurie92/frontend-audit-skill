@@ -4,33 +4,72 @@
 
 ### 1. Pre-Task Intent & Action Description (Bago Galawin ang Code)
 Kahit magbukas ang user ng bagong chat (`/new` o fresh session), **HINDI DAPAT** magsimula ng code edits o terminal execution nang walang malinaw na paliwanag.
+
 Bago gumalaw, magbigay agad ng maikli at eksaktong **Execution Brief**:
 * 🎯 **Goal / Objective**: Ano ang gagawin (1–2 pangungusap).
 * 🔍 **Root Cause / Context**: Bakit ito kailangang gawin (kung bugfix, latency trap, o feature request).
 * 📦 **Version Tier & Bump**: Anong tier ng update (Tier 1 Patch, Tier 2 Minor, Tier 3 Major) at ano ang magiging bagong version number.
 * 📁 **Target Files**: Eksaktong file paths na babaguhin.
 
-### 2. Version Governance & Release Playbook (Laging Nababago ang Version)
-Ang bawat code change, bug fix, feature, o performance patch ay **OBLIGADONG** mag-bump ng version alinsunod sa SemVer:
-* **Tier 1: LOW (Patch `x.y.Z`)**: Bug fixes, typo corrections, minor regex fixes, documentation sync.
-* **Tier 2: MEDIUM (Minor `x.Y.0`)**: Bagong CLI commands/flags (`--patch`, `--resolve`, `--symbol`), bagong atlases (`12_TEST_SUITES`), modular profiles (`--standalone`, `--profile`), non-breaking features.
-* **Tier 3: HIGH (Major `X.0.0`)**: Breaking architectural changes, pagbura ng lumang commands.
+---
 
-Checklist ng sabay-sabay na i-uupdate: `package.json`, `scripts/constants.ts`, `bin/audit.js`, `SKILL.md`, `README.md`, `CHANGELOG.md`, at internal/target skills.
+## 🏷️ Version Governance & Release Playbook (Laging Nababago ang Version)
 
-### 3. GitHub Release Description Invariant (Bawal ang Walang Description sa GitHub!)
-HINDI kailanman mag-iiwan ng blangkong GitHub release. Laging gamitin ang `gh release edit` o `gh release create` para maglagay ng kumpletong release description na may: 🚀 What's Changed, 🎛️ New Features / Flags, ⚡ Performance & Token Savings, 🛡️ Bug Fixes & Guardrails, at 📦 Installation / Upgrade commands.
+Ang bawat code change, bug fix, feature, o performance patch ay **OBLIGADONG** mag-bump ng version alinsunod sa Semantic Versioning (SemVer).
+
+### 📊 Ang 3 Update Tiers:
+
+| Tier | Antas ng Pagbabago | Bersyon | Kailan Ginagamit |
+| :--- | :--- | :---: | :--- |
+| **Tier 1: LOW** | Patch Release | `x.y.Z` | Bug fixes, typo corrections, minor regex fixes, documentation sync, maliliit na hotfixes. |
+| **Tier 2: MEDIUM** | Minor Feature Release | `x.Y.0` | Bagong CLI commands/flags (`--patch`, `--resolve`, `--symbol`), bagong atlases (`12_TEST_SUITES`), modular profiles (`--standalone`, `--profile`), non-breaking features. |
+| **Tier 3: HIGH** | Major Architecture Release | `X.0.0` | Breaking architectural changes, pagbura ng lumang commands, major overhaul ng atlas syntax o schema. |
+
+### 🔄 Checklist ng mga Files na Sabay-Sabay I-uupdate sa Bawat Version Bump:
+1. `package.json` ➔ `"version": "x.y.z"`
+2. `scripts/constants.ts` ➔ `FULLSTACK_AUDIT_VERSION = "x.y.z"`, `FULLSTACK_AUDIT_ENGINE`, `FULLSTACK_AUDIT_RELEASE_DATE`
+3. `bin/audit.js` ➔ Fallback version banner string
+4. `SKILL.md` ➔ YAML metadata `version` at CLI matrix section header
+5. `README.md` ➔ Release badge (`Release-vx.y.z-emerald.svg`), CLI Command Matrix header (`vX.Y.Z`), at atlas counts
+6. `docs/MASTER_USAGE_GUIDE.md` ➔ Title header at summary matrix
+7. `CHANGELOG.md` ➔ Bagong entry sa itaas: `## [x.y.z] - YYYY-MM-DD` na may `Added`, `Fixed`, `Changed`
+8. Internal Agent Skills ➔ I-mirror ang binagong scripts sa `.agent/skills/fullstack-audit/` at `.agent/skills/frontend-audit/`
+9. Target Consumer (`xnight`) ➔ I-sync ang updated files sa `xnight/.agent/skills/fullstack-audit/`
+
+---
+
+## 📝 GitHub Release Description Invariant (Bawal ang Walang Description sa GitHub!)
+
+Tulad ng natuklasan sa screenshot, ang mga automated GitHub releases ay maaaring maging blangko ("Full Changelog: ...") kapag tag push lamang ang naganap.
+**MAHIGPIT NA IPINAGBABAWAL ANG BLANGKONG GITHUB RELEASE.**
+
+Sa bawat release o tag push:
+
+1. Gamitin ang GitHub CLI (`gh`) para agad lagyan ng kumpletong description at title ang release:
+    ```bash
+    gh release edit <tag> --title "vX.Y.Z: <Concise Headline>" --notes-file <path-to-notes.md>
+    # O kung bagong release:
+    gh release create <tag> --title "vX.Y.Z: <Concise Headline>" --notes-file <path-to-notes.md>
+    ```
+
+2. Ang release body ay dapat may sumusunod na istruktura:
+    * **🚀 What's Changed**: Maikling buod ng mga pagbabago.
+    * **🎛️ New Features / Flags**: Mga bagong commands at switches.
+    * **⚡ Performance & Token Savings**: Gaano kalaki ang natipid na oras at tokens.
+    * **🛡️ Bug Fixes & Guardrails**: Mga naayos na shell crashes, quoting errors, at line-ending mismatches.
+    * **📦 Installation / Upgrade Command**: Quick copy-paste one-liner para sa mga developers.
+    * **Full Changelog Link**: `https://github.com/Eurie92/fullstack-audit-skill/compare/vA.B.C...vX.Y.Z`
 
 ---
 
 <!-- START_FULLSTACK_AUDIT_RULE -->
 <!-- START_FRONTEND_AUDIT_RULE -->
-# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
+## ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
 Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).
 
-## 🔄 The 4-Phase Operational Pipeline
+### 🔄 The 4-Phase Operational Pipeline
 
-### Phase 1: GPS / Locate (`fullstack-audit`)
+#### Phase 1: GPS / Locate (`fullstack-audit`)
 - **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on the pre-computed atlases:
   - **Frontend (`docs/frontend-atlas/`)**: `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, Server/Client boundary), `02_COMPONENT_INVENTORY.md` (modals, drawers, live dots `animate-pulse`, capsule pills `rounded-full`, buttons), `03_DESIGN_TOKENS_AND_COLORS.md` (all 22+ Tailwind color families, dark mode asymmetries, hexes), `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot), `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot), `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, cache invalidation), `10_GOD_FILES_SURGICAL_MAP.md` (slice bounds for files >500 lines to save 90%+ tokens), `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (route risk score & blast radius), `12_TEST_SUITES_AND_COVERAGE_MAP.md` (failing assertions & test titles), `THEME_MIGRATION_PUNCHLIST.md` (whole-website color & dark mode rebrands).
   - **Backend (`docs/backend-atlas/`)**: `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method, auth guard), `02_DATABASE_MODELS_AND_SCHEMA.md` (by raw table name, Prisma model, Drizzle schema), `03_SERVER_ACTIONS_AND_MUTATIONS.md` (Next.js Server Action "use server"), `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (route matcher, public vs protected), `05_INTEGRATIONS_AND_WEBHOOKS.md` (Stripe, Resend, Supabase, S3), `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (trace UI button/modal directly to backend action & database model), `07_ENV_AND_SECRETS_MAP.md` (client secret leak radar).
@@ -41,7 +80,7 @@ Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Cod
 - **PowerShell Quoting Armor**: Always wrap PowerShell arguments in single-quotes `'...'`. The `&` operator is reserved (e.g. `'Help & support'`), and `$` triggers variable expansion. Use `npx fullstack-audit --patch` to edit files safely without scratch scripts.
 - **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.
 
-### Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)
+#### Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)
 - **YAGNI Invariant**: The best code is the code never written. Solve the whole problem with the least new code.
 - **The Ponytail Hierarchy**:
   1. *Does it need to exist?* Skip unasked features, options, and speculative abstractions. A vague request gets the smallest working version.
@@ -53,7 +92,7 @@ Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Cod
 - **Preserve Always**: Trust boundary validation, auth guards, data-loss error handling, accessibility.
 - **Shortcuts**: Document deliberate limits as `// shortcut: <limit>, <when to upgrade>`.
 
-### Phase 3: Communication & Zero-Fluff Receipts (`caveman`)
+#### Phase 3: Communication & Zero-Fluff Receipts (`caveman`)
 - **Answer First**: Dense result first, technical facts exact.
 - **Kill Ceremony**: No conversational filler ("Sure, I can help with that!", "I apologize for the confusion"), no preamble, no postamble.
 - **Tool Status**: Zero conversational commentary between routine tool calls.
@@ -62,7 +101,7 @@ Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Cod
   - `Diff`: `<old>` ➔ `<new>`
   - `Status`: `<HMR applied | Test pass count | Exit code>`
 
-### Phase 4: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)
+#### Phase 4: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)
 - **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy edits ≤ 2 files, < 30 lines)**:
   - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.
   - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).
@@ -78,7 +117,7 @@ Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Cod
   - **Zero Polling Invariant**: Do NOT loop on `manage_task status`. The harness features Reactive Wakeup and automatically resumes execution when tasks complete.
   - Run `npm run audit` upon milestone completion to synchronize atlases.
 
-## 🛠️ Available Commands (v2.10.0 Multi-Harness Engine)
+### 🛠️ Available Commands (v2.10.1 Multi-Harness Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.
 - `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver.

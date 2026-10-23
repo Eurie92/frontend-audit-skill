@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.10.1] - 2026-10-23
+
+> **Release Tier**: `LOW (Patch Release & Dogfooding Hardening)`  
+> **Summary**: Fixes Markdown heading and table syntax formatting in `GEMINI.md` and `AGENTS.md`, eliminates internal `.agent/` duplicate indexing from scanner recursion, and refines resolver target ordering.
+
+### 🛡️ Fixed & Hardened
+* **Markdown Formatting & Syntax Armor (`GEMINI.md` / `AGENTS.md`)**:
+  * Unified document hierarchy to avoid duplicate H1 headings, ensuring flawless rendering across GitHub, VS Code, and IDE markdown viewers.
+  * Added mandatory blank line spacing before markdown tables and 4-space indentation for fenced code blocks inside ordered lists.
+* **Scanner Exclusion for `.agent/` and `.agents/`**:
+  * Excluded `.agent` directories in `scripts/audit.ts` (`getFiles`) and `scripts/audit-backend.ts` (`getSourceFiles`).
+  * Prevents the engine from indexing its own mirrored scripts as project files and stops `--resolve` from returning `.agent/...` paths over root source files.
+
+---
+
 ## [2.10.0] - 2026-10-23
 
 > **Release Tier**: `MEDIUM (Minor Feature & Architecture Expansion)`  

@@ -784,6 +784,7 @@ function getFiles(dir: string, fileList: string[] = []): string[] {
         !item.startsWith(".next") &&
         !item.startsWith(".git") &&
         !item.startsWith(".turbo") &&
+        !item.startsWith(".agent") &&
         ![
           "node_modules", "dist", "build", ".checkpoint-stage2",
           ".svelte-kit", ".nuxt", ".astro", ".react-router", ".cache", ".output"
@@ -3790,30 +3791,30 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   lines.push("<!-- START_FRONTEND_AUDIT_RULE -->");
 
   if (isTriad) {
-    lines.push("# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)");
+    lines.push("## ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)");
     lines.push("Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).");
     lines.push("");
-    lines.push("## 🔄 The 4-Phase Operational Pipeline");
+    lines.push("### 🔄 The 4-Phase Operational Pipeline");
     lines.push("");
-    lines.push("### Phase 1: GPS / Locate (`fullstack-audit`)");
+    lines.push("#### Phase 1: GPS / Locate (`fullstack-audit`)");
   } else if (isStandalone) {
-    lines.push("# 🗺️ Fullstack Atlas Engine (0ms Zero-Grep • Dual-Speed Verify)");
+    lines.push("## 🗺️ Fullstack Atlas Engine (0ms Zero-Grep • Dual-Speed Verify)");
     lines.push("Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).");
     lines.push("");
-    lines.push("## 🔄 The Operational Protocol");
+    lines.push("### 🔄 The Operational Protocol");
     lines.push("");
-    lines.push("### 1. GPS / Locate (`fullstack-audit`)");
+    lines.push("#### 1. GPS / Locate (`fullstack-audit`)");
   } else {
     const activePillars: string[] = ["0ms Atlas"];
     if (ponytail) activePillars.push("Ponytail KISS");
     if (caveman) activePillars.push("Caveman Terse");
     if (superpowers) activePillars.push("Dual-Speed Verify");
-    lines.push(`# ⚡ Fullstack Modular Synergy Engine (${activePillars.join(" • ")})`);
+    lines.push(`## ⚡ Fullstack Modular Synergy Engine (${activePillars.join(" • ")})`);
     lines.push("Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).");
     lines.push("");
-    lines.push("## 🔄 The Operational Pipeline");
+    lines.push("### 🔄 The Operational Pipeline");
     lines.push("");
-    lines.push("### Phase 1: GPS / Locate (`fullstack-audit`)");
+    lines.push("#### Phase 1: GPS / Locate (`fullstack-audit`)");
   }
 
   // Phase 1 / GPS Content
@@ -3832,7 +3833,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
 
   // Phase 2: Ponytail / Native KISS
   if (ponytail) {
-    lines.push(`### Phase ${currentPhase}: Design & Anti-Overengineering Firewall (\`ponytail\`)`);
+    lines.push(`#### Phase ${currentPhase}: Design & Anti-Overengineering Firewall (\`ponytail\`)`);
     lines.push("- **YAGNI Invariant**: The best code is the code never written. Solve the whole problem with the least new code.");
     lines.push("- **The Ponytail Hierarchy**:");
     lines.push("  1. *Does it need to exist?* Skip unasked features, options, and speculative abstractions. A vague request gets the smallest working version.");
@@ -3846,7 +3847,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
     lines.push("");
     currentPhase++;
   } else if (isStandalone) {
-    lines.push(`### ${currentPhase}. Implementation & Minimalist Discipline`);
+    lines.push(`#### ${currentPhase}. Implementation & Minimalist Discipline`);
     lines.push("- Solve the user request with the least code necessary. Reuse existing project helpers and primitives before adding new abstractions or dependencies.");
     lines.push("- Surgical edits: keep modifications contained to the exact target files located via the atlas. Do not refactor untouched files.");
     lines.push("");
@@ -3855,7 +3856,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
 
   // Phase 3: Caveman / Natural
   if (caveman) {
-    lines.push(`### Phase ${currentPhase}: Communication & Zero-Fluff Receipts (\`caveman\`)`);
+    lines.push(`#### Phase ${currentPhase}: Communication & Zero-Fluff Receipts (\`caveman\`)`);
     lines.push("- **Answer First**: Dense result first, technical facts exact.");
     lines.push("- **Kill Ceremony**: No conversational filler (\"Sure, I can help with that!\", \"I apologize for the confusion\"), no preamble, no postamble.");
     lines.push("- **Tool Status**: Zero conversational commentary between routine tool calls.");
@@ -3869,7 +3870,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
 
   // Phase 4: Verification / Superpowers or Native Dual-Speed
   if (superpowers) {
-    lines.push(`### Phase ${currentPhase}: Right-Sized Verification (\`superpowers\` Dual-Speed Harmonization)`);
+    lines.push(`#### Phase ${currentPhase}: Right-Sized Verification (\`superpowers\` Dual-Speed Harmonization)`);
     lines.push("- **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy edits ≤ 2 files, < 30 lines)**:");
     lines.push("  - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.");
     lines.push("  - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).");
@@ -3886,7 +3887,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
     lines.push("  - Run `npm run audit` upon milestone completion to synchronize atlases.");
   } else {
     const phaseLabel = isStandalone ? `${currentPhase}. Dual-Speed Verification Loop` : `Phase ${currentPhase}: Dual-Speed Verification Loop`;
-    lines.push(`### ${phaseLabel}`);
+    lines.push(`#### ${phaseLabel}`);
     lines.push("- **⚡ Inner-Loop (Fast Mode — 1 to 2s responses for edits ≤ 2 files, < 30 lines)**:");
     lines.push("  - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.");
     lines.push("  - Do NOT run full TypeScript compilation (`tsc --noEmit`) or heavy browser MCPs on micro-edits.");
@@ -3897,7 +3898,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   }
   lines.push("");
 
-  lines.push("## 🛠️ Available Commands (v2.10.0 Multi-Harness Engine)");
+  lines.push(`### 🛠️ Available Commands (v${FULLSTACK_AUDIT_VERSION} Multi-Harness Engine)`);
   lines.push("- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.");
   lines.push("- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.");
   lines.push("- `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver.");

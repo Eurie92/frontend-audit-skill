@@ -177,6 +177,7 @@ function getSourceFiles(dir: string, fileList: string[] = []): string[] {
     if (
       item === "node_modules" ||
       item.startsWith(".next") ||
+      item.startsWith(".agent") ||
       item === ".git" ||
       item === "dist" ||
       item === "build" ||
