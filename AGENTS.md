@@ -1,5 +1,28 @@
 # AGENTS.md — Workspace Guidelines for AI Assistants
 
+## 📌 Executive Rule: Transparent Action Description & Versioning Invariant
+
+### 1. Pre-Task Intent & Action Description (Bago Galawin ang Code)
+Kahit magbukas ang user ng bagong chat (`/new` o fresh session), **HINDI DAPAT** magsimula ng code edits o terminal execution nang walang malinaw na paliwanag.
+Bago gumalaw, magbigay agad ng maikli at eksaktong **Execution Brief**:
+* 🎯 **Goal / Objective**: Ano ang gagawin (1–2 pangungusap).
+* 🔍 **Root Cause / Context**: Bakit ito kailangang gawin (kung bugfix, latency trap, o feature request).
+* 📦 **Version Tier & Bump**: Anong tier ng update (Tier 1 Patch, Tier 2 Minor, Tier 3 Major) at ano ang magiging bagong version number.
+* 📁 **Target Files**: Eksaktong file paths na babaguhin.
+
+### 2. Version Governance & Release Playbook (Laging Nababago ang Version)
+Ang bawat code change, bug fix, feature, o performance patch ay **OBLIGADONG** mag-bump ng version alinsunod sa SemVer:
+* **Tier 1: LOW (Patch `x.y.Z`)**: Bug fixes, typo corrections, minor regex fixes, documentation sync.
+* **Tier 2: MEDIUM (Minor `x.Y.0`)**: Bagong CLI commands/flags (`--patch`, `--resolve`, `--symbol`), bagong atlases (`12_TEST_SUITES`), modular profiles (`--standalone`, `--profile`), non-breaking features.
+* **Tier 3: HIGH (Major `X.0.0`)**: Breaking architectural changes, pagbura ng lumang commands.
+
+Checklist ng sabay-sabay na i-uupdate: `package.json`, `scripts/constants.ts`, `bin/audit.js`, `SKILL.md`, `README.md`, `CHANGELOG.md`, at internal/target skills.
+
+### 3. GitHub Release Description Invariant (Bawal ang Walang Description sa GitHub!)
+HINDI kailanman mag-iiwan ng blangkong GitHub release. Laging gamitin ang `gh release edit` o `gh release create` para maglagay ng kumpletong release description na may: 🚀 What's Changed, 🎛️ New Features / Flags, ⚡ Performance & Token Savings, 🛡️ Bug Fixes & Guardrails, at 📦 Installation / Upgrade commands.
+
+---
+
 <!-- START_FULLSTACK_AUDIT_RULE -->
 <!-- START_FRONTEND_AUDIT_RULE -->
 # ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
