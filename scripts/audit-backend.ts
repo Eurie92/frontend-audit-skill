@@ -3,15 +3,16 @@ import path from "path";
 import { FULLSTACK_AUDIT_VERSION, FULLSTACK_AUDIT_ENGINE, getAtlasProvenanceHeader, AtlasIndexEntry } from "./constants.js";
 
 /**
- * Universal Backend Atlas & Full-Stack Audit Engine (v2.0.0)
+ * Universal Backend Atlas & Full-Stack Audit Engine (v2.10.0)
  * 
  * Generates docs/backend-atlas/:
  * 1. 01_API_ROUTES_AND_ENDPOINTS.md (Next.js App/Pages Router API, Express, Hono, Remix)
- * 2. 02_DATABASE_MODELS_AND_SCHEMA.md (Prisma schema.prisma & Drizzle schema.ts)
+ * 2. 02_DATABASE_MODELS_AND_SCHEMA.md (Prisma schema.prisma, Drizzle schema.ts, Raw SQL)
  * 3. 03_SERVER_ACTIONS_AND_MUTATIONS.md ("use server" actions, mutation functions)
  * 4. 04_AUTH_AND_MIDDLEWARE_GUARDS.md (middleware.ts, public vs protected routes)
  * 5. 05_INTEGRATIONS_AND_WEBHOOKS.md (Stripe, Resend, Supabase, S3, Webhooks)
  * 6. 06_FULLSTACK_CROSS_REFERENCE_MAP.md (Bi-directional UI Trigger ➔ Backend Action / API ➔ Database Model)
+ * 7. 07_ENV_AND_SECRETS_MAP.md (Client Secret Leak Radar & Undocumented Shadow Variables)
  */
 
 const ROOT_DIR = process.cwd();

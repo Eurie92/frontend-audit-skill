@@ -20,7 +20,7 @@ We respect developer choice. Whether you want a **pure standalone atlas** with z
 
 | Feature / Capability | 🚀 Profile A: Full Synergy Triad *(Recommended)* | ⚡ Profile B: Standalone Mode | 🎯 Profile C: Selective / Custom |
 | :--- | :---: | :---: | :---: |
-| **`fullstack-audit` Engine** (18 Atlases, 0ms GPS) | ✅ Included | ✅ Included | ✅ Included |
+| **`fullstack-audit` Engine** (20 Atlases, 0ms GPS) | ✅ Included | ✅ Included | ✅ Included |
 | **`ponytail`** (KISS / Anti-Overengineering) | ✅ Included | ❌ *Built-in Native KISS* | 🎛️ Optional (`--with-ponytail`) |
 | **`caveman`** (Terse Output / Zero Fluff) | ✅ Included | ❌ *Natural Friendly Tone* | 🎛️ Optional (`--with-caveman`) |
 | **`superpowers`** (Dual-Speed Verification) | ✅ Included | ❌ *Built-in Native Gate* | 🎛️ Optional (`--with-superpowers`) |
@@ -143,15 +143,18 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ---
 
-## 🛠️ CLI Command Matrix (v2.9.0)
+## 🛠️ CLI Command Matrix (v2.10.0)
 
 | Command | Purpose |
 | :--- | :--- |
 | `npx fullstack-audit` | Regenerates both `docs/frontend-atlas/` and `docs/backend-atlas/` plus root `llms.txt`. |
 | `npx fullstack-audit -v` / `--version` | Instant (<5ms) version banner output without invoking heavy dependencies. |
 | `npx fullstack-audit --check-update` | Compares project Atlas against installed skill version and detects version drift. |
-| `npx fullstack-audit --setup-all` | Universal multi-harness installer (Cursor `.mdc`, Claude Code `.claude/commands/`, Hermes, OpenCode). |
-| `npx fullstack-audit --find <query> [--compact]` | Sub-3ms inverted index search across components, queries, text labels, and icons. |
+| `npx fullstack-audit --setup-all [--standalone \| --profile <profile>]` | Universal multi-harness installer (Cursor `.mdc`, Claude Code `.claude/commands/`, Hermes, OpenCode, `AGENTS.md` / `GEMINI.md`). |
+| `npx fullstack-audit --find <query> [--compact]` | Sub-3ms inverted index search across components, queries, test assertions, and database models. |
+| `npx fullstack-audit --resolve <name>` | Fuzzy case-insensitive component & file resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`). |
+| `npx fullstack-audit --symbol <method>` | Function/method AST line bounds slicer for God-files (>500 lines). |
+| `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"` | CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes). |
 | `npx fullstack-audit --solo` | Enforces strictly Single-Agent execution (zero subagent overhead). |
 | `npx fullstack-audit --multi-agent` | Partitions the codebase into 4 parallel zone briefs for multi-agent swarms. |
 | `npx fullstack-audit --llms` | Generates root `llms.txt` & `llms-full.txt` following the official Answer.AI standard. |
@@ -168,7 +171,7 @@ Tested head-to-head on a real production Next.js 15 App Router codebase (**448 f
 
 ## 🧭 What the Engine Produces
 
-The engine generates two distinct, zero-search directories (18 specialized architecture maps):
+The engine generates two distinct, zero-search directories (20 specialized architecture maps):
 
 ```
 your-project/
@@ -203,20 +206,36 @@ your-project/
 
 ## 🤖 Making It Always Active in Your AI Assistant
 
-To ensure **Antigravity**, **Claude Code**, **Cursor**, or **Codex** automatically uses the atlas on every task, ensure this rule is present in your project's `AGENTS.md` (the installer adds this automatically):
+To ensure **Antigravity**, **Claude Code**, **Cursor**, or **Codex** automatically uses the atlas on every task, the installer injects tailored rules into `AGENTS.md` and `GEMINI.md` based on your chosen installation profile:
+
+* **Recommended Triad (`install.ps1` / `install.sh`)**: Injects the **4-Phase Synergy Engine** (0ms Atlas ➔ Ponytail YAGNI ➔ Caveman terse receipts ➔ Dual-Speed Verification loop).
+* **Standalone Mode (`--standalone`)**: Injects a clean, self-contained rule with zero external skill references in a natural conversational tone.
+
+Example of the rule block managed in your project's `AGENTS.md`:
 
 ```markdown
 <!-- START_FULLSTACK_AUDIT_RULE -->
-## 🗺️ Fullstack Architecture & Component Lookup Rule
-For all UI, component, route, color theme, API, database, server action, or backend tasks:
+<!-- START_FRONTEND_AUDIT_RULE -->
+# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
+Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).
 
-1. **Instant Atlas Lookup (Zero-Grep / Zero-Search)**: The FIRST tool call MUST be `view_file` on:
-   - Frontend Atlas: `docs/frontend-atlas/` (Routes, Components, Design Tokens, Visible Text)
-   - Backend Atlas: `docs/backend-atlas/` (API Routes, Database Schema, Server Actions, Middleware)
-2. **Strict Prohibition on CLI/Grep for Lookups**: Do NOT run full-codebase grep searches (`Select-String` / `grep -r`). Both atlases are already indexed on disk as Markdown—read them directly.
-3. **Dual-Speed Loop & Deferred Sync**:
-   - **Inner-Loop (Fast Mode)**: For UI/styling/copy tweaks, perform direct surgical edits. Do NOT invoke heavy browser MCPs and do NOT trigger full project typechecks on micro-edits. Let the dev server HMR refresh in 50ms.
-   - **Outer-Loop (Verification Gate)**: Execute `npx fullstack-audit --verify --gate-clean` or `npm run audit` ONLY at task completion or before git commits.
+## 🔄 The 4-Phase Operational Pipeline
+### Phase 1: GPS / Locate (`fullstack-audit`)
+- Zero-Grep Mandate: First tool call MUST read `docs/frontend-atlas/` or `docs/backend-atlas/` or run `npx fullstack-audit --find "<query>" --compact`.
+- Fuzzy Resolver: Run `npx fullstack-audit --resolve "<name>"` for instant 0ms casing matching.
+- Method Slicer: Run `npx fullstack-audit --symbol "<method>"` for exact line bounds in God-files before calling `read_file`.
+- PowerShell Quoting Armor: Single-quote all arguments; use `npx fullstack-audit --patch` to avoid shell crashes.
+
+### Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)
+- YAGNI Invariant: Solve with least new code. Reuse existing project components and standard web/Tailwind primitives.
+
+### Phase 3: Communication & Zero-Fluff Receipts (`caveman`)
+- Dense results first. Conclude replies with a tight diff receipt: `Target`, `Diff`, and `Status`.
+
+### Phase 4: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)
+- Inner-Loop: Surgical edits ≤ 2 files update in 1–2s via dev server HMR. No full TypeScript runs on micro-edits.
+- Outer-Loop: Run `npx fullstack-audit --verify --gate-clean` before milestone commits.
+<!-- END_FRONTEND_AUDIT_RULE -->
 <!-- END_FULLSTACK_AUDIT_RULE -->
 ```
 

@@ -1,4 +1,4 @@
-# 🚀 Unlocking the Full Potential of `fullstack-audit` (v2.9.0 Master Guide)
+# 🚀 Unlocking the Full Potential of `fullstack-audit` (v2.10.0 Master Guide)
 
 > **The definitive operational playbook for software engineers and AI coding assistants (Antigravity, Cursor, Claude Code, Windsurf, Codex, VS Code).**
 
@@ -16,7 +16,7 @@ Modern web codebases (Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix) grow
 
 ---
 
-## 🗺️ Complete Atlas Directory (18 Specialized Maps)
+## 🗺️ Complete Atlas Directory (20 Specialized Architecture Maps)
 
 ```
 docs/
@@ -32,6 +32,7 @@ docs/
 │   ├── 09_QUERY_AND_CACHE_MAP.md           # 🔄 React Query keys, invalidation triggers & Cache Hygiene Radar
 │   ├── 10_GOD_FILES_SURGICAL_MAP.md        # ✂️ Monolithic files sliced into AST line bounds (88-99.8% token savings)
 │   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # 🚨 Composite risk scoring (0-100) & blast radius impact tiers
+│   ├── 12_TEST_SUITES_AND_COVERAGE_MAP.md  # 🧪 Pre-indexed test assertions & suites registry (zero-grep test locator)
 │   ├── THEME_MIGRATION_PUNCHLIST.md        # 📋 Actionable whole-website dark mode & color punchlist
 │   └── README.md                           # 📊 Frontend stats dashboard
 └── backend-atlas/
@@ -186,12 +187,16 @@ Spawn 4 subagents in parallel to execute edits across their respective zones wit
 | I want to... | Use this Command or File |
 | :--- | :--- |
 | **Audit whole project** | `npx fullstack-audit` or `npm run audit` |
+| **Configure multi-harness profiles** | `npx fullstack-audit --setup-all [--standalone \| --profile <profile>]` |
 | **Locate a UI element by text** | Read `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` |
 | **Locate an action icon** | Read `docs/frontend-atlas/07_VISUAL_AND_ICON_INDEX.md` |
+| **Resolve component name & casing in 0ms** | `npx fullstack-audit --resolve <name>` |
+| **Slice a 1,000-line God file / method bounds** | `npx fullstack-audit --symbol <method>` or `docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md` |
+| **CRLF-safe surgical patch (immune to & syntax)**| `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"` |
+| **Locate a test suite or failing assertion** | Read `docs/frontend-atlas/12_TEST_SUITES_AND_COVERAGE_MAP.md` or `npx fullstack-audit --find "test:<title>"` |
 | **Find what a button triggers in backend** | Read `docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md` |
 | **Find client-side secret leaks** | Read `docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md` |
 | **Check route blast radius** | Read `docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` |
-| **Slice a 1,000-line god file** | Read `docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md` |
 | **Check React Query cache invalidations** | Read `docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md` |
 | **Compare architectural changes** | `npx fullstack-audit --diff` |
 | **Batch re-theme colors in 80ms** | `npx fullstack-audit --migrate-theme --from "#hex" --to "token"` |

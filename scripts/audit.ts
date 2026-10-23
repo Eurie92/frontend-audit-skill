@@ -111,7 +111,7 @@ import {
 } from "./constants.js";
 
 /**
- * Universal Fullstack Atlas & Design System Audit Engine (v2.8.0)
+ * Universal Fullstack Atlas & Design System Audit Engine (v2.10.0)
  * 
  * Features:
  * 1. Multi-Framework Auto-Discovery (Next.js App/Pages Router, Vite + React SPAs, Tailwind)
