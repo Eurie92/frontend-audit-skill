@@ -693,9 +693,9 @@ async function runTestMatrix() {
     assert(Boolean(diffRes.stdout && diffRes.stdout.includes("FULLSTACK ARCHITECTURE DELTA REPORT")), "--diff outputs Delta Report table");
 
     // ============================================================
-    // Test 12: Version Transparency, Inverted Index & Multi-Harness (v2.8.0)
+    // Test 12: Version Transparency, Inverted Index & Multi-Harness
     // ============================================================
-    console.log("\n▶️ Test 12: Version Transparency, Inverted Index & Multi-Harness (v2.8.0)");
+    console.log("\n▶️ Test 12: Version Transparency, Inverted Index & Multi-Harness");
     const verRes = child_process.spawnSync(npxCmd, ["tsx", auditScript, "--version"], {
       cwd: batch4AppDir,
       encoding: "utf-8",
@@ -703,7 +703,8 @@ async function runTestMatrix() {
       stdio: "pipe"
     });
     assert(verRes.status === 0, "npx fullstack-audit --version runs with exit 0");
-    assert(Boolean(verRes.stdout && verRes.stdout.includes("v2.8.0")), "--version outputs 2.8.0");
+    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf-8"));
+    assert(Boolean(verRes.stdout && verRes.stdout.includes(`v${pkg.version}`)), `--version outputs v${pkg.version}`);
 
     const setupRes = child_process.spawnSync(npxCmd, ["tsx", auditScript, "--setup-all"], {
       cwd: batch4AppDir,
