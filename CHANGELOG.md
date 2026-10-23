@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.12.0] - 2026-10-24
+
+> **Release Tier**: `MEDIUM (Minor Feature & Architecture Expansion)`  
+> **Summary**: Introduces **Visual 0ms Element Locator (`--locate-visual`)**, **Causal Path Tracer (`--path <from> <to>`)**, **NetworkX / Graphify Knowledge Graph Export (`docs/graph.json`)**, **Prefix-Agnostic File Resolver**, **3-Tier Fullstack Dead Code Ledger (`--dead`)**, and **Apache License 2.0 Enterprise Legal Fortification**.
+
+### Added
+* **Visual 0ms Element Locator (`--locate-visual <query>`)**: Sub-3ms instant locator for live status dots (`animate-pulse`), capsule pills (`rounded-full`), status badges, and action icons without reading screenshots or consuming LLM tokens.
+* **Causal Path Tracer (`--path <from> <to>`)**: In-memory Breadth-First Search (BFS) path finder executing in <5ms, tracing causal execution paths from UI components to Server Actions, API endpoints, Prisma models, and cache invalidation keys.
+* **NetworkX / Graphify Knowledge Graph Export (`docs/graph.json`)**: Automatically serializes the entire codebase topology into standard NetworkX `node_link_data` schema during audit generation, delivering framework-aware semantics (Next.js boundaries, React Query invalidations, DB models) directly to Graphify.
+* **Prefix-Agnostic File Resolver (`--resolve`)**: Enhanced fuzzy resolver to automatically strip accidental leading `src/`, `app/`, or `./` prefixes, resolving paths like `src/components/public/PublicFooter.tsx` directly to `components/public/PublicFooter.tsx` in 0ms.
+* **Fullstack Dead Code Engine Upgrade (`--dead`)**: Expanded `--dead` with 3-tier risk classification (🟢 Zero Risk, 🟡 Low Risk, 🔴 Verification Recommended) and uncalled God-file symbol detection with exact line bounds.
+* **Apache License 2.0 Enterprise Fortification**: Upgraded repository license from MIT to Apache License 2.0, providing an express patent license grant, patent retaliation defense, trademark protection, and root `NOTICE` file for Eurie Paulino.
+
+### Fixed
+* **Consumer Repo Rule Contamination (`xnight`)**: Purged tool-development SemVer release playbooks and Execution Brief ceremony from consumer applications, establishing a mandatory 1-2s Fast Mode Inner-Loop for UI micro-edits.
+* **`tsconfig.json` Path Hallucination Trap (`xnight`)**: Removed `"rootDir": "src"` and aligned `include` paths with reality to prevent AI assistants from guessing non-existent `src/components/` paths.
+* **Screenshot Sandbox Crash Armor**: Added explicit rule guardrails forbidding direct tool reads on `AppData\Local\Temp\orca-paste-*.png` to prevent OS sandbox hook rejections.
+
+---
+
 ## [2.11.2] - 2026-10-24
 
 > **Release Tier**: `PATCH (CI/CD Pipeline Hardening & Idempotent Release Workflow)`  

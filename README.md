@@ -3,8 +3,8 @@
 > High-performance architecture atlas and GPS companion for AI coding assistants.
 > Automatically indexes Next.js, React, Nuxt, SvelteKit, Astro, Remix, and backend APIs into deterministic, zero-grep architecture maps.
 
-[![Version](https://img.shields.io/badge/version-2.11.2-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-2.12.0-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Benchmark](https://img.shields.io/badge/benchmark-100%2F100%20passed%20(0.18ms)-brightgreen.svg)](docs/BENCHMARK_100_REPORT.md)
 [![Frameworks](https://img.shields.io/badge/frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)]()
 [![Zero Config](https://img.shields.io/badge/config-zero%20config-blue.svg)]()
@@ -70,6 +70,8 @@ Simply speak to your AI assistant in natural language. Here is what happens unde
 | **Full Architecture Map** | `/fullstack-audit` or *"Audit this project"* | Generates all 20 atlases and root `llms.txt` following the Answer.AI standard. |
 | **Locate Screenshot UI Text** | *"Find the 'Export CSV' button from this screenshot"* | Queries `06_VISIBLE_TEXT_AND_LABELS_MAP.md` in 0ms to pinpoint the exact file and line number. |
 | **Locate Action Icon** | *"Where is the moon/dark-mode toggle icon?"* | Queries `07_VISUAL_AND_ICON_INDEX.md` across all Lucide and SVG icons. |
+| **Locate Visual Dots & Pills** | *"Find the green pulse dot in footer"* | Runs `--locate-visual "pulse dot"` in 0ms without reading screenshot files. |
+| **Trace Causal Path (UI to DB)** | *"Show path from CheckoutButton to UserSubscription"* | Runs `--path CheckoutButton UserSubscription` for sub-5ms causal chain. |
 | **Trace UI to API & Database** | *"Which database table does the checkout button modify?"* | Checks `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (UI Trigger -> API -> Service -> DB Model). |
 | **Edit Large (1,000L+) God-Files** | *"Fix calculateDiscount in CheckoutDrawer.tsx"* | Uses `--symbol` to slice and read only the 30 relevant lines, saving 98% context tokens. |
 | **Check Secret Leaks & Env Bugs** | *"Check for client-side secret leaks or missing envs"* | Audits `07_ENV_AND_SECRETS_MAP.md` for exposed private keys (`STRIPE_SECRET_KEY`, `DATABASE_URL`). |
@@ -259,4 +261,16 @@ curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/
 
 ## License
 
-MIT License © 2026 EURIE
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Copyright © 2026 Eurie Paulino. All rights reserved.

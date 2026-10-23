@@ -3,8 +3,8 @@
  * Single source of truth for versioning, engine metadata, and harness definitions.
  */
 
-export const FULLSTACK_AUDIT_VERSION = "2.11.2";
-export const FULLSTACK_AUDIT_ENGINE = "Living Fullstack Atlas & Minimalist Engine v2.11.2";
+export const FULLSTACK_AUDIT_VERSION = "2.12.0";
+export const FULLSTACK_AUDIT_ENGINE = "Living Fullstack Atlas & Minimalist Engine v2.12.0";
 export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-24";
 
 export type AuditProfile = "triad" | "standalone" | "custom";
@@ -38,7 +38,7 @@ export function getAtlasProvenanceHeader(title: string, subtitle: string): strin
 
 export interface AtlasIndexEntry {
   symbol: string;
-  category: "route" | "component" | "overlay" | "icon" | "query" | "api" | "model" | "action" | "slice" | "label" | "test" | "symbol";
+  category: "route" | "component" | "overlay" | "icon" | "query" | "api" | "model" | "action" | "slice" | "label" | "test" | "symbol" | "live-dot" | "capsule-pill";
   file: string;
   line: number;
   meta?: string;

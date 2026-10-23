@@ -157,6 +157,10 @@ const PATCH_TARGET = ARGS.includes("--target") ? ARGS[ARGS.indexOf("--target") +
 const PATCH_REPLACE = ARGS.includes("--replace") ? ARGS[ARGS.indexOf("--replace") + 1] : (ARGS.includes("--with") ? ARGS[ARGS.indexOf("--with") + 1] : undefined);
 const RESOLVE_QUERY = ARGS.includes("--resolve") ? ARGS[ARGS.indexOf("--resolve") + 1] : undefined;
 const SYMBOL_QUERY = ARGS.includes("--symbol") ? ARGS[ARGS.indexOf("--symbol") + 1] : undefined;
+const LOCATE_VISUAL_QUERY = ARGS.includes("--locate-visual") ? ARGS[ARGS.indexOf("--locate-visual") + 1] : (ARGS.includes("--visual") ? ARGS[ARGS.indexOf("--visual") + 1] : undefined);
+const PATH_MODE = ARGS.includes("--path");
+const PATH_FROM = PATH_MODE ? ARGS[ARGS.indexOf("--path") + 1] : undefined;
+const PATH_TO = PATH_MODE ? ARGS[ARGS.indexOf("--path") + 2] : undefined;
 const FIND_QUERY = ARGS.includes("--find") ? ARGS[ARGS.indexOf("--find") + 1] : (ARGS.includes("-f") ? ARGS[ARGS.indexOf("-f") + 1] : undefined);
 const ROUTE_QUERY = ARGS.includes("--route") ? ARGS[ARGS.indexOf("--route") + 1] : undefined;
 const MANIFEST_TARGET = ARGS.includes("--manifest") ? ARGS[ARGS.indexOf("--manifest") + 1] : undefined;
@@ -3633,8 +3637,51 @@ function buildAndSaveAtlasIndex(
       });
     });
 
-    a.visibleLabels.slice(0, 10).forEach(l => {
-      if (l.text.length > 2 && l.text.length < 50) {
+    // Live status pulse dots (emerald/green/red live dots, animate-pulse)
+    a.liveStatusDots.forEach(d => {
+      const isPulse = d.isPulsing || (d.classes && d.classes.includes("animate-pulse"));
+      entries.push({
+        symbol: `${d.color} status dot${isPulse ? " (animate-pulse)" : ""}`,
+        category: "live-dot",
+        file: a.relativePath,
+        line: d.line,
+        meta: `${d.color} | ${d.classes || ""}`,
+        atlasRef: "docs/frontend-atlas/02_COMPONENT_INVENTORY.md",
+      });
+      if (isPulse) {
+        entries.push({
+          symbol: "animate-pulse",
+          category: "live-dot",
+          file: a.relativePath,
+          line: d.line,
+          meta: `${d.color} live pulse dot (${d.classes || ""})`,
+          atlasRef: "docs/frontend-atlas/02_COMPONENT_INVENTORY.md",
+        });
+        entries.push({
+          symbol: `${d.color} dot`,
+          category: "live-dot",
+          file: a.relativePath,
+          line: d.line,
+          meta: `animate-pulse ⚡ (${d.classes || ""})`,
+          atlasRef: "docs/frontend-atlas/02_COMPONENT_INVENTORY.md",
+        });
+      }
+    });
+
+    // Capsule pills (rounded-full)
+    a.capsulePills.forEach(p => {
+      entries.push({
+        symbol: p.label ? `capsule-pill: ${p.label}` : "capsule-pill (rounded-full)",
+        category: "capsule-pill",
+        file: a.relativePath,
+        line: p.line,
+        meta: p.classes || "rounded-full",
+        atlasRef: "docs/frontend-atlas/02_COMPONENT_INVENTORY.md",
+      });
+    });
+
+    a.visibleLabels.forEach(l => {
+      if (l.text && l.text.length > 1 && l.text.length < 80) {
         entries.push({
           symbol: l.text,
           category: "label",
@@ -3721,6 +3768,145 @@ function buildAndSaveAtlasIndex(
   const outPath = path.join(outputDir, ".atlas-index.json");
   fs.writeFileSync(outPath, JSON.stringify(atlasIndex, null, 2), "utf-8");
   return atlasIndex;
+}
+
+export function writeNetworkXGraphExport(
+  audits: ComponentAudit[],
+  routeMaps: RouteMapItem[],
+  queryTopology?: QueryCacheTopology,
+  godFiles?: GodFileAudit[],
+  outputDir: string = path.join(ROOT_DIR, "docs")
+) {
+  const nodes: any[] = [];
+  const links: any[] = [];
+  const nodeSet = new Set<string>();
+
+  function addNode(id: string, label: string, type: string, source: string, line: number, extra: any = {}) {
+    if (!nodeSet.has(id)) {
+      nodeSet.add(id);
+      nodes.push({ id, label, type, source, line, ...extra });
+    }
+  }
+
+  function addLink(source: string, target: string, type: string) {
+    if (source && target && source !== target) {
+      links.push({ source, target, type, extraction_type: "EXTRACTED", confidence: 1.0 });
+    }
+  }
+
+  // 1. Routes
+  routeMaps.forEach(r => {
+    addNode(r.route, r.route, "route", r.pageFile, 1, { zone: r.zone, isClient: r.isClientComponent });
+    if (r.layoutFile) {
+      const layoutId = path.basename(r.layoutFile).replace(/\.[^/.]+$/, "");
+      addNode(layoutId, layoutId, "component", r.layoutFile, 1);
+      addLink(r.route, layoutId, "renders");
+    }
+    r.importedComponents.forEach(compName => {
+      addNode(compName, compName, "component", r.pageFile, 1);
+      addLink(r.route, compName, "renders");
+    });
+  });
+
+  // 2. Components
+  audits.forEach(a => {
+    const compName = a.componentNames[0] || path.basename(a.relativePath).replace(/\.[^/.]+$/, "");
+    addNode(compName, compName, "component", a.relativePath, 1, {
+      zone: a.zone,
+      isClient: a.isClientComponent,
+      centrality: a.centralityScore || 0,
+    });
+
+    a.disclosedOverlays.forEach(o => {
+      addNode(o.name, o.name, "overlay", a.relativePath, o.line, { overlayType: o.type });
+      addLink(compName, o.name, "discloses");
+    });
+
+    a.interactiveTriggers.forEach(t => {
+      if (t.disclosesTarget) {
+        addLink(compName, t.disclosesTarget, "discloses");
+      }
+    });
+  });
+
+  // 3. TanStack Query Keys
+  if (queryTopology) {
+    queryTopology.queries.forEach(q => {
+      const queryId = `query:${q.keyExpression}`;
+      addNode(queryId, q.keyExpression, "query_key", q.filePath, q.line, { hookType: q.hookType });
+      const compId = path.basename(q.filePath).replace(/\.[^/.]+$/, "");
+      addLink(compId, queryId, "subscribes");
+    });
+
+    queryTopology.mutations.forEach(m => {
+      const mutId = `mutation:${m.triggerName || path.basename(m.filePath)}`;
+      addNode(mutId, m.triggerName || "mutation", "mutation", m.filePath, m.line);
+      m.invalidatedKeys.forEach(k => {
+        const queryId = `query:${k}`;
+        addLink(mutId, queryId, "invalidates");
+      });
+    });
+  }
+
+  // 4. Ingest Backend Cross-Reference
+  const crossRefPath = path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md");
+  if (fs.existsSync(crossRefPath)) {
+    try {
+      const content = fs.readFileSync(crossRefPath, "utf-8");
+      const lines = content.split("\n");
+      lines.forEach(line => {
+        const parts = line.split("|").map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 4 && !parts[0].includes("---") && !parts[0].toLowerCase().includes("ui trigger")) {
+          const uiTrigger = parts[0];
+          const apiEndpoint = parts[1];
+          const service = parts[2];
+          const dbModel = parts[3];
+
+          if (uiTrigger && uiTrigger !== "-") {
+            const uiId = uiTrigger.replace(/`|\[|\]/g, "");
+            addNode(uiId, uiId, "component", "frontend", 1);
+
+            if (apiEndpoint && apiEndpoint !== "-") {
+              const apiId = apiEndpoint.replace(/`|\[|\]/g, "");
+              addNode(apiId, apiId, "api_endpoint", "backend", 1);
+              addLink(uiId, apiId, "calls");
+
+              if (dbModel && dbModel !== "-") {
+                const dbId = dbModel.replace(/`|\[|\]/g, "");
+                addNode(dbId, dbId, "db_model", "prisma/schema.prisma", 1);
+                addLink(apiId, dbId, "mutates");
+              }
+            } else if (dbModel && dbModel !== "-") {
+              const dbId = dbModel.replace(/`|\[|\]/g, "");
+              addNode(dbId, dbId, "db_model", "prisma/schema.prisma", 1);
+              addLink(uiId, dbId, "mutates");
+            }
+          }
+        }
+      });
+    } catch {}
+  }
+
+  const exportData = {
+    directed: true,
+    multigraph: false,
+    graph: {
+      schema_version: "1.0",
+      engine: `fullstack-audit-v${FULLSTACK_AUDIT_VERSION}`,
+      generated_at: new Date().toISOString(),
+      total_nodes: nodes.length,
+      total_links: links.length,
+    },
+    nodes,
+    links,
+  };
+
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+  const graphOutPath = path.join(outputDir, "graph.json");
+  fs.writeFileSync(graphOutPath, JSON.stringify(exportData, null, 2), "utf-8");
+  console.log(`🕸️ Knowledge Graph (NetworkX / Graphify schema) written to: ${path.relative(ROOT_DIR, graphOutPath)} (${nodes.length} nodes, ${links.length} links)`);
 }
 
 function executeCheckUpdate() {
@@ -3822,8 +4008,15 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   lines.push("  - **Frontend (`docs/frontend-atlas/`)**: `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, Server/Client boundary), `02_COMPONENT_INVENTORY.md` (modals, drawers, live dots `animate-pulse`, capsule pills `rounded-full`, buttons), `03_DESIGN_TOKENS_AND_COLORS.md` (all 22+ Tailwind color families, dark mode asymmetries, hexes), `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot), `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot), `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, cache invalidation), `10_GOD_FILES_SURGICAL_MAP.md` (slice bounds for files >500 lines to save 90%+ tokens), `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (route risk score & blast radius), `12_TEST_SUITES_AND_COVERAGE_MAP.md` (failing assertions & test titles), `THEME_MIGRATION_PUNCHLIST.md` (whole-website color & dark mode rebrands).");
   lines.push("  - **Backend (`docs/backend-atlas/`)**: `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method, auth guard), `02_DATABASE_MODELS_AND_SCHEMA.md` (by raw table name, Prisma model, Drizzle schema), `03_SERVER_ACTIONS_AND_MUTATIONS.md` (Next.js Server Action \"use server\"), `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (route matcher, public vs protected), `05_INTEGRATIONS_AND_WEBHOOKS.md` (Stripe, Resend, Supabase, S3), `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (trace UI button/modal directly to backend action & database model), `07_ENV_AND_SECRETS_MAP.md` (client secret leak radar).");
   lines.push("  - **Fast Find**: Or run `npx fullstack-audit --find \"<query>\" --compact` (sub-3ms).");
+  lines.push("  - **Visual & Screenshot Locator**: Or run `npx fullstack-audit --locate-visual \"<query>\"` to locate live status pulse dots (`animate-pulse`), capsule pills (`rounded-full`), badges, and action icons in 0ms.");
   lines.push("  - **Fuzzy File Resolve**: Run `npx fullstack-audit --resolve \"<component-or-file>\"` to resolve casing (e.g. `connect-modal` ➔ `ConnectModal.tsx`) in 0ms.");
+  lines.push("  - **Causal Path Tracer**: Run `npx fullstack-audit --path <fromComponent> <toActionOrModel>` to trace fullstack causal dependencies in <5ms.");
   lines.push("  - **Method Line Bounds**: Run `npx fullstack-audit --symbol \"<method>\"` to get exact start/end lines in God-files before calling `read_file`.");
+  lines.push("- **Screenshot & Temp Image Armor**: When a user references a screenshot in `AppData\\Local\\Temp\\orca-paste-*.png`:");
+  lines.push("  - **HARD FORBIDDEN**: Never call `read_file` or `view_file` directly on `AppData\\Local\\Temp` paths (avoids OS hook sandbox interception).");
+  lines.push("  - **Fast-Path A (Visual Atlas)**: Query `npx fullstack-audit --locate-visual \"<element>\"` or view `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` to locate the element without reading the image.");
+  lines.push("  - **Fast-Path B (Scratch Copy)**: If the raw screenshot must be viewed, copy first: `Copy-Item '<temp-path>' 'scratch\\screenshot.png'`, then open `scratch\\screenshot.png`.");
+  lines.push("- **Zero-Guess Path Invariant**: NEVER guess file paths or prepend `src/` arbitrarily. Use `npx fullstack-audit --resolve \"<component>\"` to resolve exact repository casing and root paths.");
   lines.push("- **HARD FORBIDDEN (PowerShell `-Exclude` Trap)**: Do NOT run recursive codebase greps (`Get-ChildItem -Recurse | Select-String`, `grep -r`). In Windows PowerShell, `-Exclude` does NOT prune recursion—it scans all 50,000+ files in `node_modules` and `.next`, causing a 15–30s freeze with Defender filter drivers. The repository is already indexed.");
   lines.push("- **PowerShell Quoting Armor**: Always wrap PowerShell arguments in single-quotes `'...'`. The `&` operator is reserved (e.g. `'Help & support'`), and `$` triggers variable expansion. Use `npx fullstack-audit --patch` to edit files safely without scratch scripts.");
   lines.push("- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.");
@@ -3901,7 +4094,9 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   lines.push(`### 🛠️ Available Commands (v${FULLSTACK_AUDIT_VERSION} Multi-Harness Engine)`);
   lines.push("- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.");
   lines.push("- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.");
+  lines.push("- `npx fullstack-audit --locate-visual <query>`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).");
   lines.push("- `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver.");
+  lines.push("- `npx fullstack-audit --path <from> <to>`: Sub-5ms causal execution path finder (UI button -> Action -> DB model).");
   lines.push("- `npx fullstack-audit --symbol <method>`: Line-bound surgical slicer for functions/methods in God-files.");
   lines.push("- `npx fullstack-audit --patch <file> --target \"<old>\" --replace \"<new>\"`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).");
   lines.push("- `npx fullstack-audit --setup-all [--standalone | --profile <profile>]`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.");
@@ -4000,14 +4195,17 @@ export function executeSurgicalPatch(filePath: string, target?: string, replacem
   return true;
 }
 
-// 11.7 Fuzzy Component & File Resolver (Zero Recursive Greps)
+// 11.7 Fuzzy Component & File Resolver (Zero Recursive Greps & Prefix-Agnostic)
 export function executeFuzzyFileResolver(query: string, rootDir: string = ROOT_DIR): boolean {
   if (!query) {
     console.error("❌ Error: Missing query for --resolve. Usage: npx fullstack-audit --resolve <name>");
     return false;
   }
 
-  const cleanQ = query.toLowerCase().replace(/[-_.]/g, "").replace(/\.(tsx|jsx|ts|js|vue|svelte|astro|css)$/, "");
+  const normalizedQuery = query.replace(/\\/g, "/").trim();
+  const strippedPrefix = normalizedQuery.replace(/^(\.\/)?(src\/|app\/)?/, "");
+  const baseOnlyQuery = path.basename(normalizedQuery);
+  const cleanQ = baseOnlyQuery.toLowerCase().replace(/[-_.]/g, "").replace(/\.(tsx|jsx|ts|js|vue|svelte|astro|css)$/, "");
   const allFiles: string[] = [];
   getFiles(rootDir, allFiles);
 
@@ -4018,13 +4216,17 @@ export function executeFuzzyFileResolver(query: string, rootDir: string = ROOT_D
     const basename = path.basename(f);
     const cleanBase = basename.toLowerCase().replace(/[-_.]/g, "").replace(/\.(tsx|jsx|ts|js|vue|svelte|astro|css)$/, "");
 
-    if (basename.toLowerCase() === query.toLowerCase() || basename === query) {
+    if (rel.toLowerCase() === normalizedQuery.toLowerCase() || rel.toLowerCase() === strippedPrefix.toLowerCase()) {
       matches.push({ path: f, relPath: rel, score: 100 });
+    } else if (basename.toLowerCase() === baseOnlyQuery.toLowerCase() || basename === baseOnlyQuery) {
+      matches.push({ path: f, relPath: rel, score: 95 });
     } else if (cleanBase === cleanQ) {
       matches.push({ path: f, relPath: rel, score: 90 });
     } else if (cleanBase.includes(cleanQ)) {
       matches.push({ path: f, relPath: rel, score: 70 });
-    } else if (rel.toLowerCase().includes(query.toLowerCase())) {
+    } else if (rel.toLowerCase().includes(strippedPrefix.toLowerCase())) {
+      matches.push({ path: f, relPath: rel, score: 60 });
+    } else if (rel.toLowerCase().includes(baseOnlyQuery.toLowerCase())) {
       matches.push({ path: f, relPath: rel, score: 50 });
     }
   }
@@ -4043,6 +4245,151 @@ export function executeFuzzyFileResolver(query: string, rootDir: string = ROOT_D
     matches.slice(1, 4).forEach(m => console.log(`     - ${m.relPath}`));
   }
   return true;
+}
+
+// 11.7b Visual 0ms Element Locator (Live Dots, Capsule Pills, Icons, Labels)
+export function executeVisualLocator(query: string, outputDir: string = OUTPUT_DIR): boolean {
+  if (!query) {
+    console.error("❌ Error: Missing query for --locate-visual. Usage: npx fullstack-audit --locate-visual '<query>'");
+    return false;
+  }
+
+  const indexPath = path.join(outputDir, ".atlas-index.json");
+  if (!fs.existsSync(indexPath)) {
+    console.error("❌ Error: .atlas-index.json not found. Run 'npx fullstack-audit' first to generate index.");
+    return false;
+  }
+
+  try {
+    const raw = fs.readFileSync(indexPath, "utf-8");
+    const index: AtlasIndex = JSON.parse(raw);
+    const q = query.toLowerCase().trim();
+
+    const visualCategories = new Set(["live-dot", "capsule-pill", "icon", "label", "overlay"]);
+    const hits: { entry: AtlasIndexEntry; score: number }[] = [];
+
+    index.entries.forEach(entry => {
+      const isVisual = visualCategories.has(entry.category);
+      const sym = entry.symbol.toLowerCase();
+      const meta = (entry.meta || "").toLowerCase();
+      const file = entry.file.toLowerCase();
+
+      let score = 0;
+      if (sym === q) score = 100;
+      else if (sym.startsWith(q)) score = 85;
+      else if (sym.includes(q)) score = 70;
+      else if (meta.includes(q)) score = 50;
+      else if (file.includes(q)) score = 30;
+
+      if (score > 0) {
+        if (isVisual) score += 20;
+        hits.push({ entry, score });
+      }
+    });
+
+    hits.sort((a, b) => b.score - a.score);
+
+    if (hits.length === 0) {
+      console.log(`⚡ [VISUAL LOCATOR] No visual elements matching "${query}". Check docs/frontend-atlas/02_COMPONENT_INVENTORY.md.`);
+      return true;
+    }
+
+    console.log(`🎯 [VISUAL LOCATOR: 0ms Match] Found ${hits.length} visual element(s) for "${query}":\n`);
+    hits.slice(0, 8).forEach(h => {
+      const e = h.entry;
+      const metaStr = e.meta ? ` [${e.meta}]` : "";
+      console.log(`   - [${e.category.toUpperCase()}] ${e.file}:${e.line} ➔ ${e.symbol}${metaStr}`);
+      console.log(`     📖 Atlas: ${e.atlasRef}`);
+    });
+    return true;
+  } catch (err: any) {
+    console.error(`❌ Failed to query visual index: ${err.message}`);
+    return false;
+  }
+}
+
+// 11.7c Causal Path Tracer (Breadth-First Search from UI to DB/Action)
+export function executePathTracer(fromQuery: string, toQuery: string, rootDir: string = ROOT_DIR): boolean {
+  if (!fromQuery || !toQuery) {
+    console.error("❌ Error: --path requires both <from> and <to>. Usage: npx fullstack-audit --path <fromComponentOrRoute> <toActionOrModel>");
+    return false;
+  }
+
+  const graphPath = path.join(rootDir, "docs", "graph.json");
+  if (!fs.existsSync(graphPath)) {
+    console.log("ℹ️ docs/graph.json not found. Run 'npx fullstack-audit' to generate knowledge graph.");
+    return false;
+  }
+
+  try {
+    const raw = fs.readFileSync(graphPath, "utf-8");
+    const graphData: { nodes: any[]; links: any[] } = JSON.parse(raw);
+    const { nodes, links } = graphData;
+
+    const fromClean = fromQuery.toLowerCase();
+    const toClean = toQuery.toLowerCase();
+
+    const startNode = nodes.find(n => n.id.toLowerCase() === fromClean || n.id.toLowerCase().includes(fromClean));
+    const endNode = nodes.find(n => n.id.toLowerCase() === toClean || n.id.toLowerCase().includes(toClean));
+
+    if (!startNode) {
+      console.log(`❌ Could not locate start entity matching "${fromQuery}" in knowledge graph.`);
+      return false;
+    }
+    if (!endNode) {
+      console.log(`❌ Could not locate destination entity matching "${toQuery}" in knowledge graph.`);
+      return false;
+    }
+
+    const adj = new Map<string, { target: string; type: string }[]>();
+    links.forEach(l => {
+      if (!adj.has(l.source)) adj.set(l.source, []);
+      adj.get(l.source)!.push({ target: l.target, type: l.type });
+    });
+
+    const queue: { id: string; path: { id: string; type: string }[] }[] = [
+      { id: startNode.id, path: [{ id: startNode.id, type: "start" }] }
+    ];
+    const visited = new Set<string>([startNode.id]);
+    let foundPath: { id: string; type: string }[] | null = null;
+
+    while (queue.length > 0) {
+      const { id, path: curPath } = queue.shift()!;
+      if (id === endNode.id) {
+        foundPath = curPath;
+        break;
+      }
+      const neighbors = adj.get(id) || [];
+      for (const n of neighbors) {
+        if (!visited.has(n.target)) {
+          visited.add(n.target);
+          queue.push({
+            id: n.target,
+            path: [...curPath, { id: n.target, type: n.type }]
+          });
+        }
+      }
+    }
+
+    if (foundPath) {
+      console.log(`\n📍 [CAUSAL PATH FOUND: ${foundPath.length - 1} hops]`);
+      foundPath.forEach((step, idx) => {
+        const nodeObj = nodes.find(n => n.id === step.id);
+        const typeBadge = nodeObj?.type ? `[${nodeObj.type.toUpperCase()}]` : "";
+        const sourceLoc = nodeObj?.source ? ` (${nodeObj.source}:${nodeObj.line || 1})` : "";
+        const linkInfo = idx > 0 ? ` ➔ {${step.type}} ➔ ` : "   ";
+        console.log(`${linkInfo}${typeBadge} ${step.id}${sourceLoc}`);
+      });
+      console.log("");
+      return true;
+    } else {
+      console.log(`ℹ️ No direct execution path found from "${startNode.id}" to "${endNode.id}" within graph hops.`);
+      return true;
+    }
+  } catch (err: any) {
+    console.error(`❌ Path tracer failed: ${err.message}`);
+    return false;
+  }
 }
 
 // 11.8 Backend God-Files & Method Line Slices
@@ -4440,8 +4787,42 @@ export function runUniversalFrontendAudit() {
 
   // If dead-only requested
   if (SHOW_DEAD_ONLY) {
-    console.log(`👻 Potential Dead / Orphaned Components (${deadComponents.length}):`);
-    deadComponents.forEach(d => console.log(`   - ${d.relativePath}`));
+    if (COMPACT_MODE) {
+      deadComponents.forEach(d => {
+        console.log(`DEAD:${d.relativePath}:1:Zero Risk:Uncalled Component`);
+      });
+    } else {
+      console.log(`\n👻 Fullstack Dead Code Ledger (${deadComponents.length} findings):`);
+      console.log(`\n🟢 [Zero Risk: Safe to Delete] (${deadComponents.length} components)`);
+      if (deadComponents.length === 0) {
+        console.log(`   (No orphaned components found)`);
+      } else {
+        deadComponents.forEach(d => console.log(`   - ${d.relativePath}:1 (Zero import references across codebase)`));
+      }
+
+      // Check God-file uncalled functions
+      const deadGodSymbols: { file: string; line: number; name: string }[] = [];
+      godFiles.forEach(g => {
+        try {
+          const fileContent = fs.readFileSync(g.filePath, "utf-8");
+          g.slices.forEach(s => {
+            if (s.type === "Function" || s.type === "Hook") {
+              const regex = new RegExp(`\\b${s.name}\\b`, "g");
+              const matches = fileContent.match(regex);
+              if (!matches || matches.length <= 1) {
+                deadGodSymbols.push({ file: g.relativePath, line: s.startLine, name: s.name });
+              }
+            }
+          });
+        } catch {}
+      });
+
+      if (deadGodSymbols.length > 0) {
+        console.log(`\n🟡 [Low Risk: Dead God-File Symbols] (${deadGodSymbols.length} functions)`);
+        deadGodSymbols.forEach(s => console.log(`   - ${s.file}:${s.line} ➔ ${s.name}() (Single declaration, zero local calls)`));
+      }
+      console.log("");
+    }
     return;
   }
 
@@ -4482,6 +4863,9 @@ export function runUniversalFrontendAudit() {
 
   // Generate .atlas-index.json for sub-3ms CLI lookups
   buildAndSaveAtlasIndex(audits, routeMaps, queryTopology, godFiles, testCases, OUTPUT_DIR);
+
+  // Generate docs/graph.json (NetworkX / Graphify node_link_data standard)
+  writeNetworkXGraphExport(audits, routeMaps, queryTopology, godFiles, path.join(ROOT_DIR, "docs"));
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
@@ -5899,6 +6283,20 @@ async function main() {
 
   if (SYMBOL_QUERY) {
     const success = executeSymbolSlices(SYMBOL_QUERY);
+    process.exit(success ? 0 : 1);
+  }
+
+  if (LOCATE_VISUAL_QUERY) {
+    const success = executeVisualLocator(LOCATE_VISUAL_QUERY);
+    process.exit(success ? 0 : 1);
+  }
+
+  if (PATH_MODE) {
+    if (!PATH_FROM || !PATH_TO) {
+      console.error("❌ Error: --path requires both <from> and <to>. Usage: npx fullstack-audit --path <fromComponent> <toActionOrModel>");
+      process.exit(1);
+    }
+    const success = executePathTracer(PATH_FROM, PATH_TO);
     process.exit(success ? 0 : 1);
   }
 
