@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.11.1] - 2026-10-24
+
+> **Release Tier**: `PATCH (Developer Experience & Documentation Refinement)`  
+> **Summary**: Introduces **Prominent Top-Level Installation Section**, **AI Chat-First Prompt Cheat Sheet**, **Demystification of Terminal `npx` vs. In-Chat Usage**, and **PowerShell Single-Quoted Here-String Installer Fix**.
+
+### Added
+* **Prominent Installation Block in README**: Positioned directly beneath the Overview for instant copy-paste onboarding across Windows (PowerShell), macOS/Linux (Bash), and zero-install `npx`.
+* **AI Chat-First Prompt Cheat Sheet**: Added a 10-point mapping table in `README.md` showing natural language developer prompts alongside autonomous AI primitives (0ms atlas queries, `--symbol` line slicing, `--diff`, `--verify`).
+* **CLI Scope Boundary Clarification**: Clarified that developers never need to memorize or run `npx` commands in the terminal while coding; the terminal CLI is purely optional for manual atlas inspection and CI/CD pipelines.
+
+### Fixed
+* **PowerShell Remote Installer Parser Crash (`scripts/install.ps1`)**: Replaced backtick-escaped double-quoted strings with PowerShell single-quoted Here-Strings (`@' ... '@`) to eliminate `ExpectedValueExpression` crashes when invoked via `iex (irm ...)`.
+* **Framework Test Suite Version Assertion (`scripts/test-frameworks.ts`)**: Replaced hardcoded version checks with dynamic `package.json` resolution, ensuring automated CI smoke tests pass cleanly across version bumps.
+
+---
+
 ## [2.11.0] - 2026-10-23
 
 > **Release Tier**: `MEDIUM (Minor Feature & Developer Experience Release)`  

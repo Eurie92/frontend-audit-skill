@@ -3,7 +3,7 @@
 > High-performance architecture atlas and GPS companion for AI coding assistants.
 > Automatically indexes Next.js, React, Nuxt, SvelteKit, Astro, Remix, and backend APIs into deterministic, zero-grep architecture maps.
 
-[![Version](https://img.shields.io/badge/version-2.11.0-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version](https://img.shields.io/badge/version-2.11.1-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Benchmark](https://img.shields.io/badge/benchmark-100%2F100%20passed%20(0.18ms)-brightgreen.svg)](docs/BENCHMARK_100_REPORT.md)
 [![Frameworks](https://img.shields.io/badge/frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)]()
@@ -21,47 +21,81 @@ Instead of relying on recursive text grepping (`grep -r` or PowerShell `Select-S
 
 ---
 
-## How to Use
+## Installation
 
-### Option 1: Inside AI Chat (Recommended)
+Install the skill into your project with a single command:
 
-Run the audit directly inside your AI coding assistant (Antigravity, Cursor, Claude Code, Windsurf):
-
-```text
-/fullstack-audit
-```
-
-You can also prompt your assistant directly:
-- *"Audit this project and map all routes."*
-- *"Find the checkout modal component."*
-- *"Trace the /api/orders endpoint to the database schema."*
-
-Your assistant automatically queries the pre-computed atlases on disk to pinpoint exact locations.
-
----
-
-### Option 2: From the Terminal (CLI)
-
-#### Windows (PowerShell / Command Prompt)
-To bypass Windows PowerShell execution restrictions (`PSSecurityException`), run via the `.cmd` wrapper:
+### Windows (PowerShell)
 ```powershell
-npx.cmd fullstack-audit
+iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
 ```
 
-*Note: To enable standard `npx` execution across all Node.js CLI tools on Windows, run once:*
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
-```
-
-#### macOS / Linux
+### macOS / Linux
 ```bash
+curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash
+```
+
+### Zero-Install via npx (Run once directly without installing)
+```powershell
+# Windows PowerShell / CMD:
+npx.cmd fullstack-audit
+
+# macOS / Linux:
 npx fullstack-audit
 ```
 
-#### In-Project Script (package.json)
-```bash
+> **What the installer does**: Copies the skill into `.agent/skills/fullstack-audit/` and configures your workspace guidelines (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursor/rules/`) so your AI assistant automatically uses the 0ms architecture atlases on every query.
+
+---
+
+## How to Use: AI Chat First (Zero Terminal Needed)
+
+> **Important**: You do **not** need to memorize or type complex `npx` terminal commands while coding.  
+> Once installed, you interact directly inside your AI chat (Antigravity, Cursor, Claude Code, Windsurf). The AI assistant handles the sub-3ms atlas lookups and surgical edits automatically under the hood.
+
+### Quick Start: Trigger the Audit
+Inside your AI chat, simply run:
+```text
+/fullstack-audit
+```
+*Your assistant generates all 20 architecture maps in `docs/` and root `llms.txt` in ~350ms.*
+
+---
+
+### AI Chat Command & Prompt Cheat Sheet
+Simply speak to your AI assistant in natural language. Here is what happens under the hood:
+
+| What You Want to Do | What to Say in AI Chat | What Your AI Does Under the Hood |
+| :--- | :--- | :--- |
+| **Full Architecture Map** | `/fullstack-audit` or *"Audit this project"* | Generates all 20 atlases and root `llms.txt` following the Answer.AI standard. |
+| **Locate Screenshot UI Text** | *"Find the 'Export CSV' button from this screenshot"* | Queries `06_VISIBLE_TEXT_AND_LABELS_MAP.md` in 0ms to pinpoint the exact file and line number. |
+| **Locate Action Icon** | *"Where is the moon/dark-mode toggle icon?"* | Queries `07_VISUAL_AND_ICON_INDEX.md` across all Lucide and SVG icons. |
+| **Trace UI to API & Database** | *"Which database table does the checkout button modify?"* | Checks `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (UI Trigger -> API -> Service -> DB Model). |
+| **Edit Large (1,000L+) God-Files** | *"Fix calculateDiscount in CheckoutDrawer.tsx"* | Uses `--symbol` to slice and read only the 30 relevant lines, saving 98% context tokens. |
+| **Check Secret Leaks & Env Bugs** | *"Check for client-side secret leaks or missing envs"* | Audits `07_ENV_AND_SECRETS_MAP.md` for exposed private keys (`STRIPE_SECRET_KEY`, `DATABASE_URL`). |
+| **Check Refactor Blast Radius** | *"What pages will break if I edit AdminSidebar?"* | Checks `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` for route risk scores and dependencies. |
+| **Check Architecture Changes** | *"Show what changed since the last audit"* | Runs `fullstack-audit --diff` to display newly added routes, models, and color drift. |
+| **Verify Before Git Commit** | *"Verify build and tests before I commit"* | Runs `fullstack-audit --verify --gate-clean` for a clean exit 0 check. |
+| **Batch Rebrand Color Palette** | *"Migrate all #121110 colors to dark:bg-slate-900"* | Runs `--migrate-theme` to update all files across the repository in 80ms. |
+
+---
+
+### When to Use the Terminal CLI (Optional)
+
+You only need the terminal CLI (`npx fullstack-audit`) if:
+1. You are running outside an AI assistant and want to inspect the generated Markdown atlases manually.
+2. You are integrating Fullstack Audit into automated CI/CD pipelines (GitHub Actions) to fail builds on secret leaks.
+
+```powershell
+# Windows PowerShell / Command Prompt:
+npx.cmd fullstack-audit
+
+# macOS / Linux:
+npx fullstack-audit
+
+# In-project script:
 npm run audit
-# or direct Node.js invocation:
+# or direct Node.js:
 node bin/audit.js
 ```
 
