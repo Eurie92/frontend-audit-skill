@@ -2364,7 +2364,7 @@ function discoverInstalledSkills(workspaceRoot: string = ROOT_DIR): DiscoveredSk
   return discovered;
 }
 
-// In-place, safe UTF-8 Rule Synchronizer for AGENTS.md / GEMINI.md
+// In-place, safe UTF-8 Rule Synchronizer for AGENTS.md / GEMINI.md / CLAUDE.md
 function syncAgentRulesInPlace() {
   const ruleBlock = generateDynamicRuleBlock({
     profile: "triad",
@@ -2374,39 +2374,18 @@ function syncAgentRulesInPlace() {
   });
 
   const candidates = ["AGENTS.md", "GEMINI.md", "CLAUDE.md"];
-  let targetFile: string | null = null;
+  const existingFiles = candidates.filter(f => fs.existsSync(f));
 
-  for (const f of candidates) {
-    if (fs.existsSync(f)) {
-      const content = fs.readFileSync(f, "utf8");
-      if (
-        content.includes("<!-- START_FULLSTACK_AUDIT_RULE -->") ||
-        content.includes("<!-- START_FRONTEND_AUDIT_RULE -->") ||
-        /(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup/.test(content)
-      ) {
-        targetFile = f;
-        break;
-      }
-    }
-  }
-
-  if (!targetFile) {
-    for (const f of candidates) {
-      if (fs.existsSync(f)) {
-        targetFile = f;
-        break;
-      }
-    }
-  }
-
-  if (!targetFile) {
-    targetFile = "AGENTS.md";
+  if (existingFiles.length === 0) {
+    fs.writeFileSync("AGENTS.md", `# AGENTS.md — Workspace Guidelines for AI Assistants\n\n${ruleBlock}\n`, "utf8");
+    console.log(`📄 Created AGENTS.md with 100% Always-Active Fullstack Atlas rule!`);
+    return;
   }
 
   const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
   const legacyPattern = /##[ \t]*[^\r\n#]*?(?:Fullstack|Frontend) Architecture\s*&(?:amp;)?\s*Component Lookup[^\r\n]*[\s\S]*?(?=(?:\r?\n---|\r?\n##\s+(?![🛠️\?]|Available Commands)[^\r\n]+)|$)/;
 
-  if (fs.existsSync(targetFile)) {
+  for (const targetFile of existingFiles) {
     let content = fs.readFileSync(targetFile, "utf8");
     if (markerPattern.test(content)) {
       content = content.replace(markerPattern, () => ruleBlock);
@@ -2421,9 +2400,6 @@ function syncAgentRulesInPlace() {
       fs.writeFileSync(targetFile, content, "utf8");
       console.log(`🔗 Injected Fullstack Architecture Rule into ${targetFile}`);
     }
-  } else {
-    fs.writeFileSync(targetFile, `# AGENTS.md — Workspace Guidelines for AI Assistants\n\n${ruleBlock}\n`, "utf8");
-    console.log(`📄 Created AGENTS.md with 100% Always-Active Fullstack Atlas rule!`);
   }
 }
 
@@ -2461,7 +2437,7 @@ async function executeSelfUpdate() {
       return;
     }
 
-    console.log("📥 Downloading latest SKILL.md, scripts/audit.ts, and scripts/audit-backend.ts...");
+    console.log("📥 Downloading latest SKILL.md, scripts/audit.ts, scripts/audit-backend.ts, scripts/constants.ts, and bin/audit.js...");
     const skillRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/SKILL.md");
     const skillContent = await skillRes.text();
 
@@ -2471,6 +2447,12 @@ async function executeSelfUpdate() {
     const backendRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/audit-backend.ts");
     const backendContent = await backendRes.text();
 
+    const constantsRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/constants.ts");
+    const constantsContent = await constantsRes.text();
+
+    const binRes = await fetch("https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/bin/audit.js");
+    const binContent = await binRes.text();
+
     // Target locations: primary is fullstack-audit, legacy mirror is frontend-audit
     const primaryDir = fs.existsSync(".agent/skills") ? ".agent/skills/fullstack-audit" : "";
     const legacyDir = fs.existsSync(".agent/skills/frontend-audit") ? ".agent/skills/frontend-audit" : "";
@@ -2478,9 +2460,12 @@ async function executeSelfUpdate() {
     const writeTarget = (baseDir: string) => {
       if (!baseDir) return;
       fs.mkdirSync(path.join(baseDir, "scripts"), { recursive: true });
+      fs.mkdirSync(path.join(baseDir, "bin"), { recursive: true });
       fs.writeFileSync(path.join(baseDir, "SKILL.md"), skillContent, "utf8");
       fs.writeFileSync(path.join(baseDir, "scripts", "audit.ts"), auditContent, "utf8");
       fs.writeFileSync(path.join(baseDir, "scripts", "audit-backend.ts"), backendContent, "utf8");
+      fs.writeFileSync(path.join(baseDir, "scripts", "constants.ts"), constantsContent, "utf8");
+      fs.writeFileSync(path.join(baseDir, "bin", "audit.js"), binContent, "utf8");
     };
 
     if (primaryDir) writeTarget(primaryDir);
@@ -2489,6 +2474,8 @@ async function executeSelfUpdate() {
       fs.writeFileSync("SKILL.md", skillContent, "utf8");
       fs.writeFileSync("scripts/audit.ts", auditContent, "utf8");
       fs.writeFileSync("scripts/audit-backend.ts", backendContent, "utf8");
+      fs.writeFileSync("scripts/constants.ts", constantsContent, "utf8");
+      fs.writeFileSync("bin/audit.js", binContent, "utf8");
     }
 
     console.log(`✅ Successfully updated fullstack-audit-skill engine`);

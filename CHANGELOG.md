@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.12.3] - 2026-10-24
+
+> **Release Tier**: `PATCH (Installer Hardening, Multi-Guideline Rule Sync & Windows Execution Policy Armor)`  
+> **Summary**: Hardens the automated installers (`install.ps1`, `install.sh`) and self-updater (`--update`) to guarantee that `constants.ts` and `bin/audit.js` are downloaded and that the Iron Gate Anti-Grep Mandate is always injected cleanly into all guideline files (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`). Adds comprehensive Windows PowerShell execution policy armor (`npx.ps1` fix) to `README.md`.
+
+### Fixed
+* **Multi-Guideline Rule Sync (`syncAgentRulesInPlace`)**:
+  * Fixed `syncAgentRulesInPlace()` in `scripts/audit.ts` to iterate through and update **all** existing guideline files (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`) simultaneously rather than halting after the first match.
+* **Self-Updater Asset Completeness (`executeSelfUpdate`)**:
+  * Updated `executeSelfUpdate()` in `scripts/audit.ts` to download `scripts/constants.ts` and `bin/audit.js` alongside `audit.ts`, preventing version drift during CLI self-updates.
+* **Installer Rule Block Synchronization**:
+  * Synchronized `scripts/install.ps1` and `scripts/install.sh` with the verified **Iron Gate Anti-Grep Mandate** and updated command headers to `v2.12.3`.
+  * Added `bin/audit.js` download and mirroring to both installer scripts.
+
+### Added
+* **Windows Execution Policy Armor & Update Guide**:
+  * Added dedicated **Updating the Skill** section to `README.md` documenting 4 distinct update methods (PowerShell RAM one-liner, direct Node execution, `npx.cmd`, and bash).
+  * Added **Windows Troubleshooting** guide explaining the root cause of `npx.ps1 cannot be loaded` and providing 1-second solutions (`Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force` or using `npx.cmd`).
+
+---
+
 ## [2.12.2] - 2026-10-24
 
 > **Release Tier**: `PATCH (Rule Hardening & Anti-Grep Iron Gate Mandate)`  

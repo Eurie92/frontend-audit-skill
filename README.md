@@ -3,7 +3,7 @@
 > High-performance architecture atlas and GPS companion for AI coding assistants.
 > Automatically indexes Next.js, React, Nuxt, SvelteKit, Astro, Remix, and backend APIs into deterministic, zero-grep architecture maps.
 
-[![Version](https://img.shields.io/badge/version-2.12.2-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version](https://img.shields.io/badge/version-2.12.3-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Benchmark](https://img.shields.io/badge/benchmark-100%2F100%20passed%20(0.18ms)-brightgreen.svg)](docs/BENCHMARK_100_REPORT.md)
 [![Frameworks](https://img.shields.io/badge/frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)]()
@@ -45,6 +45,63 @@ npx fullstack-audit
 ```
 
 > **What the installer does**: Copies the skill into `.agent/skills/fullstack-audit/` and configures your workspace guidelines (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursor/rules/`) so your AI assistant automatically uses the 0ms architecture atlases on every query.
+
+---
+
+## Updating the Skill
+
+Keep your installed skill, atlases, and agent guidelines up to date with the latest engine patches and security invariants:
+
+### Option 1: Universal 1-Liner (Recommended for Windows PowerShell)
+> ⚡ **Always Works**: Evaluates in memory via `iex (irm ...)` and bypasses Windows script execution policies completely without permissions issues.
+```powershell
+iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
+```
+
+### Option 2: Direct Node.js Execution (Fastest & Zero-Dependency)
+If the skill is already installed in your project, run directly using `node` (immune to PowerShell `.ps1` execution policy blocks):
+```powershell
+node .agent/skills/fullstack-audit/bin/audit.js --update
+```
+
+### Option 3: Via CLI Launcher
+- **Windows PowerShell / CMD**: Run with `.cmd` to bypass PowerShell's script execution policy block:
+  ```powershell
+  npx.cmd fullstack-audit --update
+  ```
+- **macOS / Linux**:
+  ```bash
+  npx fullstack-audit --update
+  # OR re-run installer:
+  curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash
+  ```
+
+---
+
+### ⚠️ Windows Troubleshooting: `npx : File ... npx.ps1 cannot be loaded because running scripts is disabled`
+
+If you encounter this error in Windows PowerShell:
+```text
+npx : File C:\Program Files\nodejs\npx.ps1 cannot be loaded because running scripts is disabled on this system.
+    + CategoryInfo          : SecurityError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : UnauthorizedAccess
+```
+
+**Why it happens**: On Windows, PowerShell gives priority to `.ps1` scripts over batch `.cmd` files. Windows blocks unsigned scripts by default under the `Restricted` execution policy.
+
+**Quick 1-Second Fixes**:
+1. **Permanent PowerShell Fix** (Run once in PowerShell as your current user):
+   ```powershell
+   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+   ```
+2. **Without Changing Policy**: Simply append `.cmd` to run the native batch file instead of the blocked `.ps1` script:
+   ```powershell
+   npx.cmd fullstack-audit --update
+   ```
+3. **Or run directly via Node**:
+   ```powershell
+   node .agent/skills/fullstack-audit/bin/audit.js --update
+   ```
 
 ---
 

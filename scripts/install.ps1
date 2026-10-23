@@ -68,6 +68,10 @@ Invoke-WebRequest -Uri "$BaseUrl/scripts/audit.ts" -OutFile (Join-Path $ScriptsD
 Invoke-WebRequest -Uri "$BaseUrl/scripts/audit-backend.ts" -OutFile (Join-Path $ScriptsDir "audit-backend.ts")
 Invoke-WebRequest -Uri "$BaseUrl/scripts/constants.ts" -OutFile (Join-Path $ScriptsDir "constants.ts")
 
+$BinDir = Join-Path $TargetDir "bin"
+if (-not (Test-Path $BinDir)) { New-Item -ItemType Directory -Force -Path $BinDir | Out-Null }
+Invoke-WebRequest -Uri "$BaseUrl/bin/audit.js" -OutFile (Join-Path $BinDir "audit.js")
+
 # Dynamically construct rule lines based on profile using safe Here-Strings
 $RuleParts = [System.Collections.Generic.List[string]]::new()
 $RuleParts.Add("<!-- START_FULLSTACK_AUDIT_RULE -->")
@@ -75,21 +79,21 @@ $RuleParts.Add("<!-- START_FRONTEND_AUDIT_RULE -->")
 
 if ($isTriad) {
     $RuleParts.Add(@'
-# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
+## ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
 Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).
 
-## 🔄 The 4-Phase Operational Pipeline
+### 🔄 The 4-Phase Operational Pipeline
 
-### Phase 1: GPS / Locate (`fullstack-audit`)
+#### Phase 1: GPS / Locate (`fullstack-audit`)
 '@)
 } elseif ($isStandalone) {
     $RuleParts.Add(@'
-# 🗺️ Fullstack Atlas Engine (0ms Zero-Grep • Dual-Speed Verify)
+## 🗺️ Fullstack Atlas Engine (0ms Zero-Grep • Dual-Speed Verify)
 Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).
 
-## 🔄 The Operational Protocol
+### 🔄 The Operational Protocol
 
-### 1. GPS / Locate (`fullstack-audit`)
+#### 1. GPS / Locate (`fullstack-audit`)
 '@)
 } else {
     $activePillars = [System.Collections.Generic.List[string]]::new()
@@ -97,27 +101,37 @@ Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Cod
     if ($enablePonytail) { $activePillars.Add("Ponytail KISS") }
     if ($enableCaveman) { $activePillars.Add("Caveman Terse") }
     if ($enableSuper) { $activePillars.Add("Dual-Speed Verify") }
-    $headerLine = "# ⚡ Fullstack Modular Synergy Engine ($($activePillars -join ' • '))"
+    $headerLine = "## ⚡ Fullstack Modular Synergy Engine ($($activePillars -join ' • '))"
     $RuleParts.Add($headerLine)
     $RuleParts.Add(@'
 Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).
 
-## 🔄 The Operational Pipeline
+### 🔄 The Operational Pipeline
 
-### Phase 1: GPS / Locate (`fullstack-audit`)
+#### Phase 1: GPS / Locate (`fullstack-audit`)
 '@)
 }
 
 # Phase 1 GPS Content
 $RuleParts.Add(@'
-- **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on the pre-computed atlases:
-  - **Frontend (`docs/frontend-atlas/`)**: `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, Server/Client boundary), `02_COMPONENT_INVENTORY.md` (modals, drawers, live dots `animate-pulse`, capsule pills `rounded-full`, buttons), `03_DESIGN_TOKENS_AND_COLORS.md` (all 22+ Tailwind color families, dark mode asymmetries, hexes), `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot), `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot), `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, cache invalidation), `10_GOD_FILES_SURGICAL_MAP.md` (slice bounds for files >500 lines to save 90%+ tokens), `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (route risk score & blast radius), `12_TEST_SUITES_AND_COVERAGE_MAP.md` (failing assertions & test titles), `THEME_MIGRATION_PUNCHLIST.md` (whole-website color & dark mode rebrands).
-  - **Backend (`docs/backend-atlas/`)**: `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method, auth guard), `02_DATABASE_MODELS_AND_SCHEMA.md` (by raw table name, Prisma model, Drizzle schema), `03_SERVER_ACTIONS_AND_MUTATIONS.md` (Next.js Server Action "use server"), `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (route matcher, public vs protected), `05_INTEGRATIONS_AND_WEBHOOKS.md` (Stripe, Resend, Supabase, S3), `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (trace UI button/modal directly to backend action & database model), `07_ENV_AND_SECRETS_MAP.md` (client secret leak radar).
-  - **Fast Find**: Or run `npx fullstack-audit --find "<query>" --compact` (sub-3ms).
-  - **Fuzzy File Resolve**: Run `npx fullstack-audit --resolve "<component-or-file>"` to resolve casing (e.g. `connect-modal` ➔ `ConnectModal.tsx`) in 0ms.
-  - **Method Line Bounds**: Run `npx fullstack-audit --symbol "<method>"` to get exact start/end lines in God-files before calling `read_file`.
-- **HARD FORBIDDEN (PowerShell `-Exclude` Trap)**: Do NOT run recursive codebase greps (`Get-ChildItem -Recurse | Select-String`, `grep -r`). In Windows PowerShell, `-Exclude` does NOT prune recursion—it scans all 50,000+ files in `node_modules` and `.next`, causing a 15–30s freeze with Defender filter drivers. The repository is already indexed.
-- **PowerShell Quoting Armor**: Always wrap PowerShell arguments in single-quotes `'...'`. The `&` operator is reserved (e.g. `'Help & support'`), and `$` triggers variable expansion. Use `npx fullstack-audit --patch` to edit files safely without scratch scripts.
+- 🛑 **IRON GATE INVARIANT (Zero-Grep & Zero-Scratch Absolute Mandate)**:
+  - ❌ **FORBIDDEN (All Recursive Searches)**: NEVER run `Get-ChildItem -Recurse` (under ANY parameters: `-Filter`, `-Include`, `-Path`, `-Directory`, etc.), `grep -r`, `rg`, `find`, or `dir /s`. Windows PowerShell scans `node_modules` and `.next`, causing a 15–30s Defender freeze.
+  - ❌ **FORBIDDEN (Inline Scratch Scripts)**: NEVER execute `node -e "const fs = require('fs')..."`, `python -c "..."`, or PowerShell `[IO.File]::ReadAllText` / `ForEach-Object` one-liners to locate, read, or patch files.
+  - ❌ **FORBIDDEN (Path Guessing)**: NEVER guess paths or prepend arbitrary prefixes like `src/components/`.
+  - ✅ **MANDATORY GPS FIRST-ACTION**: The FIRST tool call MUST locate the element deterministically:
+    - **Fast Find**: Run `npx fullstack-audit --find "<query>" --compact` (sub-3ms token-compact lookup).
+    - **Visual & Icon Locator**: Run `npx fullstack-audit --locate-visual "<query>"` (0ms lookup for live pulse dots `animate-pulse`, capsule pills `rounded-full`, badges, action icons).
+    - **Fuzzy Case Resolver**: Run `npx fullstack-audit --resolve "<name>"` (prefix-agnostic casing & path resolver in 0ms).
+    - **Causal Path Tracer**: Run `npx fullstack-audit --path <fromComponent> <toActionOrModel>` (sub-5ms causal dependency path).
+    - **God-File Slicer**: Run `npx fullstack-audit --symbol "<method>"` (exact start/end lines before calling `read_file`).
+    - **Pre-Computed Atlases**: Direct `view_file` on `docs/frontend-atlas/` (01 routes, 02 components, 03 tokens, 06 visible text, 07 icons) or `docs/backend-atlas/` (01 APIs, 02 DB models, 03 server actions, 04 auth).
+- **Screenshot & Temp Image Armor**: When a user references a screenshot in `AppData\Local\Temp\orca-paste-*.png`:
+  - ❌ **FORBIDDEN**: Never call `read_file` or `view_file` directly on `AppData\Local\Temp` paths (avoids OS hook sandbox interception).
+  - ⚡ **Fast-Path A (Visual Atlas)**: Query `npx fullstack-audit --locate-visual "<element>"` or view `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` in 0ms without opening the image.
+  - ⚡ **Fast-Path B (Scratch Copy)**: If the raw screenshot must be viewed, copy first: `Copy-Item '<temp-path>' 'scratch\screenshot.png'`, then open `scratch\screenshot.png`.
+- **PowerShell Quoting & Surgical Patching**:
+  - Wrap PowerShell arguments in single-quotes `'...'` (prevents `&` reserved character syntax crash and variable expansion).
+  - To edit code: Use native harness tools (`edit_file`) or `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"` (CRLF-agnostic surgical patcher).
 - **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.
 '@)
 
@@ -126,7 +140,7 @@ $currPhase = 2
 # Phase 2: Ponytail / Native KISS
 if ($enablePonytail) {
     $p2Block = @'
-### Phase __PHASE__: Design & Anti-Overengineering Firewall (`ponytail`)
+#### Phase __PHASE__: Design & Anti-Overengineering Firewall (`ponytail`)
 - **YAGNI Invariant**: The best code is the code never written. Solve the whole problem with the least new code.
 - **The Ponytail Hierarchy**:
   1. *Does it need to exist?* Skip unasked features, options, and speculative abstractions. A vague request gets the smallest working version.
@@ -142,7 +156,7 @@ if ($enablePonytail) {
     $currPhase++
 } elseif ($isStandalone) {
     $p2Standalone = @'
-### __PHASE__. Implementation & Minimalist Discipline
+#### __PHASE__. Implementation & Minimalist Discipline
 - Solve the user request with the least code necessary. Reuse existing project helpers and primitives before adding new abstractions or dependencies.
 - Surgical edits: keep modifications contained to the exact target files located via the atlas. Do not refactor untouched files.
 '@ -replace '__PHASE__', $currPhase
@@ -153,7 +167,7 @@ if ($enablePonytail) {
 # Phase 3: Caveman
 if ($enableCaveman) {
     $p3Block = @'
-### Phase __PHASE__: Communication & Zero-Fluff Receipts (`caveman`)
+#### Phase __PHASE__: Communication & Zero-Fluff Receipts (`caveman`)
 - **Answer First**: Dense result first, technical facts exact.
 - **Kill Ceremony**: No conversational filler ("Sure, I can help with that!", "I apologize for the confusion"), no preamble, no postamble.
 - **Tool Status**: Zero conversational commentary between routine tool calls.
@@ -169,7 +183,7 @@ if ($enableCaveman) {
 # Phase 4: Superpowers or Dual-Speed Gate
 if ($enableSuper) {
     $p4Block = @'
-### Phase __PHASE__: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)
+#### Phase __PHASE__: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)
 - **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy edits ≤ 2 files, < 30 lines)**:
   - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.
   - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).
@@ -189,7 +203,7 @@ if ($enableSuper) {
 } else {
     $p4Fallback = if ($isStandalone) {
         @'
-### __PHASE__. Dual-Speed Verification Loop
+#### __PHASE__. Dual-Speed Verification Loop
 - **⚡ Inner-Loop (Fast Mode — 1 to 2s responses for edits ≤ 2 files, < 30 lines)**:
   - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.
   - Do NOT run full TypeScript compilation (`tsc --noEmit`) or heavy browser MCPs on micro-edits.
@@ -199,7 +213,7 @@ if ($enableSuper) {
 '@ -replace '__PHASE__', $currPhase
     } else {
         @'
-### Phase __PHASE__: Dual-Speed Verification Loop
+#### Phase __PHASE__: Dual-Speed Verification Loop
 - **⚡ Inner-Loop (Fast Mode — 1 to 2s responses for edits ≤ 2 files, < 30 lines)**:
   - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.
   - Do NOT run full TypeScript compilation (`tsc --noEmit`) or heavy browser MCPs on micro-edits.
@@ -213,10 +227,12 @@ if ($enableSuper) {
 
 # Available Commands Block
 $RuleParts.Add(@'
-## 🛠️ Available Commands (v2.11.0 Multi-Harness Engine)
+### 🛠️ Available Commands (v2.12.3 Multi-Harness Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.
+- `npx fullstack-audit --locate-visual <query>`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).
 - `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver.
+- `npx fullstack-audit --path <from> <to>`: Sub-5ms causal execution path finder (UI button -> Action -> DB model).
 - `npx fullstack-audit --symbol <method>`: Line-bound surgical slicer for functions/methods in God-files.
 - `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).
 - `npx fullstack-audit --setup-all [--standalone | --profile <profile>]`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.
@@ -225,6 +241,7 @@ $RuleParts.Add(@'
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
 - `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
+- `npx fullstack-audit --graph`: Exports knowledge graph to `docs/graph.json` (NetworkX / Graphify schema).
 - `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
 - `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.
@@ -278,12 +295,15 @@ foreach ($target in $TargetsToUpdate) {
 # Mirror to .agent\skills\frontend-audit for 100% backward compatibility
 $LegacyDir = Join-Path (Get-Location) ".agent\skills\frontend-audit"
 $LegacyScriptsDir = Join-Path $LegacyDir "scripts"
+$LegacyBinDir = Join-Path $LegacyDir "bin"
 if (Test-Path $LegacyDir) {
     Copy-Item (Join-Path $TargetDir "SKILL.md") (Join-Path $LegacyDir "SKILL.md") -Force
     if (-not (Test-Path $LegacyScriptsDir)) { New-Item -ItemType Directory -Force -Path $LegacyScriptsDir | Out-Null }
+    if (-not (Test-Path $LegacyBinDir)) { New-Item -ItemType Directory -Force -Path $LegacyBinDir | Out-Null }
     Copy-Item (Join-Path $ScriptsDir "audit.ts") (Join-Path $LegacyScriptsDir "audit.ts") -Force
     Copy-Item (Join-Path $ScriptsDir "audit-backend.ts") (Join-Path $LegacyScriptsDir "audit-backend.ts") -Force
     Copy-Item (Join-Path $ScriptsDir "constants.ts") (Join-Path $LegacyScriptsDir "constants.ts") -Force
+    Copy-Item (Join-Path $BinDir "audit.js") (Join-Path $LegacyBinDir "audit.js") -Force
 }
 
 Write-Host "$emojiCheck fullstack-audit-skill successfully installed / updated in .agent\skills\fullstack-audit!" -ForegroundColor Green
