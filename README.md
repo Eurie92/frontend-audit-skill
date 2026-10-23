@@ -4,7 +4,7 @@
 > Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7. Catalogs frontend routes, components, live pulse dots, capsule pills, modals, and design tokens into `docs/frontend-atlas/`, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth middleware, and webhooks into `docs/backend-atlas/`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v2.9.0](https://img.shields.io/badge/Release-v2.9.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version: v2.10.0](https://img.shields.io/badge/Release-v2.10.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/fullstack-audit-skill)
 [![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
@@ -14,19 +14,79 @@
 
 ---
 
-## ⚡ 3-Second Quickstart
+## 🎛️ Installation Profiles: Choose Your Setup
 
-### 1. Install or Update in Any Web Project
+We respect developer choice. Whether you want a **pure standalone atlas** with zero external dependencies, or the **full token-saving synergy triad**, choose the profile that matches your workflow:
+
+| Feature / Capability | 🚀 Profile A: Full Synergy Triad *(Recommended)* | ⚡ Profile B: Standalone Mode | 🎯 Profile C: Selective / Custom |
+| :--- | :---: | :---: | :---: |
+| **`fullstack-audit` Engine** (18 Atlases, 0ms GPS) | ✅ Included | ✅ Included | ✅ Included |
+| **`ponytail`** (KISS / Anti-Overengineering) | ✅ Included | ❌ *Built-in Native KISS* | 🎛️ Optional (`--with-ponytail`) |
+| **`caveman`** (Terse Output / Zero Fluff) | ✅ Included | ❌ *Natural Friendly Tone* | 🎛️ Optional (`--with-caveman`) |
+| **`superpowers`** (Dual-Speed Verification) | ✅ Included | ❌ *Built-in Native Gate* | 🎛️ Optional (`--with-superpowers`) |
+| **External Skill / Plugin Dependencies** | 3 companion skills | **0 (Zero External Dependencies)** | Custom |
+| **Token Cost Reduction** | 🏆 **~92% Total Reduction** | **~65% Reduction** | **70%–85% Reduction** |
+| **Response Latency for Micro-Edits** | **1–2 seconds** | Standard HMR | 1–2 seconds |
+
+---
+
+### 🚀 Profile A: Full Synergy Triad (Recommended)
+> **Why it's #1:** Combines 0ms Atlas navigation with strict anti-overengineering and terse communication. Your AI assistant stops writing bloated 500-line wrappers, drops conversational filler, and operates at 1–2s response times.
+
 ```bash
 # Windows (PowerShell):
 iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
 
 # macOS / Linux:
 curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash
-```
-> *✨ The installer automatically sets up the skill in `.agent/skills/fullstack-audit/` and configures your project's `AGENTS.md` so your AI assistant checks the atlas on every task.*
 
-### 2. How to Run It
+# Terminal CLI / Across all harnesses:
+npx fullstack-audit --setup-all
+```
+
+*Optional Companion Plugins (for slash commands & extended tools)*:
+```bash
+# Antigravity / Gemini CLI:
+gemini plugin add ponytail && gemini plugin add caveman && gemini plugin add superpowers
+
+# Claude Code:
+claude plugin install ponytail caveman superpowers
+```
+
+---
+
+### ⚡ Profile B: Standalone Mode (Zero External Dependencies)
+> **For developers who want ONLY the fullstack atlas:** Zero external plugins, no forced Caveman terseness, and no Superpowers workflows. Your AI assistant maintains its natural, friendly conversational voice while gaining instant zero-grep atlas navigation.
+
+```bash
+# Windows (PowerShell):
+& { $(irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1) } -Standalone
+
+# macOS / Linux:
+curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash -s -- --standalone
+
+# Terminal CLI / Across all harnesses:
+npx fullstack-audit --setup-all --standalone
+```
+
+---
+
+### 🎯 Profile C: Selective / Custom Setup
+> Mix and match exactly the companion capabilities you want:
+
+```bash
+# Example 1: Triad without Superpowers (Keep Caveman + Ponytail, standard testing)
+npx fullstack-audit --setup-all --no-superpowers
+
+# Example 2: Standalone with Ponytail only (Anti-overengineering in natural conversational tone)
+npx fullstack-audit --setup-all --standalone --with-ponytail
+```
+
+---
+
+## ⚡ 3-Second Quickstart
+
+### How to Run It
 
 * **Inside AI Chat (Antigravity, Claude Code, Cursor)**:
   ```text
@@ -35,6 +95,20 @@ curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/
 * **From the Terminal (CLI)**:
   ```bash
   npx fullstack-audit
+  ```
+* **Instant Lookup & Surgical Patching**:
+  ```bash
+  # Instant sub-3ms lookup
+  npx fullstack-audit --find "UserProfile" --compact
+
+  # Fuzzy file & casing resolver
+  npx fullstack-audit --resolve "connect-modal"
+
+  # Line-bound function slices for God-files
+  npx fullstack-audit --symbol "mapOrderToDTO"
+
+  # CRLF-safe surgical patch (immune to PowerShell & syntax crashes)
+  npx fullstack-audit --patch "src/test.ts" --target "old text" --replace "new text"
   ```
 
 ---
@@ -111,6 +185,7 @@ your-project/
     │   ├── 09_QUERY_AND_CACHE_MAP.md         # 🔄 TanStack React Query cache keys, mutations & Cache Hygiene Radar
     │   ├── 10_GOD_FILES_SURGICAL_MAP.md      # ✂️ Monolithic files sliced into AST line bounds (88-99.8% token savings)
     │   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # 🚨 Composite risk scoring (0-100) & blast radius impact tiers
+    │   ├── 12_TEST_SUITES_AND_COVERAGE_MAP.md# 🧪 Unit & integration test suites registry (zero-grep assertion locator)
     │   ├── THEME_MIGRATION_PUNCHLIST.md      # 📋 Actionable checklist for theme & color rebrands
     │   └── README.md                         # 📖 Frontend summary statistics dashboard
     └── backend-atlas/

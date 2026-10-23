@@ -350,6 +350,14 @@ export function parseDatabaseModels(files: string[], rootDir: string = ROOT_DIR)
         return;
       }
 
+      if (currentModel && trimmed.startsWith("@@map")) {
+        const mapMatch = trimmed.match(/@@map\(\s*["']([^"']+)["']\s*\)/);
+        if (mapMatch) {
+          currentModel.tableName = mapMatch[1];
+        }
+        return;
+      }
+
       if (currentModel && trimmed && !trimmed.startsWith("//") && !trimmed.startsWith("@@")) {
         const parts = trimmed.split(/\s+/);
         if (parts.length >= 2) {
@@ -1516,6 +1524,24 @@ export function writeBackendAtlas(result: BackendAuditResult, rootDir: string = 
       file: m.relativePath,
       line: m.line,
       meta: `${m.orm} (${m.fields.length} fields)`,
+      atlasRef: `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md`,
+    });
+    if (m.tableName && m.tableName !== m.name) {
+      backendEntries.push({
+        symbol: m.tableName,
+        category: "model",
+        file: m.relativePath,
+        line: m.line,
+        meta: `Table: ${m.tableName} ➔ ${m.orm} Model: ${m.name}`,
+        atlasRef: `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md`,
+      });
+    }
+    backendEntries.push({
+      symbol: `table:${m.tableName || m.name.toLowerCase()}`,
+      category: "model",
+      file: m.relativePath,
+      line: m.line,
+      meta: `Table: ${m.tableName || m.name} (${m.orm})`,
       atlasRef: `docs/backend-atlas/02_DATABASE_MODELS_AND_SCHEMA.md`,
     });
   });

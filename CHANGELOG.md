@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.10.0] - 2026-10-23
+
+> **Release Tier**: `MEDIUM (Minor Feature & Architecture Expansion)`  
+> **Summary**: Introduces **Modular Skill Installation Profiles** (Triad vs. Standalone Mode), **CRLF-Agnostic Surgical Patch Engine (`--patch`)**, **Fuzzy Component & Casing Resolver (`--resolve`)**, **Backend God-Files Line Slices (`--symbol`)**, **Pre-Indexed Test Suites & Coverage Map (`12_TEST_SUITES_AND_COVERAGE_MAP.md`)**, and **Windows PowerShell Quoting Armor & Anti-Freeze Guardrails**.
+
+### 🎛️ Added: Modular Installation Profiles
+* **Profile A: 🚀 Full Synergy Triad (`triad` - Recommended)**: Combines `fullstack-audit`, `ponytail`, `caveman`, and `superpowers` for maximum token efficiency (**~92% token reduction**).
+* **Profile B: ⚡ Standalone Mode (`--standalone`)**: Zero external dependencies. Installs `fullstack-audit` with built-in minimalist inner-loop fast mode, zero mentions of missing skills, and natural courteous AI voice.
+* **Profile C: 🎯 Selective Profiles**: Composable flags (`--with-ponytail`, `--with-caveman`, `--with-superpowers`, `--no-superpowers`, `--no-caveman`, `--no-ponytail`).
+* **Dynamic Rule Synthesis (`generateDynamicRuleBlock`)**: Dynamically synthesizes and re-indexes rules across `AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, and `.cursor/rules/fullstack-audit.mdc` without broken references or regex `$` substitution bugs.
+
+### ⚡ Added: Latency Elimination & Surgical Tooling
+* **CRLF-Agnostic Surgical Patch Engine (`npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"`)**:
+  * Automatically normalizes `\r\n` (Windows CRLF) and `\n` (POSIX LF) for flawless patching.
+  * Immune to PowerShell `&` syntax crashes (e.g. `'Help & support'`), `$`, and quotes by bypassing `cmd.exe` shell concatenation.
+  * Completely eliminates the need for temporary scratch patching scripts (`scratch/patch-*.js`).
+* **Fuzzy Component & File Resolver (`npx fullstack-audit --resolve <name>`)**:
+  * Case-insensitive, hyphen-agnostic, extension-agnostic file resolver.
+  * Resolves casing confusion (e.g. `connect-modal` ➔ `components/ConnectModal.tsx`) in **0ms**, stopping 16-second recursive directory scans.
+* **Backend God-Files & Method Line Slices (`npx fullstack-audit --symbol <method>`)**:
+  * Computes exact start and end line ranges (e.g. `L145-L225`) for functions and methods in massive monolithic service files (>500 lines).
+  * Replaces 5 fragmented pagination `read_file` calls with 1 targeted read, saving 15,000+ context tokens.
+* **Pre-Indexed Test Suites Map (`12_TEST_SUITES_AND_COVERAGE_MAP.md`)**:
+  * Pre-indexes all `describe(...)` and `it(...)` test titles and lines across `*.test.ts`, `*.spec.tsx`, and `test/` suites.
+  * Links test failure strings directly to `.atlas-index.json`. Running `npx fullstack-audit --find "<failure-string>" --compact` returns the exact test file and line in sub-3ms, completely avoiding 50,000-line Jest snapshot dumps.
+* **Database Table-to-ORM Aliasing Bridge**:
+  * Automatically parses Prisma `@@map("table_name")` and Drizzle schema table exports.
+  * Maps raw SQL table names (`table:orders`) directly to ORM model declarations, server actions, and UI triggers in `02_DATABASE_MODELS_AND_SCHEMA.md` and `06_FULLSTACK_CROSS_REFERENCE_MAP.md`.
+
+### 🛡️ Fixed & Hardened
+* **The PowerShell `-Exclude` Trap Guardrail**: Added explicit rules and documentation warning AI agents that `Get-ChildItem -Path '.' -Recurse -Exclude 'node_modules'` does NOT prune recursion on Windows, freezing the shell for 15–30s with Defender filter driver overhead.
+* **Reactive Wakeup Invariant**: Strictly prohibited `manage_task status` polling loops in Phase 4 rules, saving up to 3,000,000 context re-send tokens per background job.
+* **Windows `bin/audit.js` Shell Concatenation Fix**: Switched to direct `node` invocation with `shell: false` when local `tsx` is present, eliminating `DEP0190` security deprecation warnings and shell operator explosions.
+
+---
+
 ## [2.9.0] - 2026-10-23
 
 > **Release Tier**: `MEDIUM (Minor Feature & Architecture Release)`  

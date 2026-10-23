@@ -23,12 +23,24 @@ if (args.includes("-v") || args.includes("--version")) {
 
 const scriptPath = path.resolve(__dirname, "../scripts/audit.ts");
 
-const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+// Check if local tsx cli exists to avoid cmd.exe / shell: true quoting hazards
+const localTsx = path.resolve(__dirname, "../node_modules/tsx/dist/cli.mjs");
+let child;
 
-const child = spawn(npxCmd, ["tsx", scriptPath, ...process.argv.slice(2)], {
-  stdio: "inherit",
-  shell: true,
-});
+if (fs.existsSync(localTsx)) {
+  // Direct node execution with shell: false (100% immune to & | ^ special char explosion)
+  child = spawn(process.execPath, [localTsx, scriptPath, ...args], {
+    stdio: "inherit",
+    shell: false,
+  });
+} else {
+  // Fallback to npx
+  const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+  child = spawn(npxCmd, ["tsx", scriptPath, ...args], {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+}
 
 child.on("exit", (code) => {
   process.exit(code ?? 0);

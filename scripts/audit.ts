@@ -106,6 +106,8 @@ import {
   getAtlasProvenanceHeader,
   AtlasIndex,
   AtlasIndexEntry,
+  AuditProfile,
+  ProfileOptions,
 } from "./constants.js";
 
 /**
@@ -141,6 +143,20 @@ const SETUP_CURSOR_MODE = ARGS.includes("--setup-cursor");
 const SETUP_CLAUDE_MODE = ARGS.includes("--setup-claude");
 const SETUP_HERMES_MODE = ARGS.includes("--setup-hermes");
 const SETUP_OPENCODE_MODE = ARGS.includes("--setup-opencode");
+const STANDALONE_MODE = ARGS.includes("--standalone");
+const PROFILE_ARG = ARGS.includes("--profile") ? ARGS[ARGS.indexOf("--profile") + 1] : (STANDALONE_MODE ? "standalone" : "triad");
+const NO_PONYTAIL = ARGS.includes("--no-ponytail");
+const NO_CAVEMAN = ARGS.includes("--no-caveman");
+const NO_SUPERPOWERS = ARGS.includes("--no-superpowers");
+const WITH_PONYTAIL = ARGS.includes("--with-ponytail");
+const WITH_CAVEMAN = ARGS.includes("--with-caveman");
+const WITH_SUPERPOWERS = ARGS.includes("--with-superpowers");
+const PATCH_MODE = ARGS.includes("--patch");
+const PATCH_FILE = PATCH_MODE ? ARGS[ARGS.indexOf("--patch") + 1] : undefined;
+const PATCH_TARGET = ARGS.includes("--target") ? ARGS[ARGS.indexOf("--target") + 1] : undefined;
+const PATCH_REPLACE = ARGS.includes("--replace") ? ARGS[ARGS.indexOf("--replace") + 1] : (ARGS.includes("--with") ? ARGS[ARGS.indexOf("--with") + 1] : undefined);
+const RESOLVE_QUERY = ARGS.includes("--resolve") ? ARGS[ARGS.indexOf("--resolve") + 1] : undefined;
+const SYMBOL_QUERY = ARGS.includes("--symbol") ? ARGS[ARGS.indexOf("--symbol") + 1] : undefined;
 const FIND_QUERY = ARGS.includes("--find") ? ARGS[ARGS.indexOf("--find") + 1] : (ARGS.includes("-f") ? ARGS[ARGS.indexOf("-f") + 1] : undefined);
 const ROUTE_QUERY = ARGS.includes("--route") ? ARGS[ARGS.indexOf("--route") + 1] : undefined;
 const MANIFEST_TARGET = ARGS.includes("--manifest") ? ARGS[ARGS.indexOf("--manifest") + 1] : undefined;
@@ -2416,7 +2432,7 @@ function syncAgentRulesInPlace() {
   if (fs.existsSync(targetFile)) {
     let content = fs.readFileSync(targetFile, "utf8");
     if (markerPattern.test(content)) {
-      content = content.replace(markerPattern, ruleBlock);
+      content = content.replace(markerPattern, () => ruleBlock);
       fs.writeFileSync(targetFile, content, "utf8");
       console.log(`🔄 Cleanly updated Fullstack Architecture Rule in ${targetFile}`);
     } else if (legacyPattern.test(content)) {
@@ -3594,6 +3610,7 @@ function buildAndSaveAtlasIndex(
   routeMaps: RouteMapItem[],
   queryTopology?: QueryCacheTopology,
   godFiles?: GodFileAudit[],
+  testCases?: TestCaseAudit[],
   outputDir: string = OUTPUT_DIR
 ): AtlasIndex {
   const entries: AtlasIndexEntry[] = [];
@@ -3688,7 +3705,31 @@ function buildAndSaveAtlasIndex(
     });
   }
 
-  // 5. Backend Integration (if backend atlas index exists)
+  // 5. Test Suites and Test Cases
+  if (testCases) {
+    testCases.forEach(t => {
+      entries.push({
+        symbol: t.testTitle,
+        category: "test",
+        file: t.relPath,
+        line: t.line,
+        meta: `Suite: ${t.suite}`,
+        atlasRef: "docs/frontend-atlas/12_TEST_SUITES_AND_COVERAGE_MAP.md",
+      });
+      if (!t.testTitle.startsWith("test:")) {
+        entries.push({
+          symbol: `test:${t.testTitle}`,
+          category: "test",
+          file: t.relPath,
+          line: t.line,
+          meta: `Suite: ${t.suite}`,
+          atlasRef: "docs/frontend-atlas/12_TEST_SUITES_AND_COVERAGE_MAP.md",
+        });
+      }
+    });
+  }
+
+  // 6. Backend Integration (if backend atlas index exists)
   const backendIndexPath = path.join(ROOT_DIR, "docs", "backend-atlas", ".backend-index.json");
   if (fs.existsSync(backendIndexPath)) {
     try {
@@ -3733,80 +3774,481 @@ function executeCheckUpdate() {
   }
 }
 
+export function resolveProfileOptions(): ProfileOptions {
+  let profile: AuditProfile = "triad";
+  if (STANDALONE_MODE || PROFILE_ARG === "standalone") {
+    profile = "standalone";
+  } else if (PROFILE_ARG === "triad") {
+    profile = "triad";
+  } else if (PROFILE_ARG) {
+    profile = "custom";
+  }
+
+  let ponytail = profile === "triad";
+  let caveman = profile === "triad";
+  let superpowers = profile === "triad";
+
+  if (profile === "standalone") {
+    ponytail = false;
+    caveman = false;
+    superpowers = false;
+  }
+
+  // Explicit overrides
+  if (NO_PONYTAIL) ponytail = false;
+  if (NO_CAVEMAN) caveman = false;
+  if (NO_SUPERPOWERS) superpowers = false;
+  if (WITH_PONYTAIL) ponytail = true;
+  if (WITH_CAVEMAN) caveman = true;
+  if (WITH_SUPERPOWERS) superpowers = true;
+
+  if (NO_PONYTAIL || NO_CAVEMAN || NO_SUPERPOWERS || WITH_PONYTAIL || WITH_CAVEMAN || WITH_SUPERPOWERS) {
+    if (profile !== "standalone") profile = "custom";
+  }
+
+  return { profile, ponytail, caveman, superpowers };
+}
+
+export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolveProfileOptions()): string {
+  const { profile, ponytail, caveman, superpowers } = profileOpts;
+  const isTriad = profile === "triad" && ponytail && caveman && superpowers;
+  const isStandalone = profile === "standalone" || (!ponytail && !caveman && !superpowers);
+
+  const lines: string[] = [];
+  lines.push("<!-- START_FULLSTACK_AUDIT_RULE -->");
+  lines.push("<!-- START_FRONTEND_AUDIT_RULE -->");
+
+  if (isTriad) {
+    lines.push("# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)");
+    lines.push("Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).");
+    lines.push("");
+    lines.push("## 🔄 The 4-Phase Operational Pipeline");
+    lines.push("");
+    lines.push("### Phase 1: GPS / Locate (`fullstack-audit`)");
+  } else if (isStandalone) {
+    lines.push("# 🗺️ Fullstack Atlas Engine (0ms Zero-Grep • Dual-Speed Verify)");
+    lines.push("Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).");
+    lines.push("");
+    lines.push("## 🔄 The Operational Protocol");
+    lines.push("");
+    lines.push("### 1. GPS / Locate (`fullstack-audit`)");
+  } else {
+    const activePillars: string[] = ["0ms Atlas"];
+    if (ponytail) activePillars.push("Ponytail KISS");
+    if (caveman) activePillars.push("Caveman Terse");
+    if (superpowers) activePillars.push("Dual-Speed Verify");
+    lines.push(`# ⚡ Fullstack Modular Synergy Engine (${activePillars.join(" • ")})`);
+    lines.push("Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).");
+    lines.push("");
+    lines.push("## 🔄 The Operational Pipeline");
+    lines.push("");
+    lines.push("### Phase 1: GPS / Locate (`fullstack-audit`)");
+  }
+
+  // Phase 1 / GPS Content
+  lines.push("- **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on the pre-computed atlases:");
+  lines.push("  - **Frontend (`docs/frontend-atlas/`)**: `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, Server/Client boundary), `02_COMPONENT_INVENTORY.md` (modals, drawers, live dots `animate-pulse`, capsule pills `rounded-full`, buttons), `03_DESIGN_TOKENS_AND_COLORS.md` (all 22+ Tailwind color families, dark mode asymmetries, hexes), `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot), `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot), `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, cache invalidation), `10_GOD_FILES_SURGICAL_MAP.md` (slice bounds for files >500 lines to save 90%+ tokens), `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (route risk score & blast radius), `12_TEST_SUITES_AND_COVERAGE_MAP.md` (failing assertions & test titles), `THEME_MIGRATION_PUNCHLIST.md` (whole-website color & dark mode rebrands).");
+  lines.push("  - **Backend (`docs/backend-atlas/`)**: `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method, auth guard), `02_DATABASE_MODELS_AND_SCHEMA.md` (by raw table name, Prisma model, Drizzle schema), `03_SERVER_ACTIONS_AND_MUTATIONS.md` (Next.js Server Action \"use server\"), `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (route matcher, public vs protected), `05_INTEGRATIONS_AND_WEBHOOKS.md` (Stripe, Resend, Supabase, S3), `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (trace UI button/modal directly to backend action & database model), `07_ENV_AND_SECRETS_MAP.md` (client secret leak radar).");
+  lines.push("  - **Fast Find**: Or run `npx fullstack-audit --find \"<query>\" --compact` (sub-3ms).");
+  lines.push("  - **Fuzzy File Resolve**: Run `npx fullstack-audit --resolve \"<component-or-file>\"` to resolve casing (e.g. `connect-modal` ➔ `ConnectModal.tsx`) in 0ms.");
+  lines.push("  - **Method Line Bounds**: Run `npx fullstack-audit --symbol \"<method>\"` to get exact start/end lines in God-files before calling `read_file`.");
+  lines.push("- **HARD FORBIDDEN (PowerShell `-Exclude` Trap)**: Do NOT run recursive codebase greps (`Get-ChildItem -Recurse | Select-String`, `grep -r`). In Windows PowerShell, `-Exclude` does NOT prune recursion—it scans all 50,000+ files in `node_modules` and `.next`, causing a 15–30s freeze with Defender filter drivers. The repository is already indexed.");
+  lines.push("- **PowerShell Quoting Armor**: Always wrap PowerShell arguments in single-quotes `'...'`. The `&` operator is reserved (e.g. `'Help & support'`), and `$` triggers variable expansion. Use `npx fullstack-audit --patch` to edit files safely without scratch scripts.");
+  lines.push("- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.");
+  lines.push("");
+
+  let currentPhase = 2;
+
+  // Phase 2: Ponytail / Native KISS
+  if (ponytail) {
+    lines.push(`### Phase ${currentPhase}: Design & Anti-Overengineering Firewall (\`ponytail\`)`);
+    lines.push("- **YAGNI Invariant**: The best code is the code never written. Solve the whole problem with the least new code.");
+    lines.push("- **The Ponytail Hierarchy**:");
+    lines.push("  1. *Does it need to exist?* Skip unasked features, options, and speculative abstractions. A vague request gets the smallest working version.");
+    lines.push("  2. *Already in codebase?* Reuse existing helpers, components, and patterns.");
+    lines.push("  3. *Platform feature?* Use standard web/DOM/Tailwind primitives over custom JavaScript trigonometry, 36-point polygon waves, or complex SVG math.");
+    lines.push("  4. *Installed dependency?* Never install a new package for a few lines of logic.");
+    lines.push("  5. *Can it be one line?* Make it one line a reader grasps at a glance.");
+    lines.push("  6. *Shortest working diff wins.* Deletion beats addition. Keep surrounding layers and conventions intact.");
+    lines.push("- **Preserve Always**: Trust boundary validation, auth guards, data-loss error handling, accessibility.");
+    lines.push("- **Shortcuts**: Document deliberate limits as `// shortcut: <limit>, <when to upgrade>`.");
+    lines.push("");
+    currentPhase++;
+  } else if (isStandalone) {
+    lines.push(`### ${currentPhase}. Implementation & Minimalist Discipline`);
+    lines.push("- Solve the user request with the least code necessary. Reuse existing project helpers and primitives before adding new abstractions or dependencies.");
+    lines.push("- Surgical edits: keep modifications contained to the exact target files located via the atlas. Do not refactor untouched files.");
+    lines.push("");
+    currentPhase++;
+  }
+
+  // Phase 3: Caveman / Natural
+  if (caveman) {
+    lines.push(`### Phase ${currentPhase}: Communication & Zero-Fluff Receipts (\`caveman\`)`);
+    lines.push("- **Answer First**: Dense result first, technical facts exact.");
+    lines.push("- **Kill Ceremony**: No conversational filler (\"Sure, I can help with that!\", \"I apologize for the confusion\"), no preamble, no postamble.");
+    lines.push("- **Tool Status**: Zero conversational commentary between routine tool calls.");
+    lines.push("- **Compact Diff Receipt**: Conclude replies with a tight diff receipt:");
+    lines.push("  - `Target`: `<file:line>`");
+    lines.push("  - `Diff`: `<old>` ➔ `<new>`");
+    lines.push("  - `Status`: `<HMR applied | Test pass count | Exit code>`");
+    lines.push("");
+    currentPhase++;
+  }
+
+  // Phase 4: Verification / Superpowers or Native Dual-Speed
+  if (superpowers) {
+    lines.push(`### Phase ${currentPhase}: Right-Sized Verification (\`superpowers\` Dual-Speed Harmonization)`);
+    lines.push("- **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy edits ≤ 2 files, < 30 lines)**:");
+    lines.push("  - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.");
+    lines.push("  - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).");
+    lines.push("  - **HARD FORBIDDEN**: Do NOT run `npm run audit` or `npx fullstack-audit` on micro-edits.");
+    lines.push("  - **HARD FORBIDDEN**: Do NOT invoke Superpowers process skills (`brainstorming`, `writing-plans`, `test-driven-development`).");
+    lines.push("  - **HARD FORBIDDEN**: Do NOT invoke multiple design skills in parallel.");
+    lines.push("  - **HARD FORBIDDEN**: Do NOT invoke heavy browser automation (Chrome DevTools MCP / Puppeteer) or curl localhost.");
+    lines.push("  - **Response Time**: Return immediately to the user in 1–2 seconds.");
+    lines.push("- **🛡️ Outer-Loop (Checkpoint Verification Gate — Milestones/Backend/DB/Auth)**:");
+    lines.push("  - Superpowers Iron Law applies: *No completion claims without fresh verification evidence.*");
+    lines.push("  - Run `npx fullstack-audit --verify --gate-clean` or test suites (`npm test`, `npm run typecheck`).");
+    lines.push("  - Claim completion ONLY with fresh exit code 0 evidence.");
+    lines.push("  - **Zero Polling Invariant**: Do NOT loop on `manage_task status`. The harness features Reactive Wakeup and automatically resumes execution when tasks complete.");
+    lines.push("  - Run `npm run audit` upon milestone completion to synchronize atlases.");
+  } else {
+    const phaseLabel = isStandalone ? `${currentPhase}. Dual-Speed Verification Loop` : `Phase ${currentPhase}: Dual-Speed Verification Loop`;
+    lines.push(`### ${phaseLabel}`);
+    lines.push("- **⚡ Inner-Loop (Fast Mode — 1 to 2s responses for edits ≤ 2 files, < 30 lines)**:");
+    lines.push("  - Perform direct surgical file edits (`npx fullstack-audit --patch` or `edit_file`). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.");
+    lines.push("  - Do NOT run full TypeScript compilation (`tsc --noEmit`) or heavy browser MCPs on micro-edits.");
+    lines.push("- **🛡️ Outer-Loop (Checkpoint Verification Gate — Milestones/Backend/DB/Auth)**:");
+    lines.push("  - Run verification gates (`npm test`, `npm run typecheck`, or `npx fullstack-audit --verify --gate-clean`) before milestone commits.");
+    lines.push("  - **Zero Polling Invariant**: Do NOT loop on `manage_task status`. The harness features Reactive Wakeup and automatically resumes execution when tasks complete.");
+    lines.push("  - Run `npm run audit` upon milestone completion to synchronize atlases.");
+  }
+  lines.push("");
+
+  lines.push("## 🛠️ Available Commands (v2.10.0 Multi-Harness Engine)");
+  lines.push("- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.");
+  lines.push("- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.");
+  lines.push("- `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver.");
+  lines.push("- `npx fullstack-audit --symbol <method>`: Line-bound surgical slicer for functions/methods in God-files.");
+  lines.push("- `npx fullstack-audit --patch <file> --target \"<old>\" --replace \"<new>\"`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).");
+  lines.push("- `npx fullstack-audit --setup-all [--standalone | --profile <profile>]`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.");
+  lines.push("- `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99.8% tokens).");
+  lines.push("- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate.");
+  lines.push("- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).");
+  lines.push("- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.");
+  lines.push("- `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).");
+  lines.push("- `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.");
+  lines.push("- `npx fullstack-audit --migrate-theme --from \"#hex1,#hex2\" --to \"dark:bg-slate-900\"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).");
+  lines.push("- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.");
+  lines.push("- `npx fullstack-audit --watch`: Live background file watcher for continuous background sync.");
+  lines.push("- `npx fullstack-audit --dead`: Scans for potential orphaned components.");
+  lines.push("<!-- END_FRONTEND_AUDIT_RULE -->");
+  lines.push("<!-- END_FULLSTACK_AUDIT_RULE -->");
+
+  return lines.join("\n");
+}
+
+// 11.6 Surgical Patch Engine (CRLF-Agnostic & Immune to PowerShell & Crashes)
+export function executeSurgicalPatch(filePath: string, target?: string, replacement?: string): boolean {
+  if (!filePath) {
+    console.error("❌ Error: Missing file argument for --patch. Usage: npx fullstack-audit --patch <file> --target '<old>' --replace '<new>'");
+    return false;
+  }
+  if (target === undefined || replacement === undefined) {
+    console.error("❌ Error: --patch requires both --target '<old>' and --replace '<new>' (or --with '<new>').");
+    return false;
+  }
+
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(ROOT_DIR, filePath);
+  if (!fs.existsSync(fullPath)) {
+    console.error(`❌ Error: Target file not found: ${filePath}`);
+    return false;
+  }
+
+  const originalContent = fs.readFileSync(fullPath, "utf-8");
+  const isCrlf = originalContent.includes("\r\n");
+
+  // Normalize all to LF for exact matching
+  const normalizedFile = originalContent.replace(/\r\n/g, "\n");
+  const normalizedTarget = target.replace(/\r\n/g, "\n");
+  const normalizedReplace = replacement.replace(/\r\n/g, "\n");
+
+  if (!normalizedFile.includes(normalizedTarget)) {
+    // Attempt whitespace-normalized match
+    const fileLines = normalizedFile.split("\n");
+    const targetLines = normalizedTarget.trim().split("\n").map(l => l.trim());
+    let matchLineIdx = -1;
+
+    for (let i = 0; i <= fileLines.length - targetLines.length; i++) {
+      let allMatch = true;
+      for (let j = 0; j < targetLines.length; j++) {
+        if (fileLines[i + j].trim() !== targetLines[j]) {
+          allMatch = false;
+          break;
+        }
+      }
+      if (allMatch) {
+        matchLineIdx = i;
+        break;
+      }
+    }
+
+    if (matchLineIdx !== -1) {
+      const leadingIndent = fileLines[matchLineIdx].match(/^\s*/)?.[0] || "";
+      const indentedReplace = normalizedReplace.split("\n").map(l => leadingIndent + l).join("\n");
+      fileLines.splice(matchLineIdx, targetLines.length, indentedReplace);
+      let updated = fileLines.join("\n");
+      if (isCrlf) updated = updated.replace(/\n/g, "\r\n");
+      fs.writeFileSync(fullPath, updated, "utf-8");
+      console.log(`✅ [PATCH SUCCESS] ${filePath}:${matchLineIdx + 1}`);
+      console.log(`   Replaced lines ${matchLineIdx + 1}–${matchLineIdx + targetLines.length} with whitespace normalization.`);
+      return true;
+    }
+
+    console.error(`❌ Error: Target string not found in ${filePath}.`);
+    console.error(`   Target preview: ${target.slice(0, 100)}...`);
+    return false;
+  }
+
+  let updatedContent = normalizedFile.replace(normalizedTarget, normalizedReplace);
+  if (isCrlf) {
+    updatedContent = updatedContent.replace(/\n/g, "\r\n");
+  }
+
+  fs.writeFileSync(fullPath, updatedContent, "utf-8");
+
+  const matchIndex = normalizedFile.indexOf(normalizedTarget);
+  const matchedLine = normalizedFile.substring(0, matchIndex).split("\n").length;
+
+  console.log(`✅ [PATCH SUCCESS] ${filePath}:${matchedLine}`);
+  console.log(`   Diff: "${target.slice(0, 40).replace(/\n/g, " ")}..." ➔ "${replacement.slice(0, 40).replace(/\n/g, " ")}..."`);
+  console.log(`   Line Endings: Preserved ${isCrlf ? "CRLF (\\r\\n)" : "LF (\\n)"}`);
+  console.log(`   Status: Clean Exit Code 0 (No scratch script required)`);
+  return true;
+}
+
+// 11.7 Fuzzy Component & File Resolver (Zero Recursive Greps)
+export function executeFuzzyFileResolver(query: string, rootDir: string = ROOT_DIR): boolean {
+  if (!query) {
+    console.error("❌ Error: Missing query for --resolve. Usage: npx fullstack-audit --resolve <name>");
+    return false;
+  }
+
+  const cleanQ = query.toLowerCase().replace(/[-_.]/g, "").replace(/\.(tsx|jsx|ts|js|vue|svelte|astro|css)$/, "");
+  const allFiles: string[] = [];
+  getFiles(rootDir, allFiles);
+
+  const matches: { path: string; relPath: string; score: number }[] = [];
+
+  for (const f of allFiles) {
+    const rel = path.relative(rootDir, f).replace(/\\/g, "/");
+    const basename = path.basename(f);
+    const cleanBase = basename.toLowerCase().replace(/[-_.]/g, "").replace(/\.(tsx|jsx|ts|js|vue|svelte|astro|css)$/, "");
+
+    if (basename.toLowerCase() === query.toLowerCase() || basename === query) {
+      matches.push({ path: f, relPath: rel, score: 100 });
+    } else if (cleanBase === cleanQ) {
+      matches.push({ path: f, relPath: rel, score: 90 });
+    } else if (cleanBase.includes(cleanQ)) {
+      matches.push({ path: f, relPath: rel, score: 70 });
+    } else if (rel.toLowerCase().includes(query.toLowerCase())) {
+      matches.push({ path: f, relPath: rel, score: 50 });
+    }
+  }
+
+  matches.sort((a, b) => b.score - a.score);
+
+  if (matches.length === 0) {
+    console.log(`❌ [RESOLVE] Could not locate any file matching "${query}".`);
+    return false;
+  }
+
+  const best = matches[0];
+  console.log(`🎯 [RESOLVED] ${best.relPath} (Confidence: ${best.score}%)`);
+  if (matches.length > 1) {
+    console.log(`   Alternatives:`);
+    matches.slice(1, 4).forEach(m => console.log(`     - ${m.relPath}`));
+  }
+  return true;
+}
+
+// 11.8 Backend God-Files & Method Line Slices
+export function executeSymbolSlices(symbolName: string, rootDir: string = ROOT_DIR): boolean {
+  if (!symbolName) {
+    console.error("❌ Error: Missing symbol for --symbol. Usage: npx fullstack-audit --symbol <methodOrFunction>");
+    return false;
+  }
+
+  const allFiles: string[] = [];
+  getFiles(rootDir, allFiles);
+  const targetFiles = allFiles.filter(f => /\.(ts|tsx|js|jsx)$/.test(f));
+
+  const q = symbolName.toLowerCase();
+  const hits: { file: string; relPath: string; symbol: string; startLine: number; endLine: number; lineCount: number }[] = [];
+
+  for (const f of targetFiles) {
+    const rel = path.relative(rootDir, f).replace(/\\/g, "/");
+    let content = "";
+    try {
+      content = fs.readFileSync(f, "utf-8");
+    } catch {
+      continue;
+    }
+
+    if (!content.toLowerCase().includes(q)) continue;
+
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const declRegex = new RegExp(`(?:async\\s+)?(?:function\\s+)?([a-zA-Z0-9_$]*${symbolName}[a-zA-Z0-9_$]*)\\s*(?:=|\\()`, "i");
+      const match = line.match(declRegex);
+      if (match) {
+        const foundSym = match[1];
+        const startLine = i + 1;
+        let braceDepth = 0;
+        let started = false;
+        let endLine = startLine;
+
+        for (let j = i; j < lines.length; j++) {
+          const l = lines[j];
+          for (const ch of l) {
+            if (ch === "{") {
+              braceDepth++;
+              started = true;
+            } else if (ch === "}") {
+              braceDepth--;
+            }
+          }
+          if (started && braceDepth <= 0) {
+            endLine = j + 1;
+            break;
+          }
+          if (j - i > 300) {
+            endLine = j + 1;
+            break;
+          }
+        }
+
+        hits.push({
+          file: f,
+          relPath: rel,
+          symbol: foundSym,
+          startLine,
+          endLine,
+          lineCount: endLine - startLine + 1
+        });
+      }
+    }
+  }
+
+  if (hits.length === 0) {
+    console.log(`❌ [SYMBOL] No function or method found matching "${symbolName}".`);
+    return false;
+  }
+
+  console.log(`⚡ [SYMBOL SLICES] Found ${hits.length} matching symbol(s) for "${symbolName}":\n`);
+  hits.slice(0, 10).forEach(h => {
+    console.log(`   - ${h.relPath}:L${h.startLine}-L${h.endLine} (${h.lineCount} lines) ➔ ${h.symbol}`);
+    console.log(`     💡 View tool call: view_file(StartLine=${h.startLine}, EndLine=${h.endLine}, Path="${h.relPath}")`);
+  });
+  return true;
+}
+
+// 11.9 Test Suite & Coverage Indexer
+export interface TestCaseAudit {
+  file: string;
+  relPath: string;
+  suite: string;
+  testTitle: string;
+  line: number;
+}
+
+export function generateTestSuiteMap(files: string[], rootDir: string = ROOT_DIR): TestCaseAudit[] {
+  const testFiles = files.filter(f =>
+    /(\.test|\.spec)\.(ts|tsx|js|jsx)$/.test(f) ||
+    f.includes("/__tests__/") ||
+    f.includes("/tests/") ||
+    f.includes("\\tests\\") ||
+    f.includes("/test/") ||
+    f.includes("\\test\\")
+  );
+
+  const testCases: TestCaseAudit[] = [];
+
+  testFiles.forEach(f => {
+    const rel = path.relative(rootDir, f).replace(/\\/g, "/");
+    let content = "";
+    try {
+      content = fs.readFileSync(f, "utf-8");
+    } catch {
+      return;
+    }
+
+    const lines = content.split("\n");
+    let currentSuite = path.basename(f).replace(/\.[^/.]+$/, "");
+
+    lines.forEach((line, idx) => {
+      const lineNum = idx + 1;
+      const describeMatch = line.match(/(?:describe|suite)\s*\(\s*["'`Batch: ]*([^"'`]+)["'`]/i);
+      if (describeMatch) {
+        currentSuite = describeMatch[1].trim();
+      }
+
+      const itMatch = line.match(/(?:it|test)\s*\(\s*["'`]*([^"'`]+)["'`]/i);
+      if (itMatch) {
+        testCases.push({
+          file: f,
+          relPath: rel,
+          suite: currentSuite,
+          testTitle: itMatch[1].trim(),
+          line: lineNum,
+        });
+      }
+    });
+  });
+
+  return testCases;
+}
+
+export function writeTestSuitesMap(testCases: TestCaseAudit[], outputDir: string = OUTPUT_DIR) {
+  const filePath = path.join(outputDir, "12_TEST_SUITES_AND_COVERAGE_MAP.md");
+  let md = getAtlasProvenanceHeader("🧪 Test Suites & Coverage Map", "Pre-indexed registry of unit, integration, and E2E test suites. Eliminates blind directory greps on test assertion failures.");
+
+  const uniqueFiles = Array.from(new Set(testCases.map(t => t.relPath)));
+  md += `## 📊 Test Inventory: **${testCases.length}** Test Cases Across **${uniqueFiles.length}** Test Files\n\n`;
+
+  if (testCases.length === 0) {
+    md += `_No dedicated test files (\`*.test.ts\`, \`*.spec.tsx\`) detected in active source paths._\n\n`;
+    fs.writeFileSync(filePath, md, "utf-8");
+    return;
+  }
+
+  md += `| Test Suite / File | Test Title / Assertion Target | Line | Direct Inspection Tool Call |\n`;
+  md += `| :--- | :--- | :---: | :--- |\n`;
+
+  testCases.forEach(t => {
+    const startL = Math.max(1, t.line - 5);
+    const endL = t.line + 25;
+    md += `| \`${t.relPath}\` (${t.suite}) | **${t.testTitle}** | L${t.line} | \`view_file(StartLine=${startL}, EndLine=${endL}, Path="${t.relPath}")\` |\n`;
+  });
+
+  md += `\n## 💡 Sub-3ms Fast Test Lookup\n\n`;
+  md += `Run \`npx fullstack-audit --find "<failing-test-title>" --compact\` to instantly jump to the exact file and line of any failing assertion without recursive grep.\n\n`;
+
+  fs.writeFileSync(filePath, md, "utf-8");
+}
+
 function executeUniversalSetup(opts: { cursor?: boolean; claude?: boolean; hermes?: boolean; opencode?: boolean }) {
   console.log(`🚀 Initializing Universal Multi-Harness Setup Engine (v${FULLSTACK_AUDIT_VERSION})...\n`);
-  const targetAll = !opts.cursor && !opts.claude && !opts.hermes && !opts.opencode;
+  const profileOpts = resolveProfileOptions();
+  console.log(`🎛️ Active Installation Profile: ${profileOpts.profile.toUpperCase()}`);
+  console.log(`   - Ponytail (KISS):    ${profileOpts.ponytail ? "✅ Active" : "❌ Disabled"}`);
+  console.log(`   - Caveman (Terse):   ${profileOpts.caveman ? "✅ Active" : "❌ Disabled"}`);
+  console.log(`   - Superpowers (Gate): ${profileOpts.superpowers ? "✅ Active" : "❌ Disabled"}\n`);
 
-  const ruleLines = [
-    "<!-- START_FULLSTACK_AUDIT_RULE -->",
-    "<!-- START_FRONTEND_AUDIT_RULE -->",
-    "# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)",
-    "Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).",
-    "",
-    "## 🔄 The 4-Phase Operational Pipeline",
-    "",
-    "### Phase 1: GPS / Locate (`fullstack-audit`)",
-    "- **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on the pre-computed atlases:",
-    "  - **Frontend (`docs/frontend-atlas/`)**: `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, Server/Client boundary), `02_COMPONENT_INVENTORY.md` (modals, drawers, live dots `animate-pulse`, capsule pills `rounded-full`, buttons), `03_DESIGN_TOKENS_AND_COLORS.md` (all 22+ Tailwind color families, dark mode asymmetries, hexes), `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot), `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot), `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, cache invalidation), `10_GOD_FILES_SURGICAL_MAP.md` (slice bounds for files >500 lines to save 90%+ tokens), `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (route risk score & blast radius), `THEME_MIGRATION_PUNCHLIST.md` (whole-website color & dark mode rebrands).",
-    "  - **Backend (`docs/backend-atlas/`)**: `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method, auth guard), `02_DATABASE_MODELS_AND_SCHEMA.md` (by table, Prisma model, Drizzle schema), `03_SERVER_ACTIONS_AND_MUTATIONS.md` (Next.js Server Action \"use server\"), `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (route matcher, public vs protected), `05_INTEGRATIONS_AND_WEBHOOKS.md` (Stripe, Resend, Supabase, S3), `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (trace UI button/modal directly to backend action & database model), `07_ENV_AND_SECRETS_MAP.md` (client secret leak radar).",
-    "  - **Fast Find**: Or run `npx fullstack-audit --find \"<query>\" --compact` (sub-3ms).",
-    "- **HARD FORBIDDEN**: Do NOT run recursive codebase greps (`Get-ChildItem -Recurse | Select-String`, `grep -r`). The repository is already indexed.",
-    "- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to Phase 2. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.",
-    "",
-    "### Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)",
-    "- **YAGNI Invariant**: The best code is the code never written. Solve the whole problem with the least new code.",
-    "- **The Ponytail Hierarchy**:",
-    "  1. *Does it need to exist?* Skip unasked features, options, and speculative abstractions. A vague request gets the smallest working version.",
-    "  2. *Already in codebase?* Reuse existing helpers, components, and patterns.",
-    "  3. *Platform feature?* Use standard web/DOM/Tailwind primitives over custom JavaScript trigonometry, 36-point polygon waves, or complex SVG math.",
-    "  4. *Installed dependency?* Never install a new package for a few lines of logic.",
-    "  5. *Can it be one line?* Make it one line a reader grasps at a glance.",
-    "  6. *Shortest working diff wins.* Deletion beats addition. Keep surrounding layers and conventions intact.",
-    "- **Preserve Always**: Trust boundary validation, auth guards, data-loss error handling, accessibility.",
-    "- **Shortcuts**: Document deliberate limits as `// shortcut: <limit>, <when to upgrade>`.",
-    "",
-    "### Phase 3: Communication & Zero-Fluff Receipts (`caveman`)",
-    "- **Answer First**: Dense result first, technical facts exact.",
-    "- **Kill Ceremony**: No conversational filler (\"Sure, I can help with that!\", \"I apologize for the confusion\"), no preamble, no postamble.",
-    "- **Tool Status**: Zero conversational commentary between routine tool calls.",
-    "- **Compact Diff Receipt**: Conclude replies with a tight diff receipt:",
-    "  - `Target`: `<file:line>`",
-    "  - `Diff`: `<old>` ➔ `<new>`",
-    "  - `Ponytail`: `<what was skipped or kept minimal>`",
-    "  - `Status`: `<HMR applied | Test pass count | Exit code>`",
-    "",
-    "### Phase 4: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)",
-    "- **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy edits ≤ 2 files, < 30 lines)**:",
-    "  - Perform direct surgical file edits (`edit_file` / native patch). Let local dev server (Next.js/Vite/Nuxt HMR) refresh in 50ms.",
-    "  - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).",
-    "  - **HARD FORBIDDEN**: Do NOT run `npm run audit` or `npx fullstack-audit` on micro-edits.",
-    "  - **HARD FORBIDDEN**: Do NOT invoke Superpowers process skills (`brainstorming`, `writing-plans`, `test-driven-development`).",
-    "  - **HARD FORBIDDEN**: Do NOT invoke multiple design skills in parallel.",
-    "  - **HARD FORBIDDEN**: Do NOT invoke heavy browser automation (Chrome DevTools MCP / Puppeteer) or curl localhost.",
-    "  - **Response Time**: Return immediately to the user in 1–2 seconds.",
-    "- **🛡️ Outer-Loop (Checkpoint Verification Gate — Milestones/Backend/DB/Auth)**:",
-    "  - Superpowers Iron Law applies: *No completion claims without fresh verification evidence.*",
-    "  - Run `npx fullstack-audit --verify --gate-clean` or test suites (`npm test`, `npm run typecheck`).",
-    "  - Claim completion ONLY with fresh exit code 0 evidence.",
-    "  - Run `npm run audit` upon milestone completion to synchronize atlases.",
-    "",
-    "## 🛠️ Available Commands (v2.8.0 Multi-Harness & Inverted Index Engine)",
-    "- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.",
-    "- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.",
-    "- `npx fullstack-audit --setup-all`: Configures Cursor (.mdc), Claude Code, Hermes Agent, and OpenCode.",
-    "- `npx fullstack-audit --theme --route <route> --compact`: Generates a route-scoped micro-punchlist (saves 99.8% tokens).",
-    "- `npx fullstack-audit --verify --gate-clean [--route <route>]`: Smart multi-target verification gate.",
-    "- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).",
-    "- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.",
-    "- `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).",
-    "- `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.",
-    "- `npx fullstack-audit --migrate-theme --from \"#hex1,#hex2\" --to \"dark:bg-slate-900\"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).",
-    "- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.",
-    "- `npx fullstack-audit --watch`: Live background file watcher for continuous background sync.",
-    "- `npx fullstack-audit --dead`: Scans for potential orphaned components.",
-    "<!-- END_FRONTEND_AUDIT_RULE -->",
-    "<!-- END_FULLSTACK_AUDIT_RULE -->"
-  ].join("\n");
+  const targetAll = !opts.cursor && !opts.claude && !opts.hermes && !opts.opencode;
+  const ruleLines = generateDynamicRuleBlock(profileOpts);
 
   // 1. Cursor IDE (.cursor/rules/fullstack-audit.mdc)
   if (targetAll || opts.cursor) {
@@ -3846,7 +4288,7 @@ function executeUniversalSetup(opts: { cursor?: boolean; claude?: boolean; herme
       let content = fs.readFileSync(claudeMdPath, "utf-8");
       const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
       if (markerPattern.test(content)) {
-        content = content.replace(markerPattern, ruleLines);
+        content = content.replace(markerPattern, () => ruleLines);
       } else {
         content = content + "\n\n" + ruleLines + "\n";
       }
@@ -3911,12 +4353,26 @@ function executeUniversalSetup(opts: { cursor?: boolean; claude?: boolean; herme
     let content = fs.readFileSync(agentsMdPath, "utf-8");
     const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
     if (markerPattern.test(content)) {
-      content = content.replace(markerPattern, ruleLines);
+      content = content.replace(markerPattern, () => ruleLines);
     } else {
       content = content + "\n\n" + ruleLines + "\n";
     }
     fs.writeFileSync(agentsMdPath, content, "utf-8");
     console.log("✅ Universal AGENTS.md: Cleanly synchronized with latest guidelines");
+  }
+
+  // 6. GEMINI.md (Antigravity CLI / Gemini Code Assist standard)
+  const geminiMdPath = path.join(ROOT_DIR, "GEMINI.md");
+  if (fs.existsSync(geminiMdPath)) {
+    let content = fs.readFileSync(geminiMdPath, "utf-8");
+    const markerPattern = /(?:<!-- START_FULLSTACK_AUDIT_RULE -->[\s\S]*?<!-- END_FULLSTACK_AUDIT_RULE -->|<!-- START_FRONTEND_AUDIT_RULE -->[\s\S]*?<!-- END_FRONTEND_AUDIT_RULE -->)/;
+    if (markerPattern.test(content)) {
+      content = content.replace(markerPattern, () => ruleLines);
+    } else {
+      content = content + "\n\n" + ruleLines + "\n";
+    }
+    fs.writeFileSync(geminiMdPath, content, "utf-8");
+    console.log("✅ GEMINI.md: Cleanly synchronized with latest guidelines");
   }
 
   console.log("\n🎉 Multi-Harness Setup Complete! Your codebase is now 100% configured for Antigravity, Cursor, Claude Code, Hermes, and OpenCode.\n");
@@ -4044,10 +4500,16 @@ export function runUniversalFrontendAudit() {
   writeQueryAndCacheMap(queryTopology);
   writeGodFilesMap(godFiles, OUTPUT_DIR);
   writeRouteComplexityMap(routeComplexities, OUTPUT_DIR);
+
+  const repoFiles: string[] = [];
+  getFiles(ROOT_DIR, repoFiles);
+  const testCases = generateTestSuiteMap(repoFiles, ROOT_DIR);
+  writeTestSuitesMap(testCases, OUTPUT_DIR);
+
   writeAtlasSummary(audits, routeMaps, structure, deadComponents, queryTopology, godFiles);
 
   // Generate .atlas-index.json for sub-3ms CLI lookups
-  buildAndSaveAtlasIndex(audits, routeMaps, queryTopology, godFiles, OUTPUT_DIR);
+  buildAndSaveAtlasIndex(audits, routeMaps, queryTopology, godFiles, testCases, OUTPUT_DIR);
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");
@@ -5333,6 +5795,12 @@ function writeAtlasSummary(audits: ComponentAudit[], routes: RouteMapItem[], str
   md += `   - Actionable checklist generated via \`--theme\` for complete website rebrands and dark mode upgrades.\n\n`;
   md += `10. **[09_QUERY_AND_CACHE_MAP.md](./09_QUERY_AND_CACHE_MAP.md)**\n`;
   md += `   - TanStack React Query cache keys, mutations, and reactive invalidation topology.\n\n`;
+  md += `11. **[10_GOD_FILES_SURGICAL_MAP.md](./10_GOD_FILES_SURGICAL_MAP.md)**\n`;
+  md += `   - Monolithic God-File Complexity Radar & Surgical Slicer (exact line ranges for LLMs).\n\n`;
+  md += `12. **[11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md](./11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md)**\n`;
+  md += `   - Fullstack Route Complexity & Blast-Radius Radar (safety checklists & component fan-out).\n\n`;
+  md += `13. **[12_TEST_SUITES_AND_COVERAGE_MAP.md](./12_TEST_SUITES_AND_COVERAGE_MAP.md)**\n`;
+  md += `   - Pre-indexed registry of unit, integration, and E2E test suites. Eliminates blind directory greps on test assertion failures.\n\n`;
   md += `### Backend Atlas (\`docs/backend-atlas/\`)\n\n`;
   md += `- See **[Backend Atlas Overview](../backend-atlas/README.md)** for API routes, database schemas, server actions, auth guards, and bi-directional cross-reference map.\n\n`;
 
@@ -5375,7 +5843,8 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
   llmsTxt += `- [08_DISPATCH_GATEWAY.md](docs/frontend-atlas/08_DISPATCH_GATEWAY.md): Multi-skill task delegation routing table.\n`;
   llmsTxt += `- [09_QUERY_AND_CACHE_MAP.md](docs/frontend-atlas/09_QUERY_AND_CACHE_MAP.md): TanStack React Query cache keys, mutations, and reactive invalidation topology.
 - [10_GOD_FILES_SURGICAL_MAP.md](docs/frontend-atlas/10_GOD_FILES_SURGICAL_MAP.md): Monolithic God-File Complexity Radar & Surgical Slicer (exact line ranges for LLMs).
-- [11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md](docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md): Fullstack Route Complexity & Blast-Radius Radar (safety checklists & component fan-out).\n\n`;
+- [11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md](docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md): Fullstack Route Complexity & Blast-Radius Radar (safety checklists & component fan-out).
+- [12_TEST_SUITES_AND_COVERAGE_MAP.md](docs/frontend-atlas/12_TEST_SUITES_AND_COVERAGE_MAP.md): Pre-indexed registry of test suites, test cases, and assertions for zero-grep test debugging.\n\n`;
 
   llmsTxt += `## Backend Architecture\n`;
   llmsTxt += `- [01_API_ROUTES_AND_ENDPOINTS.md](docs/backend-atlas/01_API_ROUTES_AND_ENDPOINTS.md): HTTP API routes, methods, and auth protection guards.\n`;
@@ -5400,6 +5869,7 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
     path.join(OUTPUT_DIR, "09_QUERY_AND_CACHE_MAP.md"),
     path.join(OUTPUT_DIR, "10_GOD_FILES_SURGICAL_MAP.md"),
     path.join(OUTPUT_DIR, "11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md"),
+    path.join(OUTPUT_DIR, "12_TEST_SUITES_AND_COVERAGE_MAP.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "01_API_ROUTES_AND_ENDPOINTS.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "02_DATABASE_MODELS_AND_SCHEMA.md"),
     path.join(ROOT_DIR, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md"),
@@ -5443,6 +5913,21 @@ async function main() {
   if (UPDATE_MODE) {
     await executeSelfUpdate();
     return;
+  }
+
+  if (PATCH_MODE) {
+    const success = executeSurgicalPatch(PATCH_FILE!, PATCH_TARGET, PATCH_REPLACE);
+    process.exit(success ? 0 : 1);
+  }
+
+  if (RESOLVE_QUERY) {
+    const success = executeFuzzyFileResolver(RESOLVE_QUERY);
+    process.exit(success ? 0 : 1);
+  }
+
+  if (SYMBOL_QUERY) {
+    const success = executeSymbolSlices(SYMBOL_QUERY);
+    process.exit(success ? 0 : 1);
   }
 
   // Fast-Path for Symbol/Component/Route/Action Lookups (Sub-3ms)

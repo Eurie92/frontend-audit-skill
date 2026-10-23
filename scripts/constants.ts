@@ -3,9 +3,18 @@
  * Single source of truth for versioning, engine metadata, and harness definitions.
  */
 
-export const FULLSTACK_AUDIT_VERSION = "2.9.0";
-export const FULLSTACK_AUDIT_ENGINE = "4-Phase Synergy Engine v2.9.0";
+export const FULLSTACK_AUDIT_VERSION = "2.10.0";
+export const FULLSTACK_AUDIT_ENGINE = "4-Phase Synergy & Modular Profile Engine v2.10.0";
 export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-23";
+
+export type AuditProfile = "triad" | "standalone" | "custom";
+
+export interface ProfileOptions {
+  profile: AuditProfile;
+  ponytail: boolean;
+  caveman: boolean;
+  superpowers: boolean;
+}
 
 export interface VersionInfo {
   version: string;
@@ -29,7 +38,7 @@ export function getAtlasProvenanceHeader(title: string, subtitle: string): strin
 
 export interface AtlasIndexEntry {
   symbol: string;
-  category: "route" | "component" | "overlay" | "icon" | "query" | "api" | "model" | "action" | "slice" | "label";
+  category: "route" | "component" | "overlay" | "icon" | "query" | "api" | "model" | "action" | "slice" | "label" | "test" | "symbol";
   file: string;
   line: number;
   meta?: string;
