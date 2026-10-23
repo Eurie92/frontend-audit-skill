@@ -9,3 +9,16 @@ docs/backend-atlas/
 docs/superpowers/
 .agent/
 .agents/
+
+# Local / Private Agent Guidelines & Harness Rules (Localhost Only)
+GEMINI.md
+AGENTS.md
+CLAUDE.md
+.cursor/
+.claude/
+.opencode/
+
+# Local Audit Generated Files
+llms.txt
+llms-full.txt
+.last_receipt.json

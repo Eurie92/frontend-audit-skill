@@ -3,8 +3,8 @@
  * Single source of truth for versioning, engine metadata, and harness definitions.
  */
 
-export const FULLSTACK_AUDIT_VERSION = "2.10.1";
-export const FULLSTACK_AUDIT_ENGINE = "4-Phase Synergy & Modular Profile Engine v2.10.1";
+export const FULLSTACK_AUDIT_VERSION = "2.10.0";
+export const FULLSTACK_AUDIT_ENGINE = "4-Phase Synergy & Modular Profile Engine v2.10.0";
 export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-23";
 
 export type AuditProfile = "triad" | "standalone" | "custom";
