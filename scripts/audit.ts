@@ -182,6 +182,7 @@ const GATE_CLEAN_MODE = ARGS.includes("--gate-clean");
 const COMPACT_MODE = ARGS.includes("--compact") || ARGS.includes("--json");
 const JSON_MODE = ARGS.includes("--json");
 const LLMS_MODE = ARGS.includes("--llms");
+const GRAPH_MODE = ARGS.includes("--graph");
 const SOLO_MODE = ARGS.includes("--solo") || (!ARGS.includes("--multi-agent") && !ARGS.includes("--parallel") && !ARGS.includes("--zones"));
 const MULTI_AGENT_MODE = ARGS.includes("--multi-agent") || ARGS.includes("--parallel") || ARGS.includes("--zones");
 const DIFF_MODE = ARGS.includes("--diff");
@@ -4105,6 +4106,7 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   lines.push("- `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).");
   lines.push("- `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.");
   lines.push("- `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).");
+  lines.push("- `npx fullstack-audit --graph`: Exports knowledge graph to `docs/graph.json` (NetworkX / Graphify schema).");
   lines.push("- `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.");
   lines.push("- `npx fullstack-audit --migrate-theme --from \"#hex1,#hex2\" --to \"dark:bg-slate-900\"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).");
   lines.push("- `npx fullstack-audit --manifest <file:line>`: Generates zero-search agent handoff manifest.");
@@ -4316,15 +4318,70 @@ export function executePathTracer(fromQuery: string, toQuery: string, rootDir: s
   }
 
   const graphPath = path.join(rootDir, "docs", "graph.json");
-  if (!fs.existsSync(graphPath)) {
-    console.log("ℹ️ docs/graph.json not found. Run 'npx fullstack-audit' to generate knowledge graph.");
-    return false;
+  let nodes: any[] = [];
+  let links: any[] = [];
+
+  if (fs.existsSync(graphPath)) {
+    try {
+      const raw = fs.readFileSync(graphPath, "utf-8");
+      const graphData: { nodes: any[]; links: any[] } = JSON.parse(raw);
+      nodes = graphData.nodes || [];
+      links = graphData.links || [];
+    } catch {}
+  }
+
+  // If docs/graph.json is absent, synthesize in-memory causal graph on the fly (<2ms)
+  if (nodes.length === 0) {
+    const nodeSet = new Set<string>();
+    const addN = (id: string, type: string, source: string) => {
+      if (!nodeSet.has(id)) {
+        nodeSet.add(id);
+        nodes.push({ id, label: id, type, source, line: 1 });
+      }
+    };
+    const addL = (source: string, target: string, type: string) => {
+      if (source && target && source !== target) {
+        links.push({ source, target, type });
+      }
+    };
+
+    const crossRef = path.join(rootDir, "docs", "backend-atlas", "06_FULLSTACK_CROSS_REFERENCE_MAP.md");
+    if (fs.existsSync(crossRef)) {
+      try {
+        const fileLines = fs.readFileSync(crossRef, "utf-8").split("\n");
+        fileLines.forEach(line => {
+          const parts = line.split("|").map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 4 && !parts[0].includes("---") && !parts[0].toLowerCase().includes("ui trigger")) {
+            const ui = parts[0].replace(/`|\[|\]/g, "");
+            const api = parts[1].replace(/`|\[|\]/g, "");
+            const db = parts[3].replace(/`|\[|\]/g, "");
+            if (ui && ui !== "-") addN(ui, "component", "frontend");
+            if (api && api !== "-") {
+              addN(api, "api_endpoint", "backend");
+              if (ui && ui !== "-") addL(ui, api, "calls");
+              if (db && db !== "-") {
+                addN(db, "db_model", "database");
+                addL(api, db, "mutates");
+              }
+            } else if (db && db !== "-") {
+              addN(db, "db_model", "database");
+              if (ui && ui !== "-") addL(ui, db, "mutates");
+            }
+          }
+        });
+      } catch {}
+    }
+
+    const atlasIdx = path.join(rootDir, "docs", "frontend-atlas", ".atlas-index.json");
+    if (fs.existsSync(atlasIdx)) {
+      try {
+        const rawIdx: AtlasIndex = JSON.parse(fs.readFileSync(atlasIdx, "utf-8"));
+        rawIdx.entries.forEach(e => addN(e.symbol, e.category, e.file));
+      } catch {}
+    }
   }
 
   try {
-    const raw = fs.readFileSync(graphPath, "utf-8");
-    const graphData: { nodes: any[]; links: any[] } = JSON.parse(raw);
-    const { nodes, links } = graphData;
 
     const fromClean = fromQuery.toLowerCase();
     const toClean = toQuery.toLowerCase();
@@ -4864,8 +4921,10 @@ export function runUniversalFrontendAudit() {
   // Generate .atlas-index.json for sub-3ms CLI lookups
   buildAndSaveAtlasIndex(audits, routeMaps, queryTopology, godFiles, testCases, OUTPUT_DIR);
 
-  // Generate docs/graph.json (NetworkX / Graphify node_link_data standard)
-  writeNetworkXGraphExport(audits, routeMaps, queryTopology, godFiles, path.join(ROOT_DIR, "docs"));
+  // Generate docs/graph.json (NetworkX / Graphify node_link_data standard - Opt-in via --graph)
+  if (GRAPH_MODE) {
+    writeNetworkXGraphExport(audits, routeMaps, queryTopology, godFiles, path.join(ROOT_DIR, "docs"));
+  }
 
   // Update .last_receipt.json baseline
   const receiptPath = path.join(OUTPUT_DIR, ".last_receipt.json");

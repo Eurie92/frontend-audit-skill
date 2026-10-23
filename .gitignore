@@ -22,3 +22,5 @@ CLAUDE.md
 llms.txt
 llms-full.txt
 .last_receipt.json
+
+docs/graph.json
