@@ -24,11 +24,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+      - name: Publish or Update GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [ -z "$TAG" ] || [ "$TAG" = "refs/heads/main" ]; then
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$TAG" ]; then
+            echo "No tag found to release."
+            exit 0
+          fi
+
+          echo "Target tag: $TAG"
+
+          # Check for corresponding release notes file
+          NOTES_FILE=""
+          if [ -f "RELEASE_NOTES_${TAG}.md" ]; then
+            NOTES_FILE="RELEASE_NOTES_${TAG}.md"
+          elif [ -f "RELEASE_NOTES.md" ]; then
+            NOTES_FILE="RELEASE_NOTES.md"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists on GitHub."
+            if [ -n "$NOTES_FILE" ]; then
+              echo "Synchronizing release notes from $NOTES_FILE..."
+              gh release edit "$TAG" --notes-file "$NOTES_FILE"
+            fi
+            echo "Release $TAG is up to date."
+          else
+            echo "Creating new release for $TAG..."
+            if [ -n "$NOTES_FILE" ]; then
+              gh release create "$TAG" --title "$TAG" --notes-file "$NOTES_FILE"
+            else
+              gh release create "$TAG" --title "$TAG" --generate-notes
+            fi
+          fi

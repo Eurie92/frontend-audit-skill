@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.11.2] - 2026-10-24
+
+> **Release Tier**: `PATCH (CI/CD Pipeline Hardening & Idempotent Release Workflow)`  
+> **Summary**: Fixes GitHub Actions release workflow race condition by replacing `softprops/action-gh-release` with native, idempotent `gh` CLI release synchronization.
+
+### Fixed
+* **GitHub Release Workflow Race Condition (`.github/workflows/release.yml`)**:
+  * Replaced third-party `softprops/action-gh-release@v2` with GitHub's native `gh` CLI.
+  * Added idempotent release detection via `gh release view`: if a release already exists (created concurrently or pre-published), the workflow cleanly synchronizes release notes and exits with code 0 instead of failing with HTTP 422 `already_exists`.
+
+---
+
 ## [2.11.1] - 2026-10-24
 
 > **Release Tier**: `PATCH (Developer Experience & Documentation Refinement)`  

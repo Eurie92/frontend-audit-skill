@@ -3,8 +3,8 @@
  * Single source of truth for versioning, engine metadata, and harness definitions.
  */
 
-export const FULLSTACK_AUDIT_VERSION = "2.11.1";
-export const FULLSTACK_AUDIT_ENGINE = "Living Fullstack Atlas & Minimalist Engine v2.11.1";
+export const FULLSTACK_AUDIT_VERSION = "2.11.2";
+export const FULLSTACK_AUDIT_ENGINE = "Living Fullstack Atlas & Minimalist Engine v2.11.2";
 export const FULLSTACK_AUDIT_RELEASE_DATE = "2026-10-24";
 
 export type AuditProfile = "triad" | "standalone" | "custom";
