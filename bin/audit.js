@@ -25,11 +25,13 @@ const scriptPath = path.resolve(__dirname, "../scripts/audit.ts");
 
 // Check if local tsx cli exists to avoid cmd.exe / shell: true quoting hazards
 const localTsx = path.resolve(__dirname, "../node_modules/tsx/dist/cli.mjs");
+const cwdTsx = path.resolve(process.cwd(), "node_modules/tsx/dist/cli.mjs");
+const tsxPath = fs.existsSync(localTsx) ? localTsx : (fs.existsSync(cwdTsx) ? cwdTsx : null);
 let child;
 
-if (fs.existsSync(localTsx)) {
+if (tsxPath) {
   // Direct node execution with shell: false (100% immune to & | ^ special char explosion)
-  child = spawn(process.execPath, [localTsx, scriptPath, ...args], {
+  child = spawn(process.execPath, [tsxPath, scriptPath, ...args], {
     stdio: "inherit",
     shell: false,
   });

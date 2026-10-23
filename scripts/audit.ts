@@ -780,10 +780,15 @@ function getFiles(dir: string, fileList: string[] = []): string[] {
     const fullPath = path.join(dir, item);
     const stat = fs.statSync(fullPath);
     if (stat.isDirectory()) {
-      if (![
-        "node_modules", ".next", "dist", ".git", ".turbo", "build", ".checkpoint-stage2",
-        ".svelte-kit", ".nuxt", ".astro", ".react-router", ".cache", ".output"
-      ].includes(item)) {
+      if (
+        !item.startsWith(".next") &&
+        !item.startsWith(".git") &&
+        !item.startsWith(".turbo") &&
+        ![
+          "node_modules", "dist", "build", ".checkpoint-stage2",
+          ".svelte-kit", ".nuxt", ".astro", ".react-router", ".cache", ".output"
+        ].includes(item)
+      ) {
         getFiles(fullPath, fileList);
       }
     } else if (
