@@ -1,10 +1,10 @@
-# 🚀 Unlocking the Full Potential of `fullstack-audit` (v2.10.0 Master Guide)
+# Unlocking the Full Potential of fullstack-audit (v2.11.0 Master Guide)
 
 > **The definitive operational playbook for software engineers and AI coding assistants (Antigravity, Cursor, Claude Code, Windsurf, Codex, VS Code).**
 
 ---
 
-## 🧭 The Core Philosophy: "Zero-Grep, Zero-Hallucination"
+## The Core Philosophy: "Zero-Grep, Zero-Hallucination"
 
 Modern web codebases (Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix) grow rapidly. When developers or AI assistants try to understand or modify them using raw grep (`Select-String` or `grep -r`), they suffer from:
 1. **Localization Errors & Hallucinations**: Over 64% of AI failures stem from reading minified build output (`.next/`, `dist/`, `.output/`) or hallucinating paths.
@@ -16,58 +16,82 @@ Modern web codebases (Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix) grow
 
 ---
 
-## 🗺️ Complete Atlas Directory (20 Specialized Architecture Maps)
+## When to Use: Before, During, and After Development
 
-```
+Fullstack Audit is an always-on architectural companion across all three phases:
+
+| Phase | Purpose | Recommended Commands & Actions |
+| :--- | :--- | :--- |
+| **Before Development** | Codebase orientation, route mapping, and mental model acquisition | Type `/fullstack-audit` in chat or run `npx.cmd fullstack-audit`. Generates all 20 atlases and root `llms.txt`. |
+| **During Development** | Sub-3ms symbol extraction and surgical single-function reads | AI assistant autonomously invokes `--symbol`, `--resolve`, and `--patch` to avoid reading 1,000+ line God-files. |
+| **After Development** | Secret leak scanning, blast radius check, and verification gate | Inspect `07_ENV_AND_SECRETS_MAP.md`, check `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`, and run `npx fullstack-audit --verify --gate-clean`. |
+
+---
+
+## Complete Atlas Directory (20 Specialized Architecture Maps)
+
+```text
 docs/
 ├── frontend-atlas/
-│   ├── 01_ROUTES_AND_PANELS_MAP.md         # 🗺️ Routes, RSC [Server]/[Client] boundaries & Blast-Radius Badges
-│   ├── 02_COMPONENT_INVENTORY.md           # 🔘 Modals, Drawers, Live Dots, Capsule Pills (Centrality Ranked)
-│   ├── 03_DESIGN_TOKENS_AND_COLORS.md      # 🎨 22+ Tailwind Palette Matrix & Dark Mode Asymmetries
-│   ├── 04_UI_ISLANDS_AND_DRIFT.md          # 🏝️ Inconsistent styling & priority consolidation list
-│   ├── 05_DEAD_ORPHANED_COMPONENTS.md      # 👻 Unused components safe for deletion
-│   ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md   # 🏷️ Screenshot-to-Code visible UI text & button labels
-│   ├── 07_VISUAL_AND_ICON_INDEX.md         # 🖼️ Action icons & SVG symbol registry
-│   ├── 08_DISPATCH_GATEWAY.md              # 🎫 Multi-skill routing matrix
-│   ├── 09_QUERY_AND_CACHE_MAP.md           # 🔄 React Query keys, invalidation triggers & Cache Hygiene Radar
-│   ├── 10_GOD_FILES_SURGICAL_MAP.md        # ✂️ Monolithic files sliced into AST line bounds (88-99.8% token savings)
-│   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # 🚨 Composite risk scoring (0-100) & blast radius impact tiers
-│   ├── 12_TEST_SUITES_AND_COVERAGE_MAP.md  # 🧪 Pre-indexed test assertions & suites registry (zero-grep test locator)
-│   ├── THEME_MIGRATION_PUNCHLIST.md        # 📋 Actionable whole-website dark mode & color punchlist
-│   └── README.md                           # 📊 Frontend stats dashboard
+│   ├── 01_ROUTES_AND_PANELS_MAP.md         # Routes, RSC [Server]/[Client] boundaries & Blast-Radius Badges
+│   ├── 02_COMPONENT_INVENTORY.md           # Modals, Drawers, Live Dots, Capsule Pills (Centrality Ranked)
+│   ├── 03_DESIGN_TOKENS_AND_COLORS.md      # 22+ Tailwind Palette Matrix & Dark Mode Asymmetries
+│   ├── 04_UI_ISLANDS_AND_DRIFT.md          # Inconsistent styling & priority consolidation list
+│   ├── 05_DEAD_ORPHANED_COMPONENTS.md      # Unused components safe for deletion
+│   ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md   # Screenshot-to-Code visible UI text & button labels
+│   ├── 07_VISUAL_AND_ICON_INDEX.md         # Action icons & SVG symbol registry
+│   ├── 08_DISPATCH_GATEWAY.md              # Multi-skill routing matrix
+│   ├── 09_QUERY_AND_CACHE_MAP.md           # React Query keys, invalidation triggers & Cache Hygiene Radar
+│   ├── 10_GOD_FILES_SURGICAL_MAP.md        # Monolithic files sliced into AST line bounds (88-99.8% token savings)
+│   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # Composite risk scoring (0-100) & blast radius impact tiers
+│   ├── 12_TEST_SUITES_AND_COVERAGE_MAP.md  # Pre-indexed test assertions & suites registry (zero-grep test locator)
+│   ├── THEME_MIGRATION_PUNCHLIST.md        # Actionable whole-website dark mode & color punchlist
+│   └── README.md                           # Frontend stats dashboard
 └── backend-atlas/
-    ├── 01_API_ROUTES_AND_ENDPOINTS.md      # 🌐 HTTP endpoints, methods, auth guards & Traffic Centrality
-    ├── 02_DATABASE_MODELS_AND_SCHEMA.md    # 🗄️ Prisma, Drizzle & Raw SQL / Supabase DDL migrations
-    ├── 03_SERVER_ACTIONS_AND_MUTATIONS.md  # ⚡ Next.js "use server" actions, parameters & mutations
-    ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md    # 🛡️ Route matchers, public vs protected barriers
-    ├── 05_INTEGRATIONS_AND_WEBHOOKS.md     # 🔌 Stripe, Resend, Supabase, S3 integrations
-    ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md # 🌉 Deep UI Trigger ➔ API Route ➔ Domain Service ➔ DB Model
-    ├── 07_ENV_AND_SECRETS_MAP.md           # 🔐 Client Secret Leak Radar & Undocumented Shadow Variables
-    └── README.md                           # 📊 Backend stats dashboard
+    ├── 01_API_ROUTES_AND_ENDPOINTS.md      # HTTP endpoints, methods, auth guards & Traffic Centrality
+    ├── 02_DATABASE_MODELS_AND_SCHEMA.md    # Prisma, Drizzle & Raw SQL / Supabase DDL migrations
+    ├── 03_SERVER_ACTIONS_AND_MUTATIONS.md  # Next.js "use server" actions, parameters & mutations
+    ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md    # Route matchers, public vs protected barriers
+    ├── 05_INTEGRATIONS_AND_WEBHOOKS.md     # Stripe, Resend, Supabase, S3 integrations
+    ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md # Deep UI Trigger -> API Route -> Domain Service -> DB Model
+    ├── 07_ENV_AND_SECRETS_MAP.md           # Client Secret Leak Radar & Undocumented Shadow Variables
+    └── README.md                           # Backend stats dashboard
 ```
 
 ---
 
-## 🧑‍💻 Part 1: How Human Developers Use It
+## Part 1: How Human Developers Use It
 
-### 1. One-Click Fullstack Audit
-Run from your project root anytime you start work or pull new branches:
-```bash
+### 1. In AI Chat Quickstart (Recommended)
+Trigger directly inside your assistant conversation:
+```text
+/fullstack-audit
+```
+
+### 2. Terminal Execution (Windows / Mac / Linux)
+```powershell
+# Windows PowerShell / CMD (bypasses execution policy restrictions):
+npx.cmd fullstack-audit
+
+# macOS / Linux:
 npx fullstack-audit
-# or
+
+# In-project script:
 npm run audit
+# or direct Node.js:
+node bin/audit.js
 ```
 * Generates both `docs/frontend-atlas/` and `docs/backend-atlas/`.
 * Generates standard `llms.txt` and `llms-full.txt` in your project root so any external AI or tool instantly understands your whole architecture.
 
 ### 2. Check for Leaked Secrets & Client Env Exposures
 Open [`docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md`](../docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md) before pushing to production:
-* **`🚨 CRITICAL LEAKS`**: Flags private secrets like `STRIPE_SECRET_KEY` or `DATABASE_URL` accidentally imported in client components (`"use client"`).
-* **`⚠️ SHADOW VARIABLES`**: Flags critical variables used in code but missing from `.env.example`, preventing deployment or CI/CD crashes.
+* **`CRITICAL LEAKS`**: Flags private secrets like `STRIPE_SECRET_KEY` or `DATABASE_URL` accidentally imported in client components (`"use client"`).
+* **`SHADOW VARIABLES`**: Flags critical variables used in code but missing from `.env.example`, preventing deployment or CI/CD crashes.
 
 ### 3. Check Blast-Radius Before Major Refactors
 Open [`docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`](../docs/frontend-atlas/11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md):
-* Look for routes tagged `🚨 Critical Blast Radius (Score 65–100)`.
+* Look for routes tagged `Critical Blast Radius (Score 65–100)`.
 * Know ahead of time which pages import 20+ modules, disclose modals, and perform multiple mutations so you can test them thoroughly.
 
 ### 4. Catch Stale Data & Cache Invalidation Bugs
@@ -91,15 +115,15 @@ Replaces rogue colors across 400+ files in 80ms with 0 LLM tokens, cleanly prese
 
 ---
 
-## 🤖 Part 2: How AI Coding Agents Unlock Full Potential
+## Part 2: How AI Coding Agents Unlock Full Potential
 
 ### Rule #1: The Zero-Grep Golden Rule
 Never let your AI assistant run recursive file searches (`grep -r` or `Select-String`). The first tool call MUST be reading the relevant markdown map:
-* **User attaches a screenshot with text?** ➔ Read `06_VISIBLE_TEXT_AND_LABELS_MAP.md`.
-* **User attaches a screenshot with an icon?** ➔ Read `07_VISUAL_AND_ICON_INDEX.md`.
-* **User mentions a route (e.g. `/admin/orders`)?** ➔ Read `01_ROUTES_AND_PANELS_MAP.md`.
-* **User mentions a database table or model?** ➔ Read `02_DATABASE_MODELS_AND_SCHEMA.md`.
-* **User asks to tweak colors?** ➔ Read `03_DESIGN_TOKENS_AND_COLORS.md`.
+* **User attaches a screenshot with text?** -> Read `06_VISIBLE_TEXT_AND_LABELS_MAP.md`.
+* **User attaches a screenshot with an icon?** -> Read `07_VISUAL_AND_ICON_INDEX.md`.
+* **User mentions a route (e.g. `/admin/orders`)?** -> Read `01_ROUTES_AND_PANELS_MAP.md`.
+* **User mentions a database table or model?** -> Read `02_DATABASE_MODELS_AND_SCHEMA.md`.
+* **User asks to tweak colors?** -> Read `03_DESIGN_TOKENS_AND_COLORS.md`.
 
 ### Rule #2: Surgical Slicing on God-Files (Save 90%+ Tokens)
 When an edit involves a large file (> 500 lines):
@@ -113,11 +137,11 @@ When an edit involves a large file (> 500 lines):
 
 ### Rule #3: The Dual-Speed Inner Loop
 AI assistants should operate in two distinct speeds:
-* **⚡ Inner Loop (Fast Mode - 1 to 2s responses)**:
+* **Inner Loop (Fast Mode - 1 to 2s responses)**:
   * Apply surgical edits directly via `edit_file`.
   * Let the running dev server (Next.js/Vite HMR) update the user's monitor in 50ms.
   * **Prohibited**: Headless browser MCP tools (Chrome DevTools MCP / Puppeteer) and full TypeScript compilation on micro-edits.
-* **🛡️ Outer Loop (Verification Gate)**:
+* **Outer Loop (Verification Gate)**:
   * Run `npx fullstack-audit --verify --gate-clean` only when the entire task is done or before committing to git.
 
 ### Rule #4: Multi-Agent Parallel Swarms (`--multi-agent`)
@@ -135,16 +159,16 @@ Spawn 4 subagents in parallel to execute edits across their respective zones wit
 
 ---
 
-## 🎯 Part 3: Real-World Scenario Playbooks
+## Part 3: Real-World Scenario Playbooks
 
-### 📋 Scenario A: "Change a button color from a screenshot"
+### Scenario A: "Change a button color from a screenshot"
 1. **Developer**: Pastes a screenshot into chat: *"Change this blue 'Export CSV' button to emerald green"*.
 2. **AI Action**: Reads `docs/frontend-atlas/06_VISIBLE_TEXT_AND_LABELS_MAP.md` for `"Export CSV"`.
 3. **Instant Hit**: Finds `components/admin/OrdersTable.tsx:142`.
 4. **Edit**: Calls `edit_file` to replace `bg-blue-600` with `bg-emerald-600`.
 5. **Outcome**: UI refreshes on localhost in 50ms. Total agent time: **2 seconds**.
 
-### 📋 Scenario B: "Add a field to an existing API route and UI form"
+### Scenario B: "Add a field to an existing API route and UI form"
 1. **Developer**: *"Add a phone number field to the customer profile update"*.
 2. **AI Action**: Reads `docs/backend-atlas/06_FULLSTACK_CROSS_REFERENCE_MAP.md` for `/api/customers/update`.
 3. **Instant Hit**: Immediately sees:
@@ -153,7 +177,7 @@ Spawn 4 subagents in parallel to execute edits across their respective zones wit
    - Database Model: `Customer` in `prisma/schema.prisma`
 4. **Execution**: Updates the Prisma schema, the API route, and the form component with full end-to-end alignment.
 
-### 📋 Scenario C: "Fix a bug in a 1,200-line monolithic drawer"
+### Scenario C: "Fix a bug in a 1,200-line monolithic drawer"
 1. **Developer**: *"The tax calculation is wrong in the checkout drawer"*.
 2. **AI Action**: Runs `npx fullstack-audit --manifest components/checkout/CheckoutDrawer.tsx:410`.
 3. **Instant Manifest**: Emits:
@@ -171,7 +195,7 @@ Spawn 4 subagents in parallel to execute edits across their respective zones wit
 4. **Read & Edit**: Reads lines 402–435, fixes the math, applies the patch.
 5. **Outcome**: Saves 96.8% tokens and avoids touching the other 1,150 lines.
 
-### 📋 Scenario D: "Final Verification Before Git Commit"
+### Scenario D: "Final Verification Before Git Commit"
 1. **Developer**: *"Check everything and prepare commit"*.
 2. **AI Action**: Runs:
    ```bash
@@ -182,7 +206,7 @@ Spawn 4 subagents in parallel to execute edits across their respective zones wit
 
 ---
 
-## 📚 Summary Cheat Sheet
+## Summary Cheat Sheet
 
 | I want to... | Use this Command or File |
 | :--- | :--- |

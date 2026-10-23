@@ -1,246 +1,228 @@
-# 🗺️ Fullstack Audit Skill (`fullstack-audit`)
+# Fullstack Audit
 
-> **Universal Multi-Framework Architecture, Design System & Backend Engine Audit Skill**  
-> Auto-discovers Next.js, Vite React, Nuxt 3, SvelteKit, Astro, Remix & React Router v7. Catalogs frontend routes, components, live pulse dots, capsule pills, modals, and design tokens into `docs/frontend-atlas/`, and audits backend API routes, Prisma/Drizzle schemas, server actions, auth middleware, and webhooks into `docs/backend-atlas/`.
+> High-performance architecture atlas and GPS companion for AI coding assistants.
+> Automatically indexes Next.js, React, Nuxt, SvelteKit, Astro, Remix, and backend APIs into deterministic, zero-grep architecture maps.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: v2.10.0](https://img.shields.io/badge/Release-v2.10.0-emerald.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
-[![Frameworks: Multi-Framework](https://img.shields.io/badge/Frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)](https://github.com/Eurie92/fullstack-audit-skill)
-[![Zero Config](https://img.shields.io/badge/Config-Zero%20Config-emerald.svg)]()
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Eurie92/fullstack-audit-skill/pulls)
+[![Version](https://img.shields.io/badge/version-2.11.0-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Benchmark](https://img.shields.io/badge/benchmark-100%2F100%20passed%20(0.18ms)-brightgreen.svg)](docs/BENCHMARK_100_REPORT.md)
+[![Frameworks](https://img.shields.io/badge/frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)]()
+[![Zero Config](https://img.shields.io/badge/config-zero%20config-blue.svg)]()
 
-### 📚 Documentation Quick-Links
-[🚀 **Master Usage Guide (Full Potential)**](docs/MASTER_USAGE_GUIDE.md) • [📖 **How It Works (Architecture & AST Engine)**](docs/HOW_IT_WORKS.md) • [🤖 **Multi-Agent Recipes & Swarms**](docs/MULTI_AGENT_RECIPES.md) • [📊 **Empirical Benchmarks (9,053x Faster)**](docs/HOW_IT_WORKS.md#empirical-benchmarks) • [📜 **Changelog**](CHANGELOG.md)
-
----
-
-## 🎛️ Installation Profiles: Choose Your Setup
-
-We respect developer choice. Whether you want a **pure standalone atlas** with zero external dependencies, or the **full token-saving synergy triad**, choose the profile that matches your workflow:
-
-| Feature / Capability | 🚀 Profile A: Full Synergy Triad *(Recommended)* | ⚡ Profile B: Standalone Mode | 🎯 Profile C: Selective / Custom |
-| :--- | :---: | :---: | :---: |
-| **`fullstack-audit` Engine** (20 Atlases, 0ms GPS) | ✅ Included | ✅ Included | ✅ Included |
-| **`ponytail`** (KISS / Anti-Overengineering) | ✅ Included | ❌ *Built-in Native KISS* | 🎛️ Optional (`--with-ponytail`) |
-| **`caveman`** (Terse Output / Zero Fluff) | ✅ Included | ❌ *Natural Friendly Tone* | 🎛️ Optional (`--with-caveman`) |
-| **`superpowers`** (Dual-Speed Verification) | ✅ Included | ❌ *Built-in Native Gate* | 🎛️ Optional (`--with-superpowers`) |
-| **External Skill / Plugin Dependencies** | 3 companion skills | **0 (Zero External Dependencies)** | Custom |
-| **Token Cost Reduction** | 🏆 **~92% Total Reduction** | **~65% Reduction** | **70%–85% Reduction** |
-| **Response Latency for Micro-Edits** | **1–2 seconds** | Standard HMR | 1–2 seconds |
+[Master Usage Guide](docs/MASTER_USAGE_GUIDE.md) | [How It Works](docs/HOW_IT_WORKS.md) | [Multi-Agent Recipes](docs/MULTI_AGENT_RECIPES.md) | [Empirical Benchmarks](docs/HOW_IT_WORKS.md#empirical-benchmarks) | [Changelog](CHANGELOG.md)
 
 ---
 
-### 🚀 Profile A: Full Synergy Triad (Recommended)
-> **Why it's #1:** Combines 0ms Atlas navigation with strict anti-overengineering and terse communication. Your AI assistant stops writing bloated 500-line wrappers, drops conversational filler, and operates at 1–2s response times.
+## Overview
 
+Fullstack Audit is a static analysis and architectural indexing engine designed specifically for AI coding assistants (Antigravity, Cursor, Claude Code, Windsurf, Codex). 
+
+Instead of relying on recursive text grepping (`grep -r` or PowerShell `Select-String`), Fullstack Audit executes a single-pass AST scan in under 350 milliseconds to generate pre-computed architecture atlases. When an AI assistant needs to locate a component, inspect route boundaries, or trace an API call to a database model, it retrieves exact file and line bounds in 0ms without consuming context tokens or triggering file-system latency.
+
+---
+
+## How to Use
+
+### Option 1: Inside AI Chat (Recommended)
+
+Run the audit directly inside your AI coding assistant (Antigravity, Cursor, Claude Code, Windsurf):
+
+```text
+/fullstack-audit
+```
+
+You can also prompt your assistant directly:
+- *"Audit this project and map all routes."*
+- *"Find the checkout modal component."*
+- *"Trace the /api/orders endpoint to the database schema."*
+
+Your assistant automatically queries the pre-computed atlases on disk to pinpoint exact locations.
+
+---
+
+### Option 2: From the Terminal (CLI)
+
+#### Windows (PowerShell / Command Prompt)
+To bypass Windows PowerShell execution restrictions (`PSSecurityException`), run via the `.cmd` wrapper:
+```powershell
+npx.cmd fullstack-audit
+```
+
+*Note: To enable standard `npx` execution across all Node.js CLI tools on Windows, run once:*
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+```
+
+#### macOS / Linux
 ```bash
-# Windows (PowerShell):
+npx fullstack-audit
+```
+
+#### In-Project Script (package.json)
+```bash
+npm run audit
+# or direct Node.js invocation:
+node bin/audit.js
+```
+
+---
+
+## When to Use: The Always-On Development Companion
+
+Fullstack Audit is not a one-time scanner or a standalone linter. It supports the entire development lifecycle:
+
+| Phase | Core Function | Impact |
+| :--- | :--- | :--- |
+| **Before Development** | Project orientation and cold-start mapping | Indexes all routes, Server/Client components, and database models in 350ms. AI agents gain immediate spatial awareness without reading random files. |
+| **During Development** | Sub-3ms symbol lookup and surgical slicing | AI agents use `--symbol` to extract exact function bounds from 1,000+ line God-files, saving up to 99.8% input tokens per query. |
+| **After Development** | Verification gates and architectural delta tracking | Detects client-side `.env` secret leaks, flags broken React Query invalidations, and verifies route blast radius before commits. |
+
+---
+
+## Division of Labor: Developer vs. AI Assistant
+
+Developers do not need to memorize low-level CLI flags. Fullstack Audit separates developer interactions from autonomous agent primitives:
+
+| Developer Action | Autonomous AI Agent Action (Under the Hood) |
+| :--- | :--- |
+| Prompts: *"Update the order confirmation button label"* | Queries `06_VISIBLE_TEXT_AND_LABELS_MAP.md` in 3ms to locate exact file and line number |
+| Pastes a UI screenshot into chat | Resolves component and icon references from `07_VISUAL_AND_ICON_INDEX.md` |
+| Requests changes to a 2,000-line service file | Calls `fullstack-audit --symbol <method>` to read 30 lines instead of 2,000 lines |
+| Runs `/fullstack-audit` or approves a pull request | Evaluates `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` to prevent unintended regressions |
+
+---
+
+## Core Problems Solved
+
+1. **Elimination of the Windows PowerShell Grep Freeze**: In Windows PowerShell, `-Exclude` does not prune recursion. Running `Get-ChildItem -Recurse` traverses over 50,000 files in `node_modules` and `.next`, causing a 15–30 second freeze with Windows Defender. Fullstack Audit reads pre-computed Markdown tables in 0ms.
+2. **Context Window Degradation**: Reading entire 1,500-line monolithic files degrades LLM reasoning (*Lost-in-the-Middle* effect). God-file AST slicing extracts only targeted function bounds, saving 88% to 99.8% of tokens per operation.
+3. **Build Artifact Hallucinations**: Over 64% of SWE-bench agent failures stem from reading bundled `.next/static/` or minified `dist/` files. Fullstack Audit provides deterministic, source-verified paths.
+4. **Hydration Boundary Radar**: Statically tags components as `[Client]` or `[Server]` to prevent runtime Next.js hydration mismatches.
+
+---
+
+## Empirical Verification: 100-Run Production Benchmark
+
+To eliminate synthetic testing bias, Fullstack Audit is continuously evaluated against real production repositories. The benchmark suite executes 100 consecutive operations against `xnight` (Next.js 16.4.2 App Router, 451 files, 50 routes, 94 God-files, 128 API endpoints, PostgreSQL, Supabase):
+
+| Metric | Vanilla Agent (PowerShell `Select-String`) | Fullstack Audit (Atlas Navigation) | Measured Advantage |
+| :--- | :---: | :---: | :--- |
+| **Median Latency (p50)** | 2,296.81 ms | **0.18 ms** | **12,760x faster** |
+| **95th Percentile (p95)** | 3,751.85 ms | **1.67 ms** | **2,246x faster** |
+| **99th Percentile (p99)** | 4,743.75 ms | **2.81 ms** | **1,688x faster** |
+| **Target Accuracy Rate** | 74.0% | **99.0%** | **Zero path hallucinations** |
+| **Context Token Footprint** | 250,000 tokens | **5,000 tokens** | **98% token reduction** |
+
+### Evaluated Test Categories (25 Runs Each)
+1. **Screenshot UI Label Targeting (Runs 1–25)**: Evaluated against button text, headings, badges, and modal headers.
+2. **Case-Insensitive Fuzzy Resolution (Runs 26–50)**: Evaluated kebab-case conversational queries against PascalCase source files.
+3. **Monolithic God-File Method Slicing (Runs 51–75)**: Slices 94 files (>500 lines) into exact AST bounds, saving up to 99.8% tokens per read.
+4. **Fullstack Cross-Reference Tracing (Runs 76–100)**: Evaluates end-to-end traces from UI triggers to API route handlers and database tables.
+
+*For complete query distributions and ground-truth comparisons, see the [100-Run Benchmark Report](docs/BENCHMARK_100_REPORT.md).*
+
+---
+
+## Generated Architecture Atlases
+
+Running Fullstack Audit generates two structured documentation directories in your project root:
+
+```text
+docs/
+├── frontend-atlas/
+│   ├── 01_ROUTES_AND_PANELS_MAP.md       # Route hierarchy, boundaries, component trees
+│   ├── 02_COMPONENT_INVENTORY.md         # Buttons, live pulse indicators, capsule pills, modals
+│   ├── 03_DESIGN_TOKENS_AND_COLORS.md    # Tailwind palette matrix and dark mode asymmetries
+│   ├── 04_UI_ISLANDS_AND_DRIFT.md        # UI drift analysis and consolidation targets
+│   ├── 05_DEAD_ORPHANED_COMPONENTS.md    # Unused component audit and safe removal guide
+│   ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md # Screenshot-to-code text index with file:line bounds
+│   ├── 07_VISUAL_AND_ICON_INDEX.md       # Action icon index with interactive context
+│   ├── 08_DISPATCH_GATEWAY.md            # Agent triage matrix and tool router
+│   ├── 09_QUERY_AND_CACHE_MAP.md         # TanStack Query keys, mutations, cache hygiene
+│   ├── 10_GOD_FILES_SURGICAL_MAP.md      # AST line slices for monolithic files (>500 lines)
+│   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # Composite risk scoring (0-100) and blast radius
+│   ├── 12_TEST_SUITES_AND_COVERAGE_MAP.md# Test suite index and assertion map
+│   └── THEME_MIGRATION_PUNCHLIST.md      # Rebrand punchlist for color migrations
+└── backend-atlas/
+    ├── 01_API_ROUTES_AND_ENDPOINTS.md    # Next.js App/Pages API routes, Express, Hono
+    ├── 02_DATABASE_MODELS_AND_SCHEMA.md  # Prisma, Drizzle, and Raw SQL table models
+    ├── 03_SERVER_ACTIONS_AND_MUTATIONS.md# Server Action exports and mutation signatures
+    ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md  # Middleware matchers, public vs protected routes
+    ├── 05_INTEGRATIONS_AND_WEBHOOKS.md   # Stripe, Resend, Supabase, S3 integrations
+    ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md# UI Trigger -> API -> Service -> DB model traces
+    └── 07_ENV_AND_SECRETS_MAP.md         # Client secret leak radar and shadow env audit
+```
+
+Additionally, root `llms.txt` and `llms-full.txt` are created following the official Answer.AI standard.
+
+---
+
+## CLI Reference
+
+### Developer Commands
+| Command | Description |
+| :--- | :--- |
+| `npx fullstack-audit` | Regenerates both frontend and backend atlases plus root `llms.txt`. |
+| `npx fullstack-audit --diff` | Reports architectural changes compared to the previous audit run. |
+| `npx fullstack-audit --verify --gate-clean` | Executes typecheck and test validation gates before commit. |
+| `npx fullstack-audit --setup-all` | Injects configuration rules into Cursor, Claude Code, and Antigravity. |
+| `npx fullstack-audit -v` | Displays current version and engine banner. |
+
+### Autonomous Agent Primitives (Sub-3ms)
+| Flag | Description |
+| :--- | :--- |
+| `--find <query> [--compact]` | Inverted index search across components, queries, and schema models. |
+| `--resolve <name>` | Case-insensitive fuzzy component resolver (e.g., `connect-modal` ➔ `ConnectModal.tsx`). |
+| `--symbol <name>` | Retrieves exact start and end line bounds for functions inside God-files. |
+| `--patch <file> --target <old> --replace <new>` | CRLF-safe string replacement tool immune to PowerShell syntax errors. |
+
+---
+
+## Installation Profiles (Optional)
+
+<details>
+<summary><b>View Installation Profiles and Triad Setup</b></summary>
+
+Fullstack Audit runs standalone with zero external dependencies. For environments utilizing multi-agent workflows, three configuration profiles are available:
+
+| Capability | Profile A: Full Synergy Triad | Profile B: Standalone Mode | Profile C: Custom |
+| :--- | :---: | :---: | :---: |
+| **Fullstack Audit Engine** | ✅ Included | ✅ Included | ✅ Included |
+| **Anti-Overengineering (KISS)** | ✅ Included (`ponytail`) | ❌ Standard | Optional |
+| **Terse Communication** | ✅ Included (`caveman`) | ❌ Standard | Optional |
+| **Verification Gate** | ✅ Included (`superpowers`) | ❌ Standard | Optional |
+| **External Dependencies** | 3 plugins | **0 (Zero dependencies)** | Custom |
+| **Token Reduction** | **~92%** | **~65%** | 70%–85% |
+
+### Quick Setup
+
+#### Standalone Mode (Zero Dependencies)
+```bash
+npx fullstack-audit --setup-all --standalone
+```
+
+#### Full Synergy Triad Setup
+```powershell
+# Windows:
 iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)
 
 # macOS / Linux:
 curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash
-
-# Terminal CLI / Across all harnesses:
-npx fullstack-audit --setup-all
 ```
-
-*Optional Companion Plugins (for slash commands & extended tools)*:
-```bash
-# Antigravity / Gemini CLI:
-gemini plugin add ponytail && gemini plugin add caveman && gemini plugin add superpowers
-
-# Claude Code:
-claude plugin install ponytail caveman superpowers
-```
+</details>
 
 ---
 
-### ⚡ Profile B: Standalone Mode (Zero External Dependencies)
-> **For developers who want ONLY the fullstack atlas:** Zero external plugins, no forced Caveman terseness, and no Superpowers workflows. Your AI assistant maintains its natural, friendly conversational voice while gaining instant zero-grep atlas navigation.
+## Deep-Dive Documentation
 
-```bash
-# Windows (PowerShell):
-& { $(irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1) } -Standalone
-
-# macOS / Linux:
-curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash -s -- --standalone
-
-# Terminal CLI / Across all harnesses:
-npx fullstack-audit --setup-all --standalone
-```
+- [Master Usage Guide](docs/MASTER_USAGE_GUIDE.md): Comprehensive developer workflows and cache debugging.
+- [How It Works](docs/HOW_IT_WORKS.md): AST architecture and sub-350ms static parser engine.
+- [Empirical Benchmarks](docs/HOW_IT_WORKS.md#empirical-benchmarks): Comparative benchmark runtime data and methodology.
+- [Multi-Agent Recipes](docs/MULTI_AGENT_RECIPES.md): Parallel Map-Reduce sweeps across 4 codebase zones.
+- [Changelog](CHANGELOG.md): SemVer release notes and upgrade guide.
 
 ---
 
-### 🎯 Profile C: Selective / Custom Setup
-> Mix and match exactly the companion capabilities you want:
-
-```bash
-# Example 1: Triad without Superpowers (Keep Caveman + Ponytail, standard testing)
-npx fullstack-audit --setup-all --no-superpowers
-
-# Example 2: Standalone with Ponytail only (Anti-overengineering in natural conversational tone)
-npx fullstack-audit --setup-all --standalone --with-ponytail
-```
-
----
-
-## ⚡ 3-Second Quickstart
-
-### How to Run It
-
-* **Inside AI Chat (Antigravity, Claude Code, Cursor)**:
-  ```text
-  /fullstack-audit
-  ```
-* **From the Terminal (CLI)**:
-  ```bash
-  npx fullstack-audit
-  ```
-* **Instant Lookup & Surgical Patching**:
-  ```bash
-  # Instant sub-3ms lookup
-  npx fullstack-audit --find "UserProfile" --compact
-
-  # Fuzzy file & casing resolver
-  npx fullstack-audit --resolve "connect-modal"
-
-  # Line-bound function slices for God-files
-  npx fullstack-audit --symbol "mapOrderToDTO"
-
-  # CRLF-safe surgical patch (immune to PowerShell & syntax crashes)
-  npx fullstack-audit --patch "src/test.ts" --target "old text" --replace "new text"
-  ```
-
----
-
-## 🎯 The Core Problem It Solves
-
-Vanilla AI coding assistants waste significant time and token budget on recursive grep searches (`Get-ChildItem -Recurse | Select-String`):
-
-1. **Eliminates Localization Errors (Princeton SWE-bench)**: Over 64% of agent failures stem from getting trapped in minified `.next/` or `dist/` build files. `fullstack-audit` provides deterministic, AST-verified paths in 2ms.
-2. **Next.js Component Boundary Radar**: Statically tags components as `[Client ⚡]` or `[Server 🖥️]` to prevent runtime hydration mismatches.
-3. **Catches Whole-Website Color Drift**: Discovers hardcoded hexes (`bg-[#121110]`), inline JSX styles (`style={{ background: ... }}`), and dark mode asymmetries in modals and sliding drawers.
-4. **Bi-Directional Fullstack Linker**: Directly links UI buttons ➔ Next.js Server Actions / API endpoints ➔ Prisma/Drizzle database models.
-5. **Universal Dual-Speed Loop (1–2s Responses)**: Separates instant inner-loop surgical edits from outer-loop verification gates, eliminating 45-second headless browser and per-edit compile delays across all harnesses.
-6. **Next.js Client Secret Leak & Shadow Env Radar**: Automatically flags sensitive secrets (`STRIPE_SECRET_KEY`, `DATABASE_URL`) imported in client components and surfaces undocumented `.env` variables before CI/CD crashes.
-7. **Monolithic God-File Surgical Slicer**: Parses massive 1,000+ line monoliths into discrete functional AST slices, saving **88% to 99.8% of input tokens** per surgical read.
-8. **Fullstack Route Complexity & Blast-Radius Radar**: Computes composite risk scores (0–100) and blast-radius tiers (`🚨 Critical`, `⚡ Moderate`, `🟢 Low`) to safeguard high-impact pages during refactoring.
-
----
-
-## 🔬 Benchmark Proof: Vanilla Agent vs. `fullstack-audit`
-
-Tested head-to-head on a real production Next.js 15 App Router codebase (**448 files, 50 routes, Tailwind CSS, Prisma**):
-
-| Real-World Task | Vanilla Agent (`Select-String` / grep) | `fullstack-audit` (Atlas Read) | Proven Improvement |
-| :--- | :---: | :---: | :--- |
-| **Screenshot-to-Code Localization** *(Find UI text)* | 42,961 ms | **3 ms** | **⚡ 14,320x Faster** (Zero build noise) |
-| **Rogue Hardcoded Color Detection** *(Find un-themed hex)* | 39,595 ms | **8 ms** | **⚡ 4,949x Faster** (Structured token matrix) |
-| **Fullstack Route Hierarchy Trace** *(Server/Client boundary)* | 35,142 ms | **2 ms** | **⚡ 17,571x Faster** (Preserves RSC boundary) |
-| **TOTAL BENCHMARK DURATION** | **117,698 ms (~2.0 min)** | **13 ms (0.013s)** | **🚀 9,053.7x FASTER** |
-
-👉 *Read the full empirical benchmark breakdown and academic research grounding in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md#empirical-benchmarks).*
-
----
-
-## 🛠️ CLI Command Matrix (v2.10.0)
-
-| Command | Purpose |
-| :--- | :--- |
-| `npx fullstack-audit` | Regenerates both `docs/frontend-atlas/` and `docs/backend-atlas/` plus root `llms.txt`. |
-| `npx fullstack-audit -v` / `--version` | Instant (<5ms) version banner output without invoking heavy dependencies. |
-| `npx fullstack-audit --check-update` | Compares project Atlas against installed skill version and detects version drift. |
-| `npx fullstack-audit --setup-all [--standalone \| --profile <profile>]` | Universal multi-harness installer (Cursor `.mdc`, Claude Code `.claude/commands/`, Hermes, OpenCode, `AGENTS.md` / `GEMINI.md`). |
-| `npx fullstack-audit --find <query> [--compact]` | Sub-3ms inverted index search across components, queries, test assertions, and database models. |
-| `npx fullstack-audit --resolve <name>` | Fuzzy case-insensitive component & file resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`). |
-| `npx fullstack-audit --symbol <method>` | Function/method AST line bounds slicer for God-files (>500 lines). |
-| `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"` | CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes). |
-| `npx fullstack-audit --solo` | Enforces strictly Single-Agent execution (zero subagent overhead). |
-| `npx fullstack-audit --multi-agent` | Partitions the codebase into 4 parallel zone briefs for multi-agent swarms. |
-| `npx fullstack-audit --llms` | Generates root `llms.txt` & `llms-full.txt` following the official Answer.AI standard. |
-| `npx fullstack-audit --theme` | Generates `THEME_MIGRATION_PUNCHLIST.md` for whole-website rebrands. |
-| `npx fullstack-audit --theme --route <path> --compact` | Generates an ultra-fast route-scoped micro-punchlist (saves 99.8% tokens). |
-| `npx fullstack-audit --migrate-theme --from "#hex" --to "token"` | CRLF-agnostic AST codemod in 80ms (0 LLM output tokens). |
-| `npx fullstack-audit --verify --gate-clean` | Smart multi-target verification gate (auto-selects `tsconfig.check.json` or `npm run typecheck`). |
-| `npx fullstack-audit --manifest <file:line>` | Generates a zero-search agent handoff manifest. |
-| `npx fullstack-audit --diff` | Architecture delta report comparing current scan against `.last_receipt.json`. |
-| `npx fullstack-audit --dead` | Scans and lists potential orphaned/dead components. |
-| `npx fullstack-audit --watch` | Live file watcher for continuous background sync on save. |
-
----
-
-## 🧭 What the Engine Produces
-
-The engine generates two distinct, zero-search directories (20 specialized architecture maps):
-
-```
-your-project/
-└── docs/
-    ├── frontend-atlas/
-    │   ├── 01_ROUTES_AND_PANELS_MAP.md       # 🗺️ Route-to-page map, boundary radar, component tree & blast radius badges
-    │   ├── 02_COMPONENT_INVENTORY.md         # 🔘 Buttons, Live Dots, Capsule Pills, Disclosed Modals (Centrality ranked)
-    │   ├── 03_DESIGN_TOKENS_AND_COLORS.md    # 🎨 Universal Tailwind Palette Matrix & Dark Mode Asymmetry
-    │   ├── 04_UI_ISLANDS_AND_DRIFT.md        # 🏝️ UI drift & priority unification checklist
-    │   ├── 05_DEAD_ORPHANED_COMPONENTS.md    # 👻 Unused component punch-list & safe removal guide
-    │   ├── 06_VISIBLE_TEXT_AND_LABELS_MAP.md # 🏷️ Screenshot-to-Code index of all UI text & labels
-    │   ├── 07_VISUAL_AND_ICON_INDEX.md       # 🖼️ Screenshot-to-Code index of all action icons & symbols
-    │   ├── 08_DISPATCH_GATEWAY.md            # 🎫 Inter-skill triage matrix & agent handoff router
-    │   ├── 09_QUERY_AND_CACHE_MAP.md         # 🔄 TanStack React Query cache keys, mutations & Cache Hygiene Radar
-    │   ├── 10_GOD_FILES_SURGICAL_MAP.md      # ✂️ Monolithic files sliced into AST line bounds (88-99.8% token savings)
-    │   ├── 11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md # 🚨 Composite risk scoring (0-100) & blast radius impact tiers
-    │   ├── 12_TEST_SUITES_AND_COVERAGE_MAP.md# 🧪 Unit & integration test suites registry (zero-grep assertion locator)
-    │   ├── THEME_MIGRATION_PUNCHLIST.md      # 📋 Actionable checklist for theme & color rebrands
-    │   └── README.md                         # 📖 Frontend summary statistics dashboard
-    └── backend-atlas/
-        ├── 01_API_ROUTES_AND_ENDPOINTS.md    # 🌐 Next.js App/Pages API, Express, Hono (Traffic Centrality ranked)
-        ├── 02_DATABASE_MODELS_AND_SCHEMA.md  # 🗄️ Prisma, Drizzle & Raw SQL / Supabase tables (Entity Centrality ranked)
-        ├── 03_SERVER_ACTIONS_AND_MUTATIONS.md# ⚡ "use server" actions, signatures, mutations
-        ├── 04_AUTH_AND_MIDDLEWARE_GUARDS.md  # 🛡️ Middleware matchers, public vs protected routes
-        ├── 05_INTEGRATIONS_AND_WEBHOOKS.md   # 🔌 Stripe, Resend, Supabase, S3 & webhook handlers
-        ├── 06_FULLSTACK_CROSS_REFERENCE_MAP.md# 🌉 Deep UI Trigger ➔ API Route ➔ Domain Service ➔ DB Model
-        ├── 07_ENV_AND_SECRETS_MAP.md         # 🔐 Client Secret Leak Radar & Undocumented Shadow Variables
-        └── README.md                         # 📖 Backend summary statistics dashboard
-```
-
----
-
-## 🤖 Making It Always Active in Your AI Assistant
-
-To ensure **Antigravity**, **Claude Code**, **Cursor**, or **Codex** automatically uses the atlas on every task, the installer injects tailored rules into `AGENTS.md` and `GEMINI.md` based on your chosen installation profile:
-
-* **Recommended Triad (`install.ps1` / `install.sh`)**: Injects the **4-Phase Synergy Engine** (0ms Atlas ➔ Ponytail YAGNI ➔ Caveman terse receipts ➔ Dual-Speed Verification loop).
-* **Standalone Mode (`--standalone`)**: Injects a clean, self-contained rule with zero external skill references in a natural conversational tone.
-
-Example of the rule block managed in your project's `AGENTS.md`:
-
-```markdown
-<!-- START_FULLSTACK_AUDIT_RULE -->
-<!-- START_FRONTEND_AUDIT_RULE -->
-# ⚡ Fullstack 4-Phase Synergy Engine (0ms Atlas • Ponytail KISS • Caveman Terse • Dual-Speed Verify)
-Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Code, Windsurf, Codex, OpenCode, VS Code**).
-
-## 🔄 The 4-Phase Operational Pipeline
-### Phase 1: GPS / Locate (`fullstack-audit`)
-- Zero-Grep Mandate: First tool call MUST read `docs/frontend-atlas/` or `docs/backend-atlas/` or run `npx fullstack-audit --find "<query>" --compact`.
-- Fuzzy Resolver: Run `npx fullstack-audit --resolve "<name>"` for instant 0ms casing matching.
-- Method Slicer: Run `npx fullstack-audit --symbol "<method>"` for exact line bounds in God-files before calling `read_file`.
-- PowerShell Quoting Armor: Single-quote all arguments; use `npx fullstack-audit --patch` to avoid shell crashes.
-
-### Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)
-- YAGNI Invariant: Solve with least new code. Reuse existing project components and standard web/Tailwind primitives.
-
-### Phase 3: Communication & Zero-Fluff Receipts (`caveman`)
-- Dense results first. Conclude replies with a tight diff receipt: `Target`, `Diff`, and `Status`.
-
-### Phase 4: Right-Sized Verification (`superpowers` Dual-Speed Harmonization)
-- Inner-Loop: Surgical edits ≤ 2 files update in 1–2s via dev server HMR. No full TypeScript runs on micro-edits.
-- Outer-Loop: Run `npx fullstack-audit --verify --gate-clean` before milestone commits.
-<!-- END_FRONTEND_AUDIT_RULE -->
-<!-- END_FULLSTACK_AUDIT_RULE -->
-```
-
----
-
-## 📄 License
+## License
 
 MIT License © 2026 EURIE
