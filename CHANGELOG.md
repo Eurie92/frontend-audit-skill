@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.12.2] - 2026-10-24
+
+> **Release Tier**: `PATCH (Rule Hardening & Anti-Grep Iron Gate Mandate)`  
+> **Summary**: Hardens workspace rules across all harnesses with an unbypassable Iron Gate invariant prohibiting all recursive directory searches (`Get-ChildItem -Recurse`, `grep -r`, `find`) and inline scratch scripts (`node -e fs`), fixes regex replacement expansion corruption in rule injection, and cleanly aligns `AGENTS.md` and `GEMINI.md` across repositories.
+
+### Fixed
+* **Regex Replacement String Hazard**:
+  * Fixed string replacement in `scripts/audit.ts` (`legacyPattern.replace(..., () => ruleBlock)`) to always use an arrow function replacer, preventing JS `$'` backreference expansion from corrupting markdown files during rule injection.
+  * Completely repaired and restored corrupted nested markdown duplication in `xnight/GEMINI.md`.
+
+### Added
+* **🛑 Iron Gate Invariant (Zero-Grep & Zero-Scratch Mandate)**:
+  * Absolute prohibition on `Get-ChildItem -Recurse` under ANY flag or parameter (`-Path`, `-Filter`, `-Include`, `-Directory`), `grep -r`, `rg`, `find`, or `dir /s`.
+  * Absolute prohibition on inline scratch scripts: `node -e "const fs = require('fs')..."`, `python -c`, or PowerShell `[IO.File]::ReadAllText` one-liners.
+  * Explicit mandatory alternatives: `npx fullstack-audit --find` (sub-3ms), `--locate-visual` (0ms), `--resolve` (prefix-agnostic 0ms), `--path` (sub-5ms), and `--symbol`.
+
+### Changed
+* **Workspace Guideline Synchronization**:
+  * Synchronized clean `v2.12.2` guidelines across `AGENTS.md`, `GEMINI.md`, and all internal `.agent/skills/` configurations.
+
+---
+
 ## [2.12.1] - 2026-10-24
 
 > **Release Tier**: `PATCH (Performance & Repository Hygiene Refinement)`  

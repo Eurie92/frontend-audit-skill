@@ -11,8 +11,6 @@ docs/superpowers/
 .agents/
 
 # Local / Private Agent Guidelines & Harness Rules (Localhost Only)
-GEMINI.md
-AGENTS.md
 CLAUDE.md
 .cursor/
 .claude/

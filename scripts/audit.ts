@@ -2413,7 +2413,7 @@ function syncAgentRulesInPlace() {
       fs.writeFileSync(targetFile, content, "utf8");
       console.log(`🔄 Cleanly updated Fullstack Architecture Rule in ${targetFile}`);
     } else if (legacyPattern.test(content)) {
-      content = content.replace(legacyPattern, ruleBlock);
+      content = content.replace(legacyPattern, () => ruleBlock);
       fs.writeFileSync(targetFile, content, "utf8");
       console.log(`🔄 Upgraded legacy Architecture Rule in-place in ${targetFile}`);
     } else {
@@ -4005,21 +4005,24 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   }
 
   // Phase 1 / GPS Content
-  lines.push("- **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on the pre-computed atlases:");
-  lines.push("  - **Frontend (`docs/frontend-atlas/`)**: `01_ROUTES_AND_PANELS_MAP.md` (by Route, Screen, Server/Client boundary), `02_COMPONENT_INVENTORY.md` (modals, drawers, live dots `animate-pulse`, capsule pills `rounded-full`, buttons), `03_DESIGN_TOKENS_AND_COLORS.md` (all 22+ Tailwind color families, dark mode asymmetries, hexes), `06_VISIBLE_TEXT_AND_LABELS_MAP.md` (by visible text or button label in a screenshot), `07_VISUAL_AND_ICON_INDEX.md` (by action icon / symbol in a textless screenshot), `09_QUERY_AND_CACHE_MAP.md` (by React Query key, useQuery/useMutation, cache invalidation), `10_GOD_FILES_SURGICAL_MAP.md` (slice bounds for files >500 lines to save 90%+ tokens), `11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md` (route risk score & blast radius), `12_TEST_SUITES_AND_COVERAGE_MAP.md` (failing assertions & test titles), `THEME_MIGRATION_PUNCHLIST.md` (whole-website color & dark mode rebrands).");
-  lines.push("  - **Backend (`docs/backend-atlas/`)**: `01_API_ROUTES_AND_ENDPOINTS.md` (by HTTP API URL, method, auth guard), `02_DATABASE_MODELS_AND_SCHEMA.md` (by raw table name, Prisma model, Drizzle schema), `03_SERVER_ACTIONS_AND_MUTATIONS.md` (Next.js Server Action \"use server\"), `04_AUTH_AND_MIDDLEWARE_GUARDS.md` (route matcher, public vs protected), `05_INTEGRATIONS_AND_WEBHOOKS.md` (Stripe, Resend, Supabase, S3), `06_FULLSTACK_CROSS_REFERENCE_MAP.md` (trace UI button/modal directly to backend action & database model), `07_ENV_AND_SECRETS_MAP.md` (client secret leak radar).");
-  lines.push("  - **Fast Find**: Or run `npx fullstack-audit --find \"<query>\" --compact` (sub-3ms).");
-  lines.push("  - **Visual & Screenshot Locator**: Or run `npx fullstack-audit --locate-visual \"<query>\"` to locate live status pulse dots (`animate-pulse`), capsule pills (`rounded-full`), badges, and action icons in 0ms.");
-  lines.push("  - **Fuzzy File Resolve**: Run `npx fullstack-audit --resolve \"<component-or-file>\"` to resolve casing (e.g. `connect-modal` ➔ `ConnectModal.tsx`) in 0ms.");
-  lines.push("  - **Causal Path Tracer**: Run `npx fullstack-audit --path <fromComponent> <toActionOrModel>` to trace fullstack causal dependencies in <5ms.");
-  lines.push("  - **Method Line Bounds**: Run `npx fullstack-audit --symbol \"<method>\"` to get exact start/end lines in God-files before calling `read_file`.");
+  lines.push("- 🛑 **IRON GATE INVARIANT (Zero-Grep & Zero-Scratch Absolute Mandate)**:");
+  lines.push("  - ❌ **FORBIDDEN (All Recursive Searches)**: NEVER run `Get-ChildItem -Recurse` (under ANY parameters: `-Filter`, `-Include`, `-Path`, `-Directory`, etc.), `grep -r`, `rg`, `find`, or `dir /s`. Windows PowerShell scans `node_modules` and `.next`, causing a 15–30s Defender freeze.");
+  lines.push("  - ❌ **FORBIDDEN (Inline Scratch Scripts)**: NEVER execute `node -e \"const fs = require('fs')...\"`, `python -c \"...\"`, or PowerShell `[IO.File]::ReadAllText` / `ForEach-Object` one-liners to locate, read, or patch files.");
+  lines.push("  - ❌ **FORBIDDEN (Path Guessing)**: NEVER guess paths or prepend arbitrary prefixes like `src/components/`.");
+  lines.push("  - ✅ **MANDATORY GPS FIRST-ACTION**: The FIRST tool call MUST locate the element deterministically:");
+  lines.push("    - **Fast Find**: Run `npx fullstack-audit --find \"<query>\" --compact` (sub-3ms token-compact lookup).");
+  lines.push("    - **Visual & Icon Locator**: Run `npx fullstack-audit --locate-visual \"<query>\"` (0ms lookup for live pulse dots `animate-pulse`, capsule pills `rounded-full`, badges, action icons).");
+  lines.push("    - **Fuzzy Case Resolver**: Run `npx fullstack-audit --resolve \"<name>\"` (prefix-agnostic casing & path resolver in 0ms).");
+  lines.push("    - **Causal Path Tracer**: Run `npx fullstack-audit --path <fromComponent> <toActionOrModel>` (sub-5ms causal dependency path).");
+  lines.push("    - **God-File Slicer**: Run `npx fullstack-audit --symbol \"<method>\"` (exact start/end lines before calling `read_file`).");
+  lines.push("    - **Pre-Computed Atlases**: Direct `view_file` on `docs/frontend-atlas/` (01 routes, 02 components, 03 tokens, 06 visible text, 07 icons) or `docs/backend-atlas/` (01 APIs, 02 DB models, 03 server actions, 04 auth).");
   lines.push("- **Screenshot & Temp Image Armor**: When a user references a screenshot in `AppData\\Local\\Temp\\orca-paste-*.png`:");
-  lines.push("  - **HARD FORBIDDEN**: Never call `read_file` or `view_file` directly on `AppData\\Local\\Temp` paths (avoids OS hook sandbox interception).");
-  lines.push("  - **Fast-Path A (Visual Atlas)**: Query `npx fullstack-audit --locate-visual \"<element>\"` or view `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` to locate the element without reading the image.");
-  lines.push("  - **Fast-Path B (Scratch Copy)**: If the raw screenshot must be viewed, copy first: `Copy-Item '<temp-path>' 'scratch\\screenshot.png'`, then open `scratch\\screenshot.png`.");
-  lines.push("- **Zero-Guess Path Invariant**: NEVER guess file paths or prepend `src/` arbitrarily. Use `npx fullstack-audit --resolve \"<component>\"` to resolve exact repository casing and root paths.");
-  lines.push("- **HARD FORBIDDEN (PowerShell `-Exclude` Trap)**: Do NOT run recursive codebase greps (`Get-ChildItem -Recurse | Select-String`, `grep -r`). In Windows PowerShell, `-Exclude` does NOT prune recursion—it scans all 50,000+ files in `node_modules` and `.next`, causing a 15–30s freeze with Defender filter drivers. The repository is already indexed.");
-  lines.push("- **PowerShell Quoting Armor**: Always wrap PowerShell arguments in single-quotes `'...'`. The `&` operator is reserved (e.g. `'Help & support'`), and `$` triggers variable expansion. Use `npx fullstack-audit --patch` to edit files safely without scratch scripts.");
+  lines.push("  - ❌ **FORBIDDEN**: Never call `read_file` or `view_file` directly on `AppData\\Local\\Temp` paths (avoids OS hook sandbox interception).");
+  lines.push("  - ⚡ **Fast-Path A (Visual Atlas)**: Query `npx fullstack-audit --locate-visual \"<element>\"` or view `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` in 0ms without opening the image.");
+  lines.push("  - ⚡ **Fast-Path B (Scratch Copy)**: If the raw screenshot must be viewed, copy first: `Copy-Item '<temp-path>' 'scratch\\screenshot.png'`, then open `scratch\\screenshot.png`.");
+  lines.push("- **PowerShell Quoting & Surgical Patching**:");
+  lines.push("  - Wrap PowerShell arguments in single-quotes `'...'` (prevents `&` reserved character syntax crash and variable expansion).");
+  lines.push("  - To edit code: Use native harness tools (`edit_file`) or `npx fullstack-audit --patch <file> --target \"<old>\" --replace \"<new>\"` (CRLF-agnostic surgical patcher).");
   lines.push("- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.");
   lines.push("");
 

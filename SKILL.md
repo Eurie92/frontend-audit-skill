@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
 description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, maps TanStack React Query cache topology, indexes test suites, and audits backend API routes, domain services, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
-version: 2.12.1
+version: 2.12.2
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -70,7 +70,11 @@ allowed-tools:
 Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and VS Code**:
 
 ### Phase 1: GPS / Locate (fullstack-audit)
-1. **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on `docs/frontend-atlas/` or `docs/backend-atlas/` (or `npx fullstack-audit --find "<query>" --compact`).
+1. 🛑 **Iron Gate Invariant (Zero-Grep & Zero-Scratch Mandate)**:
+   - ❌ **FORBIDDEN**: NEVER run `Get-ChildItem -Recurse` (under any parameters), `grep -r`, `rg`, `find`, or `dir /s`.
+   - ❌ **FORBIDDEN**: NEVER run inline scratch scripts like `node -e "const fs = ..."` or PowerShell `ReadAllText` one-liners.
+   - ❌ **FORBIDDEN**: NEVER guess paths or prepend arbitrary `src/components/`.
+   - ✅ **MANDATORY**: The FIRST tool call MUST be `view_file` on `docs/frontend-atlas/` or `docs/backend-atlas/`, or run `npx fullstack-audit --find "<query>" --compact` / `npx fullstack-audit --locate-visual "<query>"` / `npx fullstack-audit --resolve "<name>"`.
 2. **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to Phase 2. It is an architecture locator, NOT an animation or code implementation tool.
 
 ### Phase 2: Design & Anti-Overengineering Firewall (ponytail)
@@ -115,18 +119,21 @@ Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and
 12. **`12_TEST_SUITES_AND_COVERAGE_MAP.md`**: Pre-indexed registry of unit, integration, and E2E test suites. Eliminates blind directory greps on test assertion failures.
 13. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## Available Commands (v2.11.0 Multi-Harness & Inverted Index Engine)
+## Available Commands (v2.12.2 Multi-Harness & Inverted Index Engine)
 - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
 - `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
 - `npx fullstack-audit --check-update`: Compares project Atlas against installed skill version and detects version drift.
 - `npx fullstack-audit --setup-all [--standalone | --profile <profile>]`: Universal multi-harness auto-installer (configures Cursor `.cursor/rules/*.mdc`, Claude Code `.claude/commands/`, Hermes Agent `skills/`, OpenCode, and `AGENTS.md` / `GEMINI.md`).
 - `npx fullstack-audit --find <query> [--compact]`: Sub-3ms instant inverted index search across components, queries, test assertions, and database models.
+- `npx fullstack-audit --locate-visual <query>`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).
 - `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`).
+- `npx fullstack-audit --path <from> <to>`: Sub-5ms causal execution path finder (UI button -> Action -> DB model).
 - `npx fullstack-audit --symbol <method>`: Line-bound surgical slicer for functions/methods in God-files (>500 lines).
 - `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
 - `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
+- `npx fullstack-audit --graph`: Exports knowledge graph to `docs/graph.json` (NetworkX / Graphify schema).
 - `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.
 - `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).
