@@ -3,7 +3,7 @@
 > High-performance architecture atlas and GPS companion for AI coding assistants.
 > Automatically indexes Next.js, React, Nuxt, SvelteKit, Astro, Remix, and backend APIs into deterministic, zero-grep architecture maps.
 
-[![Version](https://img.shields.io/badge/version-2.12.3-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
+[![Version](https://img.shields.io/badge/version-2.13.0-blue.svg)](https://github.com/Eurie92/fullstack-audit-skill/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Benchmark](https://img.shields.io/badge/benchmark-100%2F100%20passed%20(0.18ms)-brightgreen.svg)](docs/BENCHMARK_100_REPORT.md)
 [![Frameworks](https://img.shields.io/badge/frameworks-Next.js%20%7C%20Nuxt%20%7C%20SvelteKit%20%7C%20Astro%20%7C%20Remix-black.svg)]()
@@ -250,7 +250,20 @@ Additionally, root `llms.txt` and `llms-full.txt` are created following the offi
 
 ---
 
-## CLI Reference
+## Native MCP Tools & CLI Reference
+
+### ⚡ Native MCP Tools (Zero Latency, In-Memory RPC)
+Available automatically to Antigravity and any MCP-compatible harness via `bin/mcp-server.js`:
+
+| MCP Tool | Description |
+| :--- | :--- |
+| `fullstack_find` | Sub-3ms inverted index search across components, queries, and schema models. |
+| `fullstack_locate_visual` | 0ms visual element locator (pulse dots, capsule pills, status badges, icons). |
+| `fullstack_resolve` | Case-insensitive fuzzy component resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`). |
+| `fullstack_path` | Sub-5ms causal execution path finder (`UI Component ➔ API Route ➔ DB Model`). |
+| `fullstack_symbol` | Retrieves exact start and end line bounds for functions inside God-files (>500 lines). |
+| `fullstack_patch` | CRLF-safe string replacement tool immune to PowerShell syntax errors. |
+| `fullstack_audit` | Refreshes and updates both frontend and backend atlases in the active project. |
 
 ### Developer Commands
 | Command | Description |

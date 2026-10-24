@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
 description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, maps TanStack React Query cache topology, indexes test suites, and audits backend API routes, domain services, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
-version: 2.10.0
+version: 2.13.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -11,14 +11,14 @@ allowed-tools:
   - Bash(npm run audit:theme)
 ---
 
-# 🗺️ Universal Fullstack Atlas & Design System Audit Skill
+# Universal Fullstack Atlas & Design System Audit Skill
 
 > **Trigger**: `/fullstack-audit`, `/frontend-audit`, or when locating UI components, routes, database models, APIs, and color themes.
 > Run this skill when the user invokes `/fullstack-audit`, asks to locate UI components or backend actions, or asks to generate, update, or inspect the project's **Frontend Atlas** in `docs/frontend-atlas/` or **Backend Atlas** in `docs/backend-atlas/`.
 
 ---
 
-## 🚫 Routing & Trigger Boundaries
+## Routing & Trigger Boundaries
 
 * **USE THIS SKILL FOR**:
   1. Locating exact component files and route owners directly from `docs/frontend-atlas/01_ROUTES_AND_PANELS_MAP.md`, `06_VISIBLE_TEXT_AND_LABELS_MAP.md`, or `07_VISUAL_AND_ICON_INDEX.md`.
@@ -29,13 +29,13 @@ allowed-tools:
   6. Running closed-loop verification gates via `--verify` to track metric improvements and TypeScript compilation.
   7. Explicit slash command: `/fullstack-audit` or `/frontend-audit`.
 * **DO NOT USE THIS SKILL FOR**:
-  - UI visual design, styling ideas, or color advice ➡️ Use **`ui-ux-pro-max`** or **`design-taste-frontend`**.
-  - Interaction physics, spring animations, micro-polish ➡️ Use **`emil-design-eng`**.
-  - Accessibility audit or UX critique of a component ➡️ Use **`a11y-debugging`** or **`impeccable`**.
+  - UI visual design, styling ideas, or color advice -> Use **`ui-ux-pro-max`** or **`design-taste-frontend`**.
+  - Interaction physics, spring animations, micro-polish -> Use **`emil-design-eng`**.
+  - Accessibility audit or UX critique of a component -> Use **`a11y-debugging`** or **`impeccable`**.
 
 ---
 
-## 🚀 How to Locate Components & Endpoints (Sub-Second 0ms Lookup)
+## How to Locate Components & Endpoints (Sub-Second 0ms Lookup)
 
 ### Frontend Lookup (Screenshots, Components, Themes):
 1. **DO NOT run grep or search scripts.** Both atlases are already compiled on disk as Markdown.
@@ -66,11 +66,15 @@ allowed-tools:
 
 ---
 
-## 🔄 The 4-Phase Operational Pipeline (Universal Synergy Engine)
+## The 4-Phase Operational Pipeline (Universal Synergy Engine)
 Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and VS Code**:
 
 ### Phase 1: GPS / Locate (fullstack-audit)
-1. **Zero-Grep Mandate**: The FIRST tool call MUST be `view_file` on `docs/frontend-atlas/` or `docs/backend-atlas/` (or `npx fullstack-audit --find "<query>" --compact`).
+1. 🛑 **Iron Gate Invariant (Zero-Grep & Zero-Scratch Mandate)**:
+   - ❌ **FORBIDDEN**: NEVER run `Get-ChildItem -Recurse` (under any parameters), `grep -r`, `rg`, `find`, or `dir /s`.
+   - ❌ **FORBIDDEN**: NEVER run inline scratch scripts like `node -e "const fs = ..."` or PowerShell `ReadAllText` one-liners.
+   - ❌ **FORBIDDEN**: NEVER guess paths or prepend arbitrary `src/components/`.
+   - ✅ **MANDATORY**: The FIRST tool call MUST be `view_file` on `docs/frontend-atlas/` or `docs/backend-atlas/`, or run `npx fullstack-audit --find "<query>" --compact` / `npx fullstack-audit --locate-visual "<query>"` / `npx fullstack-audit --resolve "<name>"`.
 2. **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to Phase 2. It is an architecture locator, NOT an animation or code implementation tool.
 
 ### Phase 2: Design & Anti-Overengineering Firewall (ponytail)
@@ -87,7 +91,7 @@ Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and
 2. **Compact Diff Receipt**: Return exact target, diff, ponytail savings, and HMR status.
 
 ### Phase 4: Right-Sized Verification (superpowers Dual-Speed)
-1. **⚡ Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy)**:
+1. **Inner-Loop (Fast Mode — 1 to 2s responses — Mandatory for UI/CSS/Layout/Copy)**:
    - Direct surgical file edits (`edit_file` / native patch). Let local dev server HMR refresh in 50ms.
    - **HARD FORBIDDEN**: Do NOT run full TypeScript compilation (`tsc --noEmit`, `npm run typecheck`).
    - **HARD FORBIDDEN**: Do NOT run `npm run audit` or `npx fullstack-audit` on micro-edits.
@@ -95,13 +99,13 @@ Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and
    - **HARD FORBIDDEN**: Do NOT invoke multiple design skills in parallel.
    - **HARD FORBIDDEN**: Do NOT invoke heavy browser automation (Chrome DevTools MCP / Puppeteer) or curl localhost.
    - **Response Time**: Return immediately to the user in 1–2 seconds.
-2. **🛡️ Outer-Loop (Checkpoint Verification Gate — Milestones/Backend/DB/Auth)**:
+2. **Outer-Loop (Checkpoint Verification Gate — Milestones/Backend/DB/Auth)**:
    - Run `npx fullstack-audit --verify --gate-clean` or test suites (`npm test`, `npm run typecheck`) ONLY at major milestones or explicit user request.
 
-## 🧭 The Atlas Documents Guide
+## The Atlas Documents Guide
 
 ### `docs/frontend-atlas/` (Frontend & UI)
-1. **`01_ROUTES_AND_PANELS_MAP.md`**: Route-to-page link, ghost/redirect alias indicators (`🔀 Redirect ➔ /...`), Next.js boundary (`Client ⚡` vs `Server 🖥️`), layout, and 2-level deep component tree.
+1. **`01_ROUTES_AND_PANELS_MAP.md`**: Route-to-page link, ghost/redirect alias indicators (`Redirect -> /...`), Next.js boundary (`[Client]` vs `[Server]`), layout, and 2-level deep component tree.
 2. **`02_COMPONENT_INVENTORY.md`**: Buttons, Live Dots (`animate-pulse`), Capsule Pills (`rounded-full`), and Disclosed Modals with reverse route mapping.
 3. **`03_DESIGN_TOKENS_AND_COLORS.md`**: Universal Tailwind Color Matrix (all 22+ colors) and Dark Mode Asymmetry scanner.
 4. **`04_UI_ISLANDS_AND_DRIFT.md`**: Raw HTML elements, inline style tags, and custom modal redundancies.
@@ -111,22 +115,34 @@ Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and
 8. **`08_DISPATCH_GATEWAY.md`**: Inter-skill handoff matrix routing UI findings to specialized peer skills.
 9. **`09_QUERY_AND_CACHE_MAP.md`**: TanStack React Query cache keys, mutations, event invalidations (`invalidateQueriesForEvent`), reactive dependency graph, and Cache Hygiene Radar.
 10. **`10_GOD_FILES_SURGICAL_MAP.md`**: Monolithic files (>500 lines) parsed into functional AST slices (components, hooks, functions) with exact line bounds for 88–99.8% token savings.
-11. **`11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`**: Composite route risk scoring (0–100) and blast-radius tiers (`🚨 Critical`, `⚡ Moderate`, `🟢 Low`) to safeguard high-impact screens.
+11. **`11_ROUTE_COMPLEXITY_AND_BLAST_RADIUS.md`**: Composite route risk scoring (0–100) and blast-radius tiers (`Critical`, `Moderate`, `Low`) to safeguard high-impact screens.
 12. **`12_TEST_SUITES_AND_COVERAGE_MAP.md`**: Pre-indexed registry of unit, integration, and E2E test suites. Eliminates blind directory greps on test assertion failures.
 13. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## 🛠️ Available Commands (v2.10.0 Multi-Harness & Inverted Index Engine)
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
-- `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
+## Available Commands (v2.13.0 Multi-Harness & Native MCP Engine)
+- **Native MCP Tools (Zero Latency, In-Memory)**:
+  - `fullstack_find`: Sub-3ms instant inverted index search across components, queries, test assertions, and database models.
+  - `fullstack_locate_visual`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).
+  - `fullstack_resolve`: Fuzzy case-insensitive component & file resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`).
+  - `fullstack_path`: Sub-5ms causal execution path finder (UI button -> Action -> DB model).
+  - `fullstack_symbol`: Line-bound surgical slicer for functions/methods in God-files (>500 lines).
+  - `fullstack_patch`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).
+  - `fullstack_audit`: Runs or refreshes the fullstack atlas catalog in the active project.
+- **CLI Commands (Terminal & Scripts)**:
+  - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
+  - `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
 - `npx fullstack-audit --check-update`: Compares project Atlas against installed skill version and detects version drift.
 - `npx fullstack-audit --setup-all [--standalone | --profile <profile>]`: Universal multi-harness auto-installer (configures Cursor `.cursor/rules/*.mdc`, Claude Code `.claude/commands/`, Hermes Agent `skills/`, OpenCode, and `AGENTS.md` / `GEMINI.md`).
 - `npx fullstack-audit --find <query> [--compact]`: Sub-3ms instant inverted index search across components, queries, test assertions, and database models.
+- `npx fullstack-audit --locate-visual <query>`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).
 - `npx fullstack-audit --resolve <name>`: Fuzzy case-insensitive component & file resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`).
+- `npx fullstack-audit --path <from> <to>`: Sub-5ms causal execution path finder (UI button -> Action -> DB model).
 - `npx fullstack-audit --symbol <method>`: Line-bound surgical slicer for functions/methods in God-files (>500 lines).
 - `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).
 - `npx fullstack-audit --solo`: Enforces strictly Single-Agent execution (no subagents).
 - `npx fullstack-audit --multi-agent`: Partitions codebase into 4 parallel zone briefs for rapid Map-Reduce sweeps.
 - `npx fullstack-audit --llms`: Generates root `llms.txt` and `llms-full.txt` (Answer.AI specification).
+- `npx fullstack-audit --graph`: Exports knowledge graph to `docs/graph.json` (NetworkX / Graphify schema).
 - `npx fullstack-audit --diff`: Architecture delta report comparing current scan against `.last_receipt.json`.
 - `npx fullstack-audit --theme --route <route> --compact`: Emits route-scoped micro-punchlist (saves 99.8% tokens).
 - `npx fullstack-audit --migrate-theme --from "#hex1,#hex2" --to "dark:bg-slate-900"`: CRLF-agnostic AST codemod in 80ms (0 LLM output tokens).

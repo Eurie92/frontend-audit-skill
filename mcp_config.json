@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "fullstack-audit": {
+      "command": "node",
+      "args": [
+        "bin/mcp-server.js"
+      ]
+    }
+  }
+}

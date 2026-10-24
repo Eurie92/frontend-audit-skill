@@ -3996,20 +3996,21 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   lines.push("  - ❌ **FORBIDDEN (All Recursive Searches)**: NEVER run `Get-ChildItem -Recurse` (under ANY parameters: `-Filter`, `-Include`, `-Path`, `-Directory`, etc.), `grep -r`, `rg`, `find`, or `dir /s`. Windows PowerShell scans `node_modules` and `.next`, causing a 15–30s Defender freeze.");
   lines.push("  - ❌ **FORBIDDEN (Inline Scratch Scripts)**: NEVER execute `node -e \"const fs = require('fs')...\"`, `python -c \"...\"`, or PowerShell `[IO.File]::ReadAllText` / `ForEach-Object` one-liners to locate, read, or patch files.");
   lines.push("  - ❌ **FORBIDDEN (Path Guessing)**: NEVER guess paths or prepend arbitrary prefixes like `src/components/`.");
-  lines.push("  - ✅ **MANDATORY GPS FIRST-ACTION**: The FIRST tool call MUST locate the element deterministically:");
-  lines.push("    - **Fast Find**: Run `npx fullstack-audit --find \"<query>\" --compact` (sub-3ms token-compact lookup).");
-  lines.push("    - **Visual & Icon Locator**: Run `npx fullstack-audit --locate-visual \"<query>\"` (0ms lookup for live pulse dots `animate-pulse`, capsule pills `rounded-full`, badges, action icons).");
-  lines.push("    - **Fuzzy Case Resolver**: Run `npx fullstack-audit --resolve \"<name>\"` (prefix-agnostic casing & path resolver in 0ms).");
-  lines.push("    - **Causal Path Tracer**: Run `npx fullstack-audit --path <fromComponent> <toActionOrModel>` (sub-5ms causal dependency path).");
-  lines.push("    - **God-File Slicer**: Run `npx fullstack-audit --symbol \"<method>\"` (exact start/end lines before calling `read_file`).");
-  lines.push("    - **Pre-Computed Atlases**: Direct `view_file` on `docs/frontend-atlas/` (01 routes, 02 components, 03 tokens, 06 visible text, 07 icons) or `docs/backend-atlas/` (01 APIs, 02 DB models, 03 server actions, 04 auth).");
+  lines.push("  - ✅ **MANDATORY GPS FIRST-ACTION**: The FIRST action MUST locate the element deterministically:");
+  lines.push("    - **Native MCP Fast Find**: Call `fullstack_find(query: \"<query>\")` (sub-3ms token-compact lookup) or `node bin/audit.js --find \"<query>\" --compact`.");
+  lines.push("    - **Native MCP Visual & Icon Locator**: Call `fullstack_locate_visual(query: \"<query>\")` (0ms lookup for live pulse dots `animate-pulse`, capsule pills `rounded-full`, badges, action icons).");
+  lines.push("    - **Native MCP Fuzzy Case Resolver**: Call `fullstack_resolve(name: \"<name>\")` (prefix-agnostic casing & path resolver in 0ms).");
+  lines.push("    - **Native MCP Causal Path Tracer**: Call `fullstack_path(from: \"<fromComponent>\", to: \"<toActionOrModel>\")` (sub-5ms causal dependency path).");
+  lines.push("    - **Native MCP God-File Slicer**: Call `fullstack_symbol(symbol: \"<method>\")` (exact start/end lines before calling `read_file`).");
+  lines.push("    - **Native MCP Surgical Patcher**: Call `fullstack_patch(filePath: \"<file>\", target: \"<old>\", replacement: \"<new>\")` or `edit_file`.");
+  lines.push("    - **Pre-Computed Atlases**: Direct `read_file` on `docs/frontend-atlas/` (01 routes, 02 components, 03 tokens, 06 visible text, 07 icons) or `docs/backend-atlas/` (01 APIs, 02 DB models, 03 server actions, 04 auth).");
   lines.push("- **Screenshot & Temp Image Armor**: When a user references a screenshot in `AppData\\Local\\Temp\\orca-paste-*.png`:");
   lines.push("  - ❌ **FORBIDDEN**: Never call `read_file` or `view_file` directly on `AppData\\Local\\Temp` paths (avoids OS hook sandbox interception).");
-  lines.push("  - ⚡ **Fast-Path A (Visual Atlas)**: Query `npx fullstack-audit --locate-visual \"<element>\"` or view `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` in 0ms without opening the image.");
-  lines.push("  - ⚡ **Fast-Path B (Scratch Copy)**: If the raw screenshot must be viewed, copy first: `Copy-Item '<temp-path>' 'scratch\\screenshot.png'`, then open `scratch\\screenshot.png`.");
+  lines.push("  - ⚡ **Fast-Path A (Visual Atlas)**: Query `fullstack_locate_visual(query: \"<element>\")` or view `docs/frontend-atlas/02_COMPONENT_INVENTORY.md` in 0ms without opening the image.");
+  lines.push("  - ⚡ **Fast-Path B (Scratch Copy)**: If the raw screenshot must be viewed, copy first: `Copy-Item '<temp-path>' 'scratch\\screenshot.png'`, then open `scratch\screenshot.png`.");
   lines.push("- **PowerShell Quoting & Surgical Patching**:");
   lines.push("  - Wrap PowerShell arguments in single-quotes `'...'` (prevents `&` reserved character syntax crash and variable expansion).");
-  lines.push("  - To edit code: Use native harness tools (`edit_file`) or `npx fullstack-audit --patch <file> --target \"<old>\" --replace \"<new>\"` (CRLF-agnostic surgical patcher).");
+  lines.push("  - To edit code: Prefer native MCP `fullstack_patch` or harness `edit_file` (CRLF-agnostic surgical patcher).");
   lines.push("- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.");
   lines.push("");
 
@@ -4082,7 +4083,8 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   }
   lines.push("");
 
-  lines.push(`### 🛠️ Available Commands (v${FULLSTACK_AUDIT_VERSION} Multi-Harness Engine)`);
+  lines.push(`### 🛠️ Available MCP Tools & CLI Commands (v${FULLSTACK_AUDIT_VERSION} Engine)`);
+  lines.push("- **Native MCP Tools**: `fullstack_find`, `fullstack_locate_visual`, `fullstack_resolve`, `fullstack_path`, `fullstack_symbol`, `fullstack_patch`, `fullstack_audit`");
   lines.push("- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.");
   lines.push("- `npx fullstack-audit --find <query> --compact`: Ultra-fast, sub-3ms token-compact query mode for AI agents.");
   lines.push("- `npx fullstack-audit --locate-visual <query>`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).");

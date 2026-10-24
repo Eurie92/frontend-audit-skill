@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.13.0] - 2026-10-24
+
+> **Release Tier**: `MINOR (Global Antigravity Plugin & Native In-Memory MCP Server)`  
+> **Summary**: Introduces native Model Context Protocol (MCP) server running as a persistent stdio background daemon, exposing 7 instant in-memory tools (`fullstack_find`, `fullstack_locate_visual`, `fullstack_resolve`, `fullstack_path`, `fullstack_symbol`, `fullstack_patch`, `fullstack_audit`). Transforms Fullstack Audit into a global Antigravity plugin with zero-touch system prompt rule injection, completely eliminating PowerShell execution policy errors, npm 404 registry failures, and command-line quoting crashes.
+
+### Added
+* **⚡ Native MCP Stdio Daemon (`bin/mcp-server.js` & `scripts/mcp-server.ts`)**:
+  * Persistent JSON-RPC 2.0 background daemon (~20MB RAM) delivering sub-3ms in-memory queries with zero process initialization overhead.
+  * Native tools exposed to AI coding agents:
+    * `fullstack_find`: Sub-3ms inverted index search across components, queries, test assertions, and database models.
+    * `fullstack_locate_visual`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).
+    * `fullstack_resolve`: Fuzzy prefix-agnostic component and file resolver.
+    * `fullstack_path`: Sub-5ms causal execution path finder (`UI Trigger ➔ API Route ➔ DB Model`).
+    * `fullstack_symbol`: Exact start and end line bounds for functions inside God-files (>500 lines).
+    * `fullstack_patch`: CRLF-safe string replacement tool immune to PowerShell syntax errors.
+    * `fullstack_audit`: Refreshes and updates both frontend and backend atlases in the active project.
+* **🌐 Global Antigravity Plugin Architecture**:
+  * Manifest configurations: `plugin.json`, `gemini-extension.json`, and `mcp_config.json`.
+  * `rules/AGENTS.md`: Always-on global rules automatically loaded into the system prompt across all projects on the machine.
+  * Clean Hands Policy: Eliminates the requirement to modify or inject rules into project-level `GEMINI.md` or `AGENTS.md` files.
+
+### Changed
+* **CLI Reference & Invariant Updates**:
+  * Updated `README.md`, `SKILL.md`, and `docs/MASTER_USAGE_GUIDE.md` to reflect native MCP tools and v2.13.0 architecture.
+  * Preserved full backwards compatibility with all existing CLI commands (`npm run audit`, `node bin/audit.js`, `--find`, `--theme`, etc.).
+
+---
+
 ## [2.12.3] - 2026-10-24
 
 > **Release Tier**: `PATCH (Installer Hardening, Multi-Guideline Rule Sync & Windows Execution Policy Armor)`  

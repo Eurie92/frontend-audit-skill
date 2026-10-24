@@ -1,7 +1,7 @@
 ---
 name: fullstack-audit
 description: Runs the automated universal fullstack atlas and design system catalog engine into docs/frontend-atlas/ and docs/backend-atlas/. Supports Next.js (App & Pages Router), Vite React SPAs, Nuxt 3, SvelteKit, Astro, Remix, and React Router v7. Catalogs frontend routes, ghost/redirect shims, buttons, live pulse dots, capsule pills, modals, and design tokens, maps TanStack React Query cache topology, indexes test suites, and audits backend API routes, domain services, Prisma/Drizzle/Raw SQL schemas, server actions, auth guards, webhooks, and Answer.AI llms.txt standard.
-version: 2.12.3
+version: 2.13.0
 allowed-tools:
   - run_command
   - Bash(npx tsx .agent/skills/fullstack-audit/scripts/audit.ts)
@@ -119,9 +119,18 @@ Works seamlessly across **Antigravity, Cursor, Claude Code, Windsurf, Codex, and
 12. **`12_TEST_SUITES_AND_COVERAGE_MAP.md`**: Pre-indexed registry of unit, integration, and E2E test suites. Eliminates blind directory greps on test assertion failures.
 13. **`THEME_MIGRATION_PUNCHLIST.md`**: Actionable `- [ ]` checklist for whole-website color and dark mode migrations.
 
-## Available Commands (v2.12.3 Multi-Harness & Inverted Index Engine)
-- `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
-- `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
+## Available Commands (v2.13.0 Multi-Harness & Native MCP Engine)
+- **Native MCP Tools (Zero Latency, In-Memory)**:
+  - `fullstack_find`: Sub-3ms instant inverted index search across components, queries, test assertions, and database models.
+  - `fullstack_locate_visual`: 0ms visual element locator (pulse dots, capsule pills, status badges, icons).
+  - `fullstack_resolve`: Fuzzy case-insensitive component & file resolver (e.g. `connect-modal` ➔ `ConnectModal.tsx`).
+  - `fullstack_path`: Sub-5ms causal execution path finder (UI button -> Action -> DB model).
+  - `fullstack_symbol`: Line-bound surgical slicer for functions/methods in God-files (>500 lines).
+  - `fullstack_patch`: CRLF-agnostic surgical patcher (immune to PowerShell `&` syntax crashes).
+  - `fullstack_audit`: Runs or refreshes the fullstack atlas catalog in the active project.
+- **CLI Commands (Terminal & Scripts)**:
+  - `/fullstack-audit` or `npm run audit`: Regenerates the entire Fullstack Atlas and root `llms.txt` / `llms-full.txt`.
+  - `npx fullstack-audit --version` or `-v`: Instant (<5ms) version banner and engine output.
 - `npx fullstack-audit --check-update`: Compares project Atlas against installed skill version and detects version drift.
 - `npx fullstack-audit --setup-all [--standalone | --profile <profile>]`: Universal multi-harness auto-installer (configures Cursor `.cursor/rules/*.mdc`, Claude Code `.claude/commands/`, Hermes Agent `skills/`, OpenCode, and `AGENTS.md` / `GEMINI.md`).
 - `npx fullstack-audit --find <query> [--compact]`: Sub-3ms instant inverted index search across components, queries, test assertions, and database models.
