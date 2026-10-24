@@ -218,7 +218,7 @@ interface ProjectStructure {
 interface VisibleLabel {
   line: number;
   text: string;
-  type: "Button" | "Heading" | "Badge / Eyebrow" | "Modal Title" | "Aria Label";
+  type: "Button" | "Heading" | "Badge / Eyebrow" | "Modal Title" | "Aria Label" | "Action Link / CTA";
   snippet: string;
 }
 
@@ -1020,6 +1020,22 @@ function auditFile(filePath: string, structure: ProjectStructure): ComponentAudi
       const btnInner = block.match(/<(?:Button|UButton|PButton|AstroButton|Button\.Root)[^>]*>([\s\S]*?)<\/(?:Button|UButton|PButton|AstroButton|Button\.Root)>/i);
       if (btnInner && btnInner[1]) {
         addLabel(lineNum, btnInner[1], "Button", trimmed);
+      }
+    }
+
+    // Action Links & Interactive CTAs (<a href="...">...</a>, <Link href="...">...</Link>, <NuxtLink ...>)
+    if (/<(?:a|Link|NuxtLink)\b/.test(line)) {
+      const block = lines.slice(idx, Math.min(lines.length, idx + 8)).join(" ");
+      const linkMatch = block.match(/<(?:a|Link|NuxtLink)[^>]*>([\s\S]*?)<\/(?:a|Link|NuxtLink)>/i);
+      if (linkMatch && linkMatch[1]) {
+        const innerText = linkMatch[1]
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\{[^}]+\}/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (innerText && innerText.length >= 2 && innerText.length <= 70) {
+          addLabel(lineNum, innerText, "Action Link / CTA", trimmed);
+        }
       }
     }
 
@@ -4011,7 +4027,10 @@ export function generateDynamicRuleBlock(profileOpts: ProfileOptions = resolvePr
   lines.push("- **PowerShell Quoting & Surgical Patching**:");
   lines.push("  - Wrap PowerShell arguments in single-quotes `'...'` (prevents `&` reserved character syntax crash and variable expansion).");
   lines.push("  - To edit code: Prefer native MCP `fullstack_patch` or harness `edit_file` (CRLF-agnostic surgical patcher).");
-  lines.push("- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.");
+  lines.push("- **Immediate Relinquishment Invariant (Zero Over-Investigation Mandate)**:");
+  lines.push("  - Once the target `file:line` is located (via `fullstack_find`, `fullstack_locate_visual`, or `06_VISIBLE_TEXT_AND_LABELS_MAP.md`), the agent MUST IMMEDIATELY output the target `file:line` receipt and STOP.");
+  lines.push("  - ❌ **FORBIDDEN**: NEVER continue reading parent wrappers, layouts, or route trees (`page.tsx`, `layout.tsx`) unless the user explicitly requested mount-point tracing.");
+  lines.push("  - For screenshot queries: Extract the visible text label or action icon in 1 read, query `fullstack_find(\"<label>\")`, return the exact `file:line`, and conclude.");
   lines.push("");
 
   let currentPhase = 2;
@@ -6377,7 +6396,7 @@ async function main() {
     // Default: Fullstack Audit (Runs both Frontend Atlas AND Backend Atlas)
     const res = runUniversalFrontendAudit();
     await runUniversalBackendAudit();
-    if (res) {
+    if (res && LLMS_MODE) {
       generateLlmsStandardFiles(res.routeMaps, res.structure);
     }
   }

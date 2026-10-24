@@ -26,7 +26,10 @@ Universal execution rule across all harnesses (**Antigravity, Cursor, Claude Cod
 - **PowerShell Quoting & Surgical Patching**:
   - When running terminal commands, wrap PowerShell arguments in single-quotes `'...'` (prevents `&` reserved character syntax crash and variable expansion).
   - To edit code: Prefer `edit_file` or `fullstack_patch` native tool (CRLF-agnostic surgical patcher).
-- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.
+- **Immediate Relinquishment Invariant (Zero Over-Investigation Mandate)**:
+  - Once the target `file:line` is located (via `fullstack_find`, `fullstack_locate_visual`, or `06_VISIBLE_TEXT_AND_LABELS_MAP.md`), the agent MUST IMMEDIATELY output the target `file:line` receipt and STOP.
+  - ❌ **FORBIDDEN**: NEVER continue reading parent wrappers, layouts, or route trees (`page.tsx`, `layout.tsx`) unless the user explicitly requested mount-point tracing.
+  - For screenshot queries: Extract the visible text label or action icon in 1 read, query `fullstack_find("<label>")`, return the exact `file:line`, and conclude.
 
 #### Phase 2: Design & Anti-Overengineering Firewall (`ponytail`)
 - **YAGNI Invariant**: The best code is the code never written. Solve the whole problem with the least new code.

@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.13.1] - 2026-10-24
+
+> **Release Tier**: `PATCH (CTA Link Indexing, Hook Lag Elimination & 200-Run Benchmark)`  
+> **Summary**: Fixes visible label indexing blindspot for `<a>` and `<Link>` CTA buttons (e.g. `Explore 12 Dispensers`), eliminates the 10–17s tool hook delay from `orca-status`, enforces an unbypassable Immediate Relinquishment rule against over-investigation, moves `llms.txt` to opt-in to keep project roots 100% clean, and publishes the 200-Run Empirical Benchmark on the `xnight` SaaS codebase demonstrating a 3,016x median speedup (0.43ms vs 1,289ms).
+
+### Added
+* **🏷️ Action Links & Interactive CTA Indexing**:
+  * Extended AST parser in `scripts/audit.ts` to index `<a ...>`, `<Link ...>`, and `<NuxtLink ...>` visible text and child `<span>` elements as `"Action Link / CTA"`.
+  * Fixes screenshot targeting for anchor-based buttons (e.g. `Explore 12 Dispensers` at `storefront-hero.tsx:71`), resolving in 0ms.
+* **📊 200-Run Empirical Benchmark (`docs/BENCHMARK_200_XNIGHT_REPORT.md`)**:
+  * Added `scripts/benchmark-xnight.ts` testing 200 live queries across `xnight`.
+  * Measured **0.43 ms median latency** for Native MCP vs **1,289.81 ms** for file-by-file search (3,016x faster) and 99.97% context token savings (4.5k vs 17.7M tokens).
+
+### Fixed
+* **⚡ Pre-Tool Hook Latency Elimination**:
+  * Shielded `antigravity-pre-tool-use.cmd` and `antigravity-post-tool-use.cmd` in `~/.orca/agent-hooks/`, eliminating the 10–17 second hang and exit status 1 error on every tool execution.
+* **🧹 Root Directory Zero-Clutter Mandate**:
+  * Made `llms.txt` and `llms-full.txt` generation opt-in via `--llms`, preventing automatic creation of unrequested root files during routine audits.
+
+### Changed
+* **🛑 Immediate Relinquishment Rule Hardening (`rules/AGENTS.md`)**:
+  * Enforced strict stop condition: Once target `file:line` is located, the agent must output the receipt and stop immediately without crawling parent wrappers or layout trees.
+* **📖 Beginner-Friendly `README.md` Overhaul**:
+  * Added 7-tool interactive cheat sheet table and 10-second setup guide across Antigravity, Cursor, Claude Code, and OpenCode.
+  * Collapsed updating instructions and Windows execution policy troubleshooting inside `<details>` tabs.
+
+---
+
 ## [2.13.0] - 2026-10-24
 
 > **Release Tier**: `MINOR (Global Antigravity Plugin & Native In-Memory MCP Server)`  
