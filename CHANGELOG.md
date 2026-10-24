@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [2.13.2] - 2026-10-24
+
+> **Release Tier**: `PATCH (Universal Installation Prominence & Zero Decorative Emojis)`  
+> **Summary**: Restores universal installation one-liners to the very top of `README.md`, replaces all hardcoded machine paths with portable workspace paths, strips all decorative emoji clutter, and tucks updating instructions inside collapsible details.
+
+### Fixed
+* **Universal Harness Paths in README**:
+  * Removed machine-specific path references (`C:/Users/EURIE/...`) from Cursor, Claude Code, and OpenCode setup guides, replacing them with standard portable paths (`node .agent/skills/fullstack-audit/bin/mcp-server.js`).
+* **Zero Decorative Emoji Enforcement**:
+  * Stripped all decorative emoji icons from `README.md` to maintain strict professional documentation integrity and full compliance with `GEMINI.md`.
+
+### Changed
+* **Installation Prominence**:
+  * Moved the 1-line installation commands (PowerShell, bash, and npx) directly to the top of `README.md` for immediate developer onboarding.
+  * Tucked updating instructions and Windows execution policy troubleshooting inside `<details>` tabs.
+
+---
+
 ## [2.13.1] - 2026-10-24
 
 > **Release Tier**: `PATCH (CTA Link Indexing, Hook Lag Elimination & 200-Run Benchmark)`  

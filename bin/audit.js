@@ -16,7 +16,7 @@ if (args.includes("-v") || args.includes("--version")) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     console.log(`fullstack-audit v${pkg.version} (engine: AST reactive graph v2)`);
   } catch {
-    console.log("fullstack-audit v2.13.1 (engine: Living Fullstack Atlas & Minimalist Engine v2.13.1)");
+    console.log("fullstack-audit v2.13.2 (engine: Living Fullstack Atlas & Minimalist Engine v2.13.2)");
   }
   process.exit(0);
 }
