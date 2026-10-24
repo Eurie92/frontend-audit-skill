@@ -23,3 +23,8 @@ llms-full.txt
 
 docs/graph.json
 scratch/
+
+# Fullstack Audit local architecture maps (AI navigation only)
+docs/llms.txt
+docs/llms-full.txt
+docs/THEME_MIGRATION_PUNCHLIST.md

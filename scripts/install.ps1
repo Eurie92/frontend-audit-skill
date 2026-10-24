@@ -132,7 +132,13 @@ $RuleParts.Add(@'
 - **PowerShell Quoting & Surgical Patching**:
   - Wrap PowerShell arguments in single-quotes `'...'` (prevents `&` reserved character syntax crash and variable expansion).
   - To edit code: Use native harness tools (`edit_file`) or `npx fullstack-audit --patch <file> --target "<old>" --replace "<new>"` (CRLF-agnostic surgical patcher).
-- **Immediate Relinquishment**: Once `file:line` is located, `fullstack-audit` IMMEDIATELY relinquishes control to implementation. `fullstack-audit` is a GPS locator, NOT an implementation or animation tool.
+- 🛑 **ONE-AND-DONE HARD STOP (Anti-Overinvestigation & Zero Double-Checking Mandate)**:
+  - The moment ANY tool call, search hit, or atlas lookup reveals the matching `file:line` (e.g. `public-navbar.tsx:149` for "xnight"):
+    - 🛑 **IMMEDIATELY STOP ALL FURTHER TOOL CALLS.** Do not make another read, search, or check.
+    - ❌ **FORBIDDEN (Sister-File Double-Checking)**: NEVER inspect related, sibling, or drawer components (e.g. `mobile-nav-drawer.tsx`, `header.tsx`, `footer.tsx`, `sidebar.tsx`) to "double check" or "be thorough" unless the user explicitly used the word "ALL" (e.g. "find ALL occurrences").
+    - ❌ **FORBIDDEN (End-of-File Crawling)**: NEVER read further down or read to the end of the file once the target snippet is identified.
+    - ❌ **FORBIDDEN (Redundant Verification Calls)**: NEVER run secondary searches, grep commands, or file reads to verify what you already found.
+    - ⚡ **MAX TOOL CALL BUDGET = 1**: For lookup queries ("where is X", "find Y in navbar", "locate button"), the agent must resolve in **1 tool call**, output the exact `file:line` snippet receipt, and conclude the response in that very turn.
 '@)
 
 $currPhase = 2
@@ -304,6 +310,24 @@ if (Test-Path $LegacyDir) {
     Copy-Item (Join-Path $ScriptsDir "audit-backend.ts") (Join-Path $LegacyScriptsDir "audit-backend.ts") -Force
     Copy-Item (Join-Path $ScriptsDir "constants.ts") (Join-Path $LegacyScriptsDir "constants.ts") -Force
     Copy-Item (Join-Path $BinDir "audit.js") (Join-Path $LegacyBinDir "audit.js") -Force
+}
+
+# Automatically protect project git repository from local atlas clutter
+$GitIgnorePath = Join-Path (Get-Location) ".gitignore"
+if (Test-Path $GitIgnorePath) {
+    $giContent = [System.IO.File]::ReadAllText($GitIgnorePath, [System.Text.Encoding]::UTF8)
+    $giEntries = @("docs/frontend-atlas/", "docs/backend-atlas/", "docs/llms.txt", "docs/llms-full.txt", "docs/graph.json", "docs/THEME_MIGRATION_PUNCHLIST.md")
+    $missingEntries = [System.Collections.Generic.List[string]]::new()
+    foreach ($entry in $giEntries) {
+        if (-not $giContent.Contains($entry)) {
+            $missingEntries.Add($entry)
+        }
+    }
+    if ($missingEntries.Count -gt 0) {
+        $giAppend = "`n# Fullstack Audit local architecture maps (AI navigation only)`n" + ($missingEntries -join "`n") + "`n"
+        [System.IO.File]::AppendAllText($GitIgnorePath, $giAppend, $utf8NoBom)
+        Write-Host "$emojiCheck Added local atlas paths to .gitignore (clean git repository protection)" -ForegroundColor Cyan
+    }
 }
 
 Write-Host "$emojiCheck fullstack-audit-skill successfully installed / updated in .agent\skills\fullstack-audit!" -ForegroundColor Green

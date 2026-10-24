@@ -6282,9 +6282,12 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
 - [07_ENV_AND_SECRETS_MAP.md](docs/backend-atlas/07_ENV_AND_SECRETS_MAP.md): Environment variable registry, client secret leaks & undocumented shadow keys.\n\n`;
 
   llmsTxt += `## Optional\n`;
-  llmsTxt += `- [llms-full.txt](llms-full.txt): Comprehensive concatenated fullstack architecture reference for LLM agents.\n`;
+  llmsTxt += `- [llms-full.txt](docs/llms-full.txt): Comprehensive concatenated fullstack architecture reference for LLM agents.\n`;
 
-  fs.writeFileSync(path.join(ROOT_DIR, "llms.txt"), llmsTxt, "utf-8");
+  const docsDir = path.join(ROOT_DIR, "docs");
+  if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
+
+  fs.writeFileSync(path.join(docsDir, "llms.txt"), llmsTxt, "utf-8");
 
   // 2. llms-full.txt (High-density concatenated context)
   let llmsFull = `# ${projectName} — Complete Fullstack Architecture Reference\n\n`;
@@ -6311,11 +6314,42 @@ function generateLlmsStandardFiles(routes: RouteMapItem[], structure?: ProjectSt
     }
   });
 
-  fs.writeFileSync(path.join(ROOT_DIR, "llms-full.txt"), llmsFull, "utf-8");
-  console.log("✨ Answer.AI standard llms.txt & llms-full.txt written to project root!");
+  fs.writeFileSync(path.join(docsDir, "llms-full.txt"), llmsFull, "utf-8");
+
+  // Clean up any legacy root files if present to keep project root 100% spotless
+  const rootLegacy = [path.join(ROOT_DIR, "llms.txt"), path.join(ROOT_DIR, "llms-full.txt")];
+  rootLegacy.forEach(f => {
+    if (fs.existsSync(f)) {
+      try { fs.unlinkSync(f); } catch {}
+    }
+  });
+
+  console.log("✨ Answer.AI standard llms.txt & llms-full.txt written to docs/ directory (zero root clutter)!");
+}
+
+function ensureGitignoreEntries(rootDir: string) {
+  const gitignorePath = path.join(rootDir, ".gitignore");
+  if (!fs.existsSync(gitignorePath)) return;
+  try {
+    const content = fs.readFileSync(gitignorePath, "utf-8");
+    const required = [
+      "docs/frontend-atlas/",
+      "docs/backend-atlas/",
+      "docs/graph.json",
+      "docs/llms.txt",
+      "docs/llms-full.txt",
+      "docs/THEME_MIGRATION_PUNCHLIST.md"
+    ];
+    const missing = required.filter(e => !content.includes(e));
+    if (missing.length > 0) {
+      const addition = `\n# Fullstack Audit local architecture maps (AI navigation only)\n${missing.join("\n")}\n`;
+      fs.appendFileSync(gitignorePath, addition, "utf-8");
+    }
+  } catch {}
 }
 
 async function main() {
+  ensureGitignoreEntries(ROOT_DIR);
   if (VERSION_MODE) {
     console.log(getVersionBanner());
     return;

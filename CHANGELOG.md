@@ -1,8 +1,62 @@
-# 📜 Changelog
+# Changelog
 
 All notable changes to the **Fullstack Audit Skill** (`fullstack-audit`) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [2.13.5] - 2026-10-24
+
+> **Release Tier**: `PATCH (One-and-Done Hard Stop & Anti-Overinvestigation Mandate)`  
+> **Summary**: Solves the real-world agent "double-checking disease" where LLMs take 30+ seconds reading sister files (e.g., `mobile-nav-drawer.tsx` when `public-navbar.tsx:149` is already found). Enforces an unbreakable One-and-Done Hard Stop mandate with a Max Tool Call Budget of 1 for localization queries, cutting wall-clock lookup latency from 30s to <1s.
+
+### Added
+* **One-and-Done Hard Stop Law**:
+  * Added strict invariant in `rules/AGENTS.md` and harness rules: The moment any tool reveals the matching `file:line`, the agent must immediately terminate further tool execution.
+  * Formally forbade sister-component double-checking, end-of-file reading, and secondary verification searches.
+  * Enforced a hard limit of **1 tool call max** for element lookups.
+* **Synchronized CLAUDE.md across Workspaces**:
+  * Deployed `CLAUDE.md` to consumer repositories (`xnight`) so Claude Code natively ingests the strict stop invariant without falling back to sequential file-reading habits.
+
+---
+
+## [2.13.4] - 2026-10-24
+
+> **Release Tier**: `PATCH (Git Repository Isolation, Root Cleanliness & Dual-Speed Workflow)`  
+> **Summary**: Guarantees zero Git pollution across consumer repositories (such as `xnight`) by automatically appending local atlas paths to `.gitignore`. Eliminates all root clutter by moving `llms.txt` and `llms-full.txt` into `docs/` and cleaning up legacy root files. Formally documents the Dual-Speed operating protocol (Micro-Edits vs Milestone Refreshes) in `README.md`.
+
+### Added
+* **Automatic .gitignore Repository Protection**:
+  * `scripts/install.ps1` and `scripts/audit.ts` automatically detect and ensure `docs/frontend-atlas/`, `docs/backend-atlas/`, `docs/llms.txt`, and related artifacts are in `.gitignore` so they never pollute Git commits or pull requests.
+* **Zero Root Clutter Guarantee**:
+  * Moved Answer.AI `llms.txt` and `llms-full.txt` strictly into `docs/` (`docs/llms.txt` and `docs/llms-full.txt`), removing all file pollution from the project root.
+
+### Changed
+* **README Dual-Speed Workflow Clarification**:
+  * Explicitly distinguished between daily micro-edits (sub-3ms lookup, zero re-audits needed) and milestone completions (running `/fullstack-audit` only after completing major features or schema changes).
+
+---
+
+## [2.13.3] - 2026-10-24
+
+> **Release Tier**: `PATCH (Two-Option Zero-Friction Installation & Complete Emoji Elimination)`  
+> **Summary**: Completely bans all icons/emojis across `README.md` for a clean, minimalist developer experience. Consolidates onboarding into exactly two ultra-simple paths: Option 1 (Ask Your AI Agent via GitHub link) and Option 2 (Universal Terminal One-Liner via PowerShell/Bash). Removes NPX commands and per-harness JSON fragments from the primary setup guide.
+
+### Added
+* **First-Time Initialization Guide**:
+  * Added clear run-once step (`/fullstack-audit`) right after installation to build the initial index in ~300ms, establishing complete zero-maintenance automation thereafter.
+* **Ask Your AI Agent Setup (Option 1)**:
+  * Universal prompt for Antigravity, Cursor, Claude Code, and Codex: `Install this plugin: https://github.com/Eurie92/fullstack-audit-skill`.
+* **Universal Terminal One-Liner (Option 2)**:
+  * Windows PowerShell: `iex (irm https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.ps1)`.
+  * macOS / Linux: `curl -fsSL https://raw.githubusercontent.com/Eurie92/fullstack-audit-skill/main/scripts/install.sh | bash`.
+
+### Changed
+* **Complete Icon & Emoji Ban**:
+  * Stripped 100% of decorative emojis, icons, and glyphs from `README.md`.
+* **Zero-NPX Cleanup**:
+  * Removed all confusing NPX CLI references from the primary installation flow.
 
 ---
 
